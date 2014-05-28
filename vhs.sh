@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# This script requires TUI : https://github.com/sri-arjuna/tui
+#
 source /etc/profile.d/tui.sh
 #
 #	File:		/home/sea/.local/bin/vhs
@@ -7,7 +10,7 @@ source /etc/profile.d/tui.sh
 #	License:	GNU Lesser General Public License (LGPL)
 #	Created:	2014.05.18
 #	Changed:	2014.05.28
-	script_version=0.5
+	script_version=0.5.1
 	TITLE="Video Handler by sea"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -68,7 +71,7 @@ Where options are:
 	-w(eb)				Optimizes for web usage
 (BETA)	-W(ebcam)			Encodes from webcam
 
--- NON-FUNCTIONAL
+-- NON-FUNCTIONAL ??
 	-D(VD)				Encode from DVD
 
 
@@ -329,7 +332,7 @@ Log:		$LOG
 		
 		tui-status $? "Updated $LIST_FILE"
 	}
-	source "$LIST_FILE" || UpdateLists
+	#source "$LIST_FILE" || UpdateLists
 	MenuSetup() { # 
 	# Configures the variables/files used by the script
 	# 
@@ -345,13 +348,13 @@ Log:		$LOG
 container=webm
 
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
-BIT_AUDIO=128
+BIT_AUDIO=$BIT_AUDIO
 
 # Video bitrate suggested range (value examples): 128 256 512 768 1024 1280
-BIT_VIDEO=512
+BIT_VIDEO=$BIT_VIDEO
 
 # See ffmpeg output for your language
-lang=ger
+lang=eng
 
 # If DTS is found, to how many channels shall it 'downgrade'?
 # Range::  1) Mono, 2) Stereo, [3-5]) dunno, 6) 5.1
@@ -362,38 +365,38 @@ webcam_res="640x480"
 webcam_fps=25
 EOF
 	#
-	#	Setup menu :p
+	#	Setup menu
 	#
 		VARS=$(tui-value-get -l "$CONFIG"|grep -v req)
 		tui-echo "Which variable to change?"
 		select var in Back UpdateLists $VARS;do
 			case $var in
-			Back)	break	;;
-			UpdateLists)	$var ;;
+			Back)		break	;;
+			UpdateLists)	$var 	;;
 			*)	val=$(tui-value-get "$CONFIG" "$var")
 				tui-echo "${var^} is set to:" "$val"
 				if tui-yesno "Change this value?"
 				then	case $var in
 					container)	tui-echo "Please select a new one:"
 							select newval in $(cd "$(dirname $CONFIG)/containers";ls);do break;done
-							tui-value-set "$CONFIG" "$var" "$newval"
-					;;
+							;;
 					channnels)	tui-echo "Please select a new amount:"
 							select newval in $(seq 1 1 6);do break;done
-							tui-value-set "$CONFIG" "$var" "$newval"
-					;;
+							;;
 					webcam_res)	tui-echo "Please select the new resolution:"
 							select newval in $webcam_formats;do break;done
-							tui-value-set "$CONFIG" "$var" "$newval"
 							;;
 					webcam_fps)	tui-echo "Please select the new framerate:"
 							select newval in $webcam_frames;do break;done
-							tui-value-set "$CONFIG" "$var" "$newval"
 							;;
 					*)		newval=$(tui-read "Please type new value:")
-							tui-value-set "$CONFIG" "$var" "$newval"
-					;;
+							;;
 					esac
+					msg="Changed \"$var\" from \"$val\" to \"$newval\""
+					tui-value-set "$CONFIG" "$var" "$newval"
+					tui-status $? "$msg" && \
+						doLog "$msg" || \
+						doLog "Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
 				fi
 			;;
 			esac
@@ -428,7 +431,7 @@ EOF
 				doLog "Options: Override video bitrate ($BIT_VIDEO) with ${OPTARG:1}"
 				BIT_VIDEO="${OPTARG:1}"
 				;;
-			*)	tui-status 1 "You did not define whether its audio or video: -b [av]$OPTARG"
+			*)	tui-status 1 "You did not define whether its audio or video: -$opt [av]$OPTARG"
 				exit 1
 				;;
 			esac
@@ -448,7 +451,7 @@ EOF
 				doLog "Options: Override video bitrate ($video_codec) with ${OPTARG:1}"
 				video_codec="${OPTARG:1}"
 				;;
-			*)	tui-status 1 "You did not define whether its audio or video: -c [av]$OPTARG"
+			*)	tui-status 1 "You did not define whether its audio or video: -$opt [av]$OPTARG"
 				exit 1
 				;;
 			esac
@@ -463,6 +466,7 @@ EOF
 		D)	mode=dvd
 			tempdata=( $(ls /run/media/$USER))
 			[[ "${#tempdata[@]}" -ge 2 ]] && \
+				tui-echo "Please select which entry is the DVD:" && \
 				select name in "${tempdata[@]}";do break;done || \
 				name="$(printf $tempdata)"
 			SCREEN_OF=$(genFilename "DVD-$tempdata.$container" $container )
@@ -499,7 +503,6 @@ EOF
 			;;
 		S)	MenuSetup
 			exit 0	;;
-		# *)	printf "$help_text" ; exit $RET_FAIL	;;
 		esac
 	done
 	shift $(($OPTIND - 1))
@@ -539,12 +542,12 @@ EOF
 #
 #	Do this for every supplied argument
 #
-	if [[ ! screen = "$mode" ]] && [[ ! webcam = "$mode" ]] && [[ ! dvd = "$mode" ]] && [[ -z "$1" ]]
-	then 	show_menu=true
-		#tui-echo "No input provided, choose one:"
-		#select video in *;do show_menu=true;break;done
-		#tui-echo "Regular menu is not coded yet"
-	fi
+	#if [[ ! screen = "$mode" ]] && [[ ! webcam = "$mode" ]] && [[ ! dvd = "$mode" ]] && [[ -z "$1" ]]
+	#then 	show_menu=true
+	#fi
+	[[ file = "$mode" ]] && \
+		[[ -z "$1" ]] && \
+		show_menu=true
 #
 #	get 'best' codecs for $container, unless override is true
 #	
@@ -602,15 +605,8 @@ EOF
 		#
 			doLog "----- $video -----"
 			tui-title "Input: $video"
-			#extra=""		# strict
-			#F=""			# -f $container
-			#bits=""			# a/v bitrate's
-			#audio_streams=""	# If dvd or multistream file
-		
 			case $mode in
 			screen|dvd)	OF="$SCREEN_OF" ;;
-			webcam)		doLog "Overwrite already generated name, for 'example' code.. "
-					OF="$(genFilename output.mpg mpg)";;
 			*)	#
 				#	Verify Inputfile exists and outputfile has not the same name
 				#	
@@ -631,7 +627,6 @@ EOF
 				audio_streams="-map 0:0"	# Hardcode video stream ;)				
 				lang=$(tui-value-get "$CONFIG" "lang")
 				CHANNELS="-ac "$(tui-value-get "$CONFIG" "channels")
-			#set -x	
 				if hasLang "$video"
 				then 	# Default langauge found
 					check=$(grep -n "($lang)" "$TMP"|sed s,":"," ",g|awk '{print $1}')
@@ -657,7 +652,7 @@ EOF
 				doLog "Audio: audio_streams=\"$audio_streams\""
 			fi
 			
-			skip=false
+			skip=false	# Init var
 			
 			if [[ -f "$OF" ]]
 			then 	if tui-yesno "Outputfile ($OF) exists, overwrite it?"
@@ -687,7 +682,6 @@ EOF
 						[[ -z $video_codec ]] && video_codec=ffvhuff 
 						[[ -z $audio_codec ]] && audio_codec=flac
 						[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
-						
 						screen=" -f x11grab -video_size  $(xrandr|grep \*|awk '{print $1}') -i $DISPLAY -f alsa -i default -c:v $video_codec -c:a $audio_codec $bits"
 						cmd="ffmpeg $verbose $screen $extra $web $F \"${SCREEN_OF}\""
 						;;
@@ -708,13 +702,17 @@ EOF
 						select webcam_mode in standard sea;do
 						case $webcam_mode in
 						standard)	# Forum users said this line works
+								doLog "Overwrite already generated name, for 'example' code.. "
+								OF="$(genFilename output.mpg mpg)"
 								cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i /dev/video0 $F \"${OF}\""
 								;;
 						sea)		# Non working ??
+								OF="$SCREEN_OF"
 								cmd="ffmpeg $verbose -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f alsa -i default -acodec $audio_codec -vcodec $video_codec $extra $F \"${OF}\""
 								;;
 						esac
 						doLog "WebCam: Using $webcam_mode command"
+						break
 						done
 						;;
 				dvd)		# TODO
@@ -761,10 +759,6 @@ EOF
 								((C++))
 							done
 						fi
-						#[[ $errors -gt 5 ]] && \
-						#	tui-echo "There were $errors erros while copy the sources...." "$FAIL" && \
-						#	tui-yesno "Abort now?" && \
-						#	exit 1
 						tui-echo
 						[[ $errors -ge 1 ]] && \
 							tui-yesno "There were $errors errors, would you rather try to encode straight from the disc?" && \
@@ -807,20 +801,19 @@ EOF
 			#
 			#	Execute the command
 			#
-				#cmd=$(printf $cmd)
 				STR2="Converted \"$video\" to \"$OF\""
 				STR1="Converting \"$video\" to \"$OF\""
 				str="\$(ls -lh \"$OF\"|awk '{print \$5}')"
 				if [[ $mode = "file" ]]
-				then 	#tui-bgjob "$TMP" "$STR1 \($str\)" "$STR2"
-					tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
+				then 	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
 					RET=$?
 				else	sh "$TMP"
 					tui-status $? "$STR2"
 					RET=$?
 				fi
-				
-				
+			#
+			#	Log if encode was successfull or not
+			#	
 				[[ 0 -eq $RET ]] && \
 					ret_info="successfully (ret: $RET) \"$OF\"" || \
 					ret_info="a faulty (ret: $RET) \"$video\""
