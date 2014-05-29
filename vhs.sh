@@ -248,15 +248,15 @@ Log:		$LOG
 				bv=""
 				q=HD
 				;;
-			ogg)	ca=vorbis
-				cv=theora
+			ogg)	ca=libvorbis
+				cv=libtheora
 				ce=true	
 				fe=true		
 				ba=""
 				bv=""
 				q=DVD
 				;;
-			webm)	ca=vorbis
+			webm)	ca=libvorbis
 				cv=libvpx	
 				ce=true	
 				fe=true	
@@ -577,6 +577,7 @@ EOF
 	[[ $override_container = true ]] && \
 		doLog "Options: Set to $container" || \
 		doLog "Container: $container (default)"
+		
 	if [[ true = $doCopy ]]
 	then 	doLog "Options: Just copy streams..."
 	elif [[ true = $doQuality ]]
@@ -607,8 +608,7 @@ EOF
 #
 	bits+=" -b:a ${BIT_AUDIO}K"
 	bits+=" -b:v ${BIT_VIDEO}K "
-	[[ true = $doQuality ]] && bits="$QUALITY"	# Overwrite 
-	
+	[[ true = $doQuality ]] && bits="$QUALITY"	# Overwrite
 #
 #	Show menu or go for the loop of files
 #
@@ -740,6 +740,7 @@ EOF
 					total=0
 					yadif="-vf yadif"
 					for v in $input_vobs;do 
+						# only use files that are larger than 700 mb
 						if [[ $(ls -l $v|awk '{print $5}') -gt 700000000 ]]
 						then 	vobs+=" -i ${v##*/}"
 							vob_list+=" ${v##*/}"
@@ -758,9 +759,9 @@ EOF
 						cmd="ffmpeg $verbose $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $F \"${OF}\""
 						;;
 					"$B")	[[ -d "$dvd_tmp" ]] && \
-					 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
-						dvd_reuse=true || \
-						dvd_reuse=false
+						 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
+							dvd_reuse=true || \
+							dvd_reuse=false
 						# Create tempdir to copy vob files into
 						if [[ false = $dvd_reuse ]]
 						then 	mkdir -p "$dvd_tmp"
@@ -786,7 +787,7 @@ EOF
 							tui-yesno "There were $errors errors, would you rather try to encode straight from the disc?" && \
 							cd "$dvd_base/VIDEO_TS" || \
 							cd "$dvd_tmp"
-						cmd="ffmpeg $verbose $vobs -target film-dvd  -q:a 0  -q:v 0  $yadif $F \"${OF}\""
+						cmd="ffmpeg $verbose $vobs -target film-dvd  -q:a 0  -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $F \"${OF}\""
 						;;
 					esac
 					break
