@@ -2,7 +2,6 @@
 #
 # This script requires TUI : https://github.com/sri-arjuna/tui
 #
-source /etc/profile.d/tui.sh
 #
 #	File:		/home/sea/.local/bin/vhs
 #	Author: 	Simon Arjuna Erat (sea)
@@ -11,7 +10,7 @@ source /etc/profile.d/tui.sh
 #	Created:	2014.05.18
 #	Changed:	2014.05.29
 	script_version=0.5.2
-	TITLE="Video Handler by sea"
+	TITLE="Video Handler Script by sea"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #
@@ -24,6 +23,19 @@ source /etc/profile.d/tui.sh
 #	Resources:	http://ffmpeg.org/index.html
 #			https://wiki.archlinux.org/index.php/FFmpeg
 #			https://support.google.com/youtube/answer/1722171?hl=en&ref_topic=2888648
+#
+#
+#	Check if TUI is installed...
+#
+	S=/etc/profile.d/tui.sh
+	if [[ ! -f $S ]]
+	then 	[[ 0 -eq $UID ]] || \
+			( printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" ; exit 1 )
+		git clone https://github.com/sri-arjuna/tui.git /tmp/tui.inst
+    		sh /tmp/tui.inst/install.sh || \
+    			(printf "\n#\n#\tPlease report this issue.\n#\n#\n";exit 1)
+    	fi
+    	source $S
 #
 #	Script Environment
 #
