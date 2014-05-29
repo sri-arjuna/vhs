@@ -109,7 +109,7 @@ Log:		$LOG
 	doQuality=false
 	show_menu=false
 	BIT_VIDEO=768
-	BIT_AUDIO=192	# Equals 1 MB in total
+	BIT_AUDIO=192	# Equals ~1 MB in total
 	override_video_bit=false
 	override_audio_bit=false
 	override_video_codec=false
@@ -140,8 +140,8 @@ Log:		$LOG
 		SCREEN="${WH[0]} ${WH[1]} 128 $vbits"
 		CLIP="	640	480	112	384"
 		DVD="	720	576	128	512"
-		BR="	1280	720	256	768"
-		HD="	1920	1080	384	1280"
+		BR="	1280	720	256	1024"
+		HD="	1920	1080	256	1536"
 		
 		out=$(  eval echo "\$$1"  )
 		printf "$out"|awk '{print "-s "$1"x"$2" -b:a "$3" -b:v "$4}'
@@ -350,7 +350,7 @@ container=webm
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
 BIT_AUDIO=$BIT_AUDIO
 
-# Video bitrate suggested range (value examples): 128 256 512 768 1024 1280
+# Video bitrate suggested range (value examples): 128 256 512 768 1024 1280 1536 1920
 BIT_VIDEO=$BIT_VIDEO
 
 # See ffmpeg output for your language
@@ -627,16 +627,17 @@ EOF
 				audio_streams="-map 0:0"	# Hardcode video stream ;)				
 				lang=$(tui-value-get "$CONFIG" "lang")
 				CHANNELS="-ac "$(tui-value-get "$CONFIG" "channels")
+				while read line;do tui-echo "$line";done<"$TMP"
+				#tui-echo
 				if hasLang "$video"
 				then 	# Default langauge found
+					msg="Auto-selected \"$lang\""
 					check=$(grep -n "($lang)" "$TMP"|sed s,":"," ",g|awk '{print $1}')
-					audio_streams+=" -map 0:$check"
-					doChannels=true
-					
+					tui-status $? "$msg" && doLog "Audio: $msg"
+					for c in $check;do audio_streams+=" -map 0:$c";done
+					hasDTS "$video" && doChannels=true
 				else	# No default language set or found
 					# Let the user decide
-					while read line;do tui-echo "$line";done<"$TMP"
-					tui-echo
 					tui-echo "Select which streams you want to add (multiple are possible):"
 					select stream in $(seq 1 1 $lines) Done;do
 					case $stream in
@@ -688,8 +689,8 @@ EOF
 				webcam)		# Done ?? dont work for me, but seems to for others
 						msg+=" Capturing"
 						tui-status $RET_INFO "Press 'q' to stop recording..."
-						srcs=$(ls /dev/video*)
-						case ${#srcs} in
+						srcs=($(ls /dev/video*))
+						case ${#srcs[@]} in
 						1)	echo jup ;;
 						esac
 						if [[ "$(printf $srcs)" = "$(printf $srcs|awk '{print $1}')" ]]
@@ -719,16 +720,17 @@ EOF
 						msg+=" Encoding"
 						# -vf yadif
 						#  cat f0.VOB f1.VOB f2.VOB | ffmpeg -i - out.mp2
-						#  ffmpeg -i video.VOB -target film-dvd -q:a 0 -q:v 0 output.mpg
 						dvd_base="/run/media/$USER/$name"
 						input_vobs=$(find $dvd_base|grep -i vob)
 						vobs=""
 						vob_list=""
 						total=0
 						for v in $input_vobs;do 
-							vobs+=" -i ${v##*/}"
-							vob_list+=" ${v##*/}"
-							((total++))
+							if [[ $(ls -l $v|awk '{print $5}') -gt 700000000 ]]
+							then 	vobs+=" -i ${v##*/}"
+								vob_list+=" ${v##*/}"
+								((total++))
+							fi
 						done
 						
 						# If tempdir exists, good chances files were already copied
@@ -749,9 +751,12 @@ EOF
 							C=1
 							for vob in $vob_list;do
 								lbl="${vob##*/}"
-								tui-printf "Copy $lbl" "$C / $total"
-								cp -f $vob $dvd_tmp 2&>1
-								if tui-status $? "Copied $lbl"
+								MSG1="Copy $lbl ($C / $total)"
+								MSG2="Copied $lbl ($C / $total)"
+								 # 2>&1
+								printf "cp -n \"$dvd_base/VIDEO_TS/$vob\" \"$dvd_tmp\"" > "$TMP"
+								tui-bgjob -f "$dvd_tmp/$vob" "$TMP" "$MSG1" "$MSG2"
+								if [[ 0 -eq $? ]] #"Copied $lbl"
 								then 	doLog "DVD: ($C/$total) Successfully copied $lbl"
 								else 	doLog "DVD: ($C/$total) Failed copy $lbl"
 									((errors++))
@@ -766,9 +771,10 @@ EOF
 							cd "$dvd_tmp"
 						
 						A="Attemp direct invoke of vobs"
-						B="Truncate mux"
+						B="Truncate mux (cat)"
+						C="ffmpeg dvd target"
 						tui-echo "Please select a method:"
-						select DVD_ENCODE in "$A" "$B" "Try3";do
+						select DVD_ENCODE in "$A" "$B" "$C";do
 						case "$DVD_ENCODE" in
 						"$A")	cd "$dvd_base/VIDEO_TS"
 							cmd="ffmpeg $verbose -i $vob_list -acodec $audio_codec -vcodec $video_codec $extra  $F \"$HOME/${OF}\""
@@ -777,7 +783,9 @@ EOF
 						"$B")	cmd="cat $vob_list|ffmpeg $verbose -acodec $audio_codec -vcodec $video_codec $extra  $F \"$HOME/${OF}\""
 							break
 							;;
-						"Try3")	cmd="ffmpeg $verbose $vobs -target film-dvd -q:a 0 -q:v 0 $HOME/output.mpg"
+						"$C")	OF="$HOME/${OF}"
+							cmd="ffmpeg $verbose $vobs -target film-dvd -q:a 0 -q:v 0 \"${OF}\""
+							cmd="ffmpeg $verbose $vobs -target film-dvd -q:a 0 -q:v 0 $HOME/output.mpg"
 							break
 							;;
 						esac
@@ -804,7 +812,7 @@ EOF
 				STR2="Converted \"$video\" to \"$OF\""
 				STR1="Converting \"$video\" to \"$OF\""
 				str="\$(ls -lh \"$OF\"|awk '{print \$5}')"
-				if [[ $mode = "file" ]]
+				if [[ $mode = "file" ]] || [[ $mode = "dvd" ]]
 				then 	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
 					RET=$?
 				else	sh "$TMP"
