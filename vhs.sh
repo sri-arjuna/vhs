@@ -219,58 +219,58 @@ Log:		$LOG
 			avi)	ca=mpeg2video 	# Codec Audio
 				cv=mp3		# Codec Video
 				ce=false	# Codec extra
-				fe=true 	# File extra (audio codec dependant)
-				ba=	# Bitrate Audio
-				bv=	# Bitrate Video
+				fe=true		# File extra (audio codec dependant)
+				ba=		# Bitrate Audio
+				bv=		# Bitrate Video
 				q=CLIP		# Set container quality
 				;;
-			dvd)	ca=mpeg2video 	# Codec Audio
-				cv=mp3		# Codec Video
-				ce=""		# Codec extra
-				fe=""		# File extra (audio codec dependant)
-				ba=""	# Bitrate Audio
-				bv=""	# Bitrate Video
-				q=DVD		# Set container quality
+			dvd)	ca=mpeg2video
+				cv=mp3	
+				ce=""	
+				fe=""	
+				ba=""
+				bv=""
+				q=DVD
 				;;
-			mp4)	ca=aac		# Codec Audio
-				cv=libx264	# Codec Video
-				ce=true		# Codec extra
-				fe=true		# File extra (audio codec dependant)
-				ba=""	# Bitrate Audio
-				bv=""	# Bitrate Video
-				q=BR		# Set container quality
+			mp4)	ca=aac	
+				cv=libx264
+				ce=true	
+				fe=true	
+				ba=""
+				bv=""
+				q=BR
 				;;
-			mkv)	ca=ac3		# Codec Audio
-				cv=libx264	# Codec Video
-				ce=false	# Codec extra
-				fe=false	# File extra (audio codec dependant)
-				ba=""	# Bitrate Audio
-				bv=""	# Bitrate Video
-				q=HD	# Set container quality
+			mkv)	ca=ac3	
+				cv=libx264
+				ce=false
+				fe=false
+				ba=""
+				bv=""
+				q=HD
 				;;
-			ogg)	ca=libvorbis	# Codec Audio
-				cv=theora	# Codec Video
-				ce=true		# Codec extra
-				fe=true			# File extra (audio codec dependant)
-				ba=""	# Bitrate Audio
-				bv=""	# Bitrate Video
-				q=DVD	# Set container quality
+			ogg)	ca=vorbis
+				cv=theora
+				ce=true	
+				fe=true		
+				ba=""
+				bv=""
+				q=DVD
 				;;
-			webm)	ca=libvorbis	# Codec Audio
-				cv=vp9		# Codec Video
-				ce=true		# Codec extra
-				fe=true		# File extra (audio codec dependant)
-				ba=""	# Bitrate Audio
-				bv=""	# Bitrate Video
-				q=BR		# Set container quality
+			webm)	ca=vorbis
+				cv=libvpx	
+				ce=true	
+				fe=true	
+				ba=""
+				bv=""
+				q=BR
 				;;
-			# blob)	ca=	# Codec Audio
-			#	cv=	# Codec Video
-			#	ce=""	# Codec extra
-			#	fe=""	# File extra (audio codec dependant)
-			#	ba=""	# Bitrate Audio
-			#	bv=""	# Bitrate Video
-			#	q=CLIP	# Set container quality
+			# blob)	ca=
+			#	cv=
+			#	ce=""
+			#	fe=""
+			#	ba=""
+			#	bv=""
+			#	q=CLIP
 			#	;;
 			esac
 			touch $entry
@@ -279,7 +279,6 @@ Log:		$LOG
 			tui-status $? "Wrote container info ($entry)" && \
 				doLog "Container: Create $entry definitions (defaults)"
 		done
-		
 	}
 	UpdateLists() { #
 	# Retrieve values for later use
@@ -343,7 +342,6 @@ Log:		$LOG
 			doLog "Lists : Updated WebCam-Frames"
 			sleep 0.3
 		fi
-		
 		tui-status $? "Updated $LIST_FILE"
 	}
 	MenuSetup() { # 
@@ -382,6 +380,12 @@ EOF
 	#
 		VARS=$(tui-value-get -l "$CONFIG"|grep -v req)
 		tui-title "Setup : $TITLE"
+		
+		oIFS="$IFS" ; IFS="="
+		while read var val;do [[ ! "#" = "${var:0:1}" ]] && [[ ! "" = "$(printf \"${var}\")" ]] && tui-echo "$var" "$val" ; done < $CONFIG
+		IFS="$oIFS"
+		
+		tui-echo
 		tui-echo "Which variable to change?"
 		select var in Back UpdateLists $VARS;do
 			case $var in
@@ -421,11 +425,7 @@ EOF
 #	Environment checks
 #
 	# This is optimized for a one-time setup
-	[[ -f "$CONFIG" ]] && \
-		first_time=false || \
-		first_time=true
-	
-	if [[ "$first_time" = "true" ]]	
+	if [[ ! -f "$CONFIG" ]]
 	then 	mkdir -p "$(dirname $CONFIG)"
 		tui-header "$ME ($script_version)" "$(date +'%F %T')"
 		tui-echo "Entering first time setup." "$SKIP"
@@ -434,6 +434,34 @@ EOF
 		UpdateLists
 		sleep 0.5
 		MenuSetup
+		#
+		#	Install missing packages
+		#
+			tui-progress -ri movies-req " "
+			if [[ ! true = "$req_inst" ]]
+			then 	doLog "Req : Checking for installed packages"
+				for R in $REQUIRES;do
+					tui-progress -i movies-req -m ${#REQUIRES} "Check requirements: $R"
+					rpm -qa $F > /dev/zero || ( REQUIRED+=" $R" ; doLog "Req : Missing $R" )
+				done
+			fi
+			if [[ ! " " = "$(printf "${REQUIRED} ")" ]]
+			then 	tui-title "Installing missing packages"
+				doLog "Req : Installing missing packages: $REQUIRED"
+				sudo yum install -y $REQUIRED && \
+					printf "req_inst=true\n" >> "$CONFIG"
+				tui-status $? "Installed: $REQUIRED"
+				[[ 0 -eq $? ]] && \
+					ret_info="succeeded" || \
+					ret_info="failed"
+				doLog "Req: Installation of $REQUIRED $ret_info"
+			else 	[[ ! true = "$req_inst" ]] && \
+					printf "req_inst=true\n" >> "$CONFIG" && \
+					doLog "Req : All required packages already installed"
+			fi
+		#
+		#	Actualy entering the setup
+		#
 		exit $?
 	fi
 	source "$LIST_FILE"
@@ -531,31 +559,6 @@ EOF
 	ARGS=(${*})			# Remaining arguments
 	ARGS_COUNT=${#ARGS[@]}		# Amount of remaining
 #
-#	Install missing packages
-#
-	tui-progress -ri movies-req " "
-	if [[ ! true = "$req_inst" ]]
-	then 	doLog "Req : Checking for installed packages"
-		for R in $REQUIRES;do
-			tui-progress -i movies-req -m ${#REQUIRES} "Check requirements: $R"
-			rpm -qa $F > /dev/zero || ( REQUIRED+=" $R" ; doLog "Req : Missing $R" )
-		done
-	fi
-	if [[ ! " " = "$(printf "${REQUIRED} ")" ]]
-	then 	tui-title "Installing missing packages"
-		doLog "Req : Installing missing packages: $REQUIRED"
-		sudo yum install -y $REQUIRED && \
-			printf "req_inst=true\n" >> "$CONFIG"
-		tui-status $? "Installed: $REQUIRED"
-		[[ 0 -eq $? ]] && \
-			ret_info="succeeded" || \
-			ret_info="failed"
-		doLog "Req: Installation of $REQUIRED $ret_info"
-	else 	[[ ! true = "$req_inst" ]] && \
-			printf "req_inst=true\n" >> "$CONFIG" && \
-			doLog "Req : All required packages already installed"
-	fi
-#
 #	Display & Action
 #
 	tui-header "$ME ($script_version)" "$(date +'%F %T')"
@@ -567,25 +570,18 @@ EOF
 		[[ -z "$1" ]] && \
 		show_menu=true
 #
-#	get 'best' codecs for $container, unless override is true
+#	Get 'best' codecs for $container, unless override is true
 #	
+	[[ -z $mode ]] && mode="file"
+	doLog "Mode: $mode"
 	[[ $override_container = true ]] && \
 		doLog "Options: Set to $container" || \
 		doLog "Container: $container (default)"
-	doLog "Mode: $mode"
-	doLog "Container: $container selected"
-	
 	if [[ true = $doCopy ]]
 	then 	doLog "Options: Just copy streams..."
 	elif [[ true = $doQuality ]]
 	then 	source "$CONTAINER/$container"
-	else	# 'doLog' if override is active
-		[[ true = $override_audio_codec ]] && doLog "Options: Audio codec is overwritten"
-		[[ true = $override_video_codec ]] && doLog "Options: Video codec is overwritten"
-		[[ true = $override_audio_bit ]] && doLog "Options: Audio bitrate is overwritten"
-		[[ true = $override_video_bit ]] && doLog "Options: Video bitrate is overwritten"
-		# Set default variables if override is false (not true)
-		src="$CONTAINER/$container"
+	else	src="$CONTAINER/$container"
 		bolCodecExtra=$(tui-value-get "$src" "codec_extra")
 		bolFileExtra=$(tui-value-get "$src" "file_extra")
 		
@@ -593,24 +589,42 @@ EOF
 		[[ true = $override_audio_codec ]] || audio_codec=$(tui-value-get "$src" "audio_codec")
 		
 		[[ true = $bolFileExtra ]] && ext=$(tui-value-get "$src" 'ext') && F="-f $ext"
-		[[ true = $bolCodecExtra ]] && extra+=" -strict 2"
+		[[ true = $bolCodecExtra ]] && extra+=" -strict -2"
 		
-		[[ "$container" = "webm" ]] && \
-			video_codecs=+" -minrate ${BIT_VIDEO} -maxrate ${BIT_VIDEO}K" && \
-			threads="$(grep proc /proc/cpuinfo|wc -l)" && \
-			extra+=" -threads $threads "
+		# Special treatment
+		case "$container" in
+		"webm")	threads="$(grep proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
+			#video_codec+=" -minrate $[ 8 * ${BIT_VIDEO} ] -maxrate $[ 8 * ${BIT_VIDEO} ] -bufsize $[ 8 * ${BIT_VIDEO} ]"
+			video_codec+=" -minrate ${BIT_VIDEO} -maxrate ${BIT_VIDEO} -bufsize ${BIT_VIDEO}"
+			video_codec+=" -threads $threads  -deadline realtime"
+			audio_codec+=" -cpu-used $threads"
+			;;
+		esac
 	fi
+	lang=$(tui-value-get "$CONFIG" "lang")
+#
+#	Get bitrates
+#
+	bits+=" -b:a ${BIT_AUDIO}K"
+	bits+=" -b:v ${BIT_VIDEO}K "
+	[[ true = $doQuality ]] && bits="$QUALITY"	# Overwrite 
+	
 #
 #	Show menu or go for the loop of files
 #
 	for video in "${@}" $SCREENER;do
 	#
-	#	New file
+	#	per entry defaults
+	#
+		audio_streams=""
+		skip=false	# Init var
+	#
+	#	New 'file' / only input
 	#
 		doLog "----- $video -----"
 		tui-title "Input: $video"
 		case $mode in
-		screen|dvd)	OF="$SCREEN_OF" ;;
+		screen|dvd|web)	OF="$HOME/$SCREEN_OF" ;;
 		*)	#
 			#	Verify Inputfile exists and outputfile has not the same name
 			#	
@@ -620,7 +634,6 @@ EOF
 					( tui-status $? "Input ($video) not found!" ; doLog "Input Missing: $video" ; exit 1 )
 				# Output File
 				OF=$(genFilename "${video}" "$container")
-				# OF="$(pwd)/$OF"
 			;;
 		esac
 	#
@@ -629,7 +642,6 @@ EOF
 		if hasMultipleStreams "$video"		# This also creates the $TMP file
 		then	tui-title "Available audio streams"
 			audio_streams="-map 0:0"	# Hardcode video stream ;)				
-			lang=$(tui-value-get "$CONFIG" "lang")
 			CHANNELS="-ac "$(tui-value-get "$CONFIG" "channels")
 			while read line;do tui-echo "$line";done<"$TMP"
 			#tui-echo
@@ -639,7 +651,6 @@ EOF
 				check=$(grep -n "($lang)" "$TMP"|sed s,":"," ",g|awk '{print $1}')
 				tui-status $? "$msg" && doLog "Audio: $msg"
 				for c in $check;do audio_streams+=" -map 0:$c";done
-				hasDTS "$video" && doChannels=true
 			else	# No default language set or found
 				# Let the user decide
 				tui-echo "Select which streams you want to add (multiple are possible):"
@@ -647,17 +658,18 @@ EOF
 				case $stream in
 				Done)	break	;;
 				*)	printf "$stream"|grep [0-9] -q && \
-						audio_streams+=" -map 0:$stream"	|| \
+						audio_streams+=" -map 0:$stream" && \
+						doLog "Audio: Selected: $stream" || \
 						tui-status 1 "Invalid input, try again."
 					;;
 				esac
 				done
 			fi
-			hasDTS "$video" && audio_streams+=" $CHANNELS"
-			doLog "Audio: audio_streams=\"$audio_streams\""
+			hasDTS "$video" && \
+				doChannels=true && \
+				audio_streams+=" $CHANNELS"
 		fi
 		
-		skip=false	# Init var
 		
 		if [[ -f "$OF" ]]
 		then 	if tui-yesno "Outputfile ($OF) exists, overwrite it?"
@@ -671,26 +683,20 @@ EOF
 		#
 		#	Generate the command
 		#
-			[[ true = $override_audio_bit ]] && bits+=" -b:a ${BIT_AUDIO}K"
-			[[ true = $override_video_bit ]] && bits+=" -b:v ${BIT_VIDEO}K "
-			[[ true = $doQuality ]] && bits="$QUALITY"	# Overwrite 
-			
-			[[ -z $mode ]] && mode="file"
-			doLog "Type: Encode $mode"
-			
 			msg="Begin:"
 			case "$mode" in
 			screen)		# Done
 					msg+=" Capturing"
 					tui-status $RET_INFO "Press 'q' to stop recording..."
-					[[ -z $container ]] && container=mkv
-					[[ -z $video_codec ]] && video_codec=ffvhuff 
-					[[ -z $audio_codec ]] && audio_codec=flac
+					#[[ -z $container ]] && container=mkv
+					#[[ -z $video_codec ]] && video_codec=ffvhuff 
+					#[[ -z $audio_codec ]] && audio_codec=flac
 					[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
 					screen=" -f x11grab -video_size  $(xrandr|grep \*|awk '{print $1}') -i $DISPLAY -f alsa -i default -c:v $video_codec -c:a $audio_codec $bits"
-					cmd="ffmpeg $verbose $screen $extra $web $F \"${SCREEN_OF}\""
+					cmd="ffmpeg $verbose $screen $extra $web $F \"${OF}\""
 					;;
-			webcam)		# Done ?? dont work for me, but seems to for others
+			webcam)		# TODO
+					# Done ?? dont work for me, but seems to for others
 					msg+=" Capturing"
 					tui-status $RET_INFO "Press 'q' to stop recording..."
 					srcs=($(ls /dev/video*))
@@ -705,25 +711,28 @@ EOF
 					
 					tui-status $RET_INFO "Standard is said to be working, sea's should - but might not, please report"
 					select webcam_mode in standard sea;do
-					case $webcam_mode in
-					standard)	# Forum users said this line works
-							doLog "Overwrite already generated name, for 'example' code.. "
-							OF="$(genFilename output.mpg mpg)"
-							cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i /dev/video0 $F \"${OF}\""
-							;;
-					sea)		# Non working ??
-							OF="$SCREEN_OF"
-							cmd="ffmpeg $verbose -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f alsa -i default -acodec $audio_codec -vcodec $video_codec $extra $F \"${OF}\""
-							;;
-					esac
-					doLog "WebCam: Using $webcam_mode command"
-					break
+						case $webcam_mode in
+						standard)	# Forum users said this line works
+								doLog "Overwrite already generated name, for 'example' code.. "
+								OF="$(genFilename output.mpg mpg)"
+								cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i /dev/video0 $F \"${OF}\""
+								;;
+						sea)		# Non working ??
+								OF="$SCREEN_OF"
+								cmd="ffmpeg $verbose -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f alsa -i default -acodec $audio_codec -vcodec $video_codec $extra $F \"${OF}\""
+								;;
+						esac
+						doLog "WebCam: Using $webcam_mode command"
+						break
 					done
 					;;
-			dvd)		# TODO
-					msg+=" Encoding"
-					# 
+			dvd)		msg+=" Encoding"
+					# If tempdir exists, good chances files were already copied
 					#  cat f0.VOB f1.VOB f2.VOB | ffmpeg -i - out.mp2
+					dvd_tmp="$HOME/.cache/$name"
+					dvd_reuse=nothing
+					errors=0
+					
 					dvd_base="/run/media/$USER/$name"
 					input_vobs=$(find $dvd_base|grep -i vob)
 					vobs=""
@@ -738,76 +747,57 @@ EOF
 						fi
 					done
 					
-					# If tempdir exists, good chances files were already copied
-					dvd_tmp="$HOME/.cache/$name"
-					dvd_reuse=nothing
-					errors=0
+					# Cop vobs to local or directly from dvd?
+					A="Encode directly from DVD"
+					B="Copy largest files to local"
+					tui-echo "Please select a method:"
 					
-					[[ -d "$dvd_tmp" ]] && \
+					select dvd_copy in "$A" "$B";do
+					case "$dvd_copy" in
+					"$A")	cd "$dvd_base/VIDEO_TS"
+						cmd="ffmpeg $verbose $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $F \"${OF}\""
+						;;
+					"$B")	[[ -d "$dvd_tmp" ]] && \
 					 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
 						dvd_reuse=true || \
 						dvd_reuse=false
-				
-					# Create tempdir to copy vob files into
-					if [[ ! true = $dvd_reuse ]]
-					then 	mkdir -p "$dvd_tmp"
-						doLog "DVD: Copy vobs to \"$dvd_tmp\""
-						tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
-						C=1
-						for vob in $vob_list;do
-							lbl="${vob##*/}"
-							MSG1="Copy $lbl ($C / $total)"
-							MSG2="Copied $lbl ($C / $total)"
-							 # 2>&1
-							printf "cp -n \"$dvd_base/VIDEO_TS/$vob\" \"$dvd_tmp\"" > "$TMP"
-							tui-bgjob -f "$dvd_tmp/$vob" "$TMP" "$MSG1" "$MSG2"
-							if [[ 0 -eq $? ]] #"Copied $lbl"
-							then 	doLog "DVD: ($C/$total) Successfully copied $lbl"
-							else 	doLog "DVD: ($C/$total) Failed copy $lbl"
-								((errors++))
-							fi
-							((C++))
-						done
-					fi
-					tui-echo
-					[[ $errors -ge 1 ]] && \
-						tui-yesno "There were $errors errors, would you rather try to encode straight from the disc?" && \
-						cd "$dvd_base/VIDEO_TS" || \
-						cd "$dvd_tmp"
-					
-					A="Attemp direct invoke of vobs"
-					B="Truncate mux (cat)"
-					C="ffmpeg dvd target"
-					tui-echo "Please select a method:"
-					OF="$HOME/$OF"
-					select DVD_ENCODE in "$A" "$B" "$C";do
-					case "$DVD_ENCODE" in
-					"$A")	cd "$dvd_base/VIDEO_TS"
-						cmd="ffmpeg $verbose -i $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $F \"${OF}\""
-						break
-						;;
-					"$B")	cmd="cat $vob_list|ffmpeg $verbose -acodec $audio_codec -vcodec $video_codec $extra $yadif $F \"${OF}\""
-						break
-						;;
-					"$C")	cmd="ffmpeg $verbose $vobs -target film-dvd  -q:a 1  -q:v 1  $yadif \"${OF}\""
-						# $video_codec
-						# $audio_codec
-						#cmd="ffmpeg $verbose $vobs -target film-dvd -q:a 4 -q:v 4 $HOME/output.mpg"
-						break
+						# Create tempdir to copy vob files into
+						if [[ false = $dvd_reuse ]]
+						then 	mkdir -p "$dvd_tmp"
+							doLog "DVD: Copy vobs to \"$dvd_tmp\""
+							tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
+							C=1
+							for vob in $vob_list;do
+								lbl="${vob##*/}"
+								MSG1="Copy $lbl ($C / $total)"
+								MSG2="Copied $lbl ($C / $total)"
+								printf "cp -n \"$dvd_base/VIDEO_TS/$vob\" \"$dvd_tmp\"" > "$TMP"
+								tui-bgjob -f "$dvd_tmp/$vob" "$TMP" "$MSG1" "$MSG2"
+								if [[ 0 -eq $? ]] #"Copied $lbl"
+								then 	doLog "DVD: ($C/$total) Successfully copied $lbl"
+								else 	doLog "DVD: ($C/$total) Failed copy $lbl"
+									((errors++))
+								fi
+								((C++))
+							done
+						fi
+						tui-echo
+						[[ $errors -ge 1 ]] && \
+							tui-yesno "There were $errors errors, would you rather try to encode straight from the disc?" && \
+							cd "$dvd_base/VIDEO_TS" || \
+							cd "$dvd_tmp"
+						cmd="ffmpeg $verbose $vobs -target film-dvd  -q:a 0  -q:v 0  $yadif $F \"${OF}\""
 						;;
 					esac
-					#cmd="ffmpeg $verbose $vobs -target film-dvd -q:a 4 -q:v 4  -i /dev/cdrom  \"${OF}\""
-					#cmd="ffmpeg $verbose $vobs -target film-dvd   \"${OF}\""
-					#cmd="ffmpeg $verbose -i $vob_list -acodec $audio_codec -vcodec $video_codec $extra   \"${OF}\""
+					break
 					done
-					doLog "DVD: Using \"$DVD_ENCODE\" command"
+					doLog "DVD: Using \"$dvd_copy\" command"
 					;;
 			file)		# Done
 					cmd="ffmpeg $verbose -i \"${video}\" $web $extra $bits -vcodec $video_codec -acodec $audio_codec $audio_streams $F \"${OF}\""
 					msg+=" Converting"
 					;;
 			esac
-			
 			msg+=" from \"$video\" to \"$OF\""
 			tui-printf "$msg" "$WORK"
 			printf "$cmd" > "$TMP"
@@ -816,8 +806,8 @@ EOF
 		#
 		#	Execute the command
 		#
-			STR2="Converted \"$video\" to \"$OF\""
-			STR1="Converting \"$video\" to \"$OF\""
+			STR2="Converted \"$video\" to \"${OF##*/}\""
+			STR1="Converting \"$video\" to \"${OF##*/}\""
 			str="\$(ls -lh \"$OF\"|awk '{print \$5}')"
 			if [[ $mode = "file" ]] || [[ $mode = "dvd" ]]
 			then 	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
@@ -825,6 +815,7 @@ EOF
 			else	sh "$TMP"
 				tui-status $? "$STR2"
 				RET=$?
+				mkclean --optimize --remux "$OF"
 			fi
 		#
 		#	Log if encode was successfull or not
