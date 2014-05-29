@@ -9,8 +9,8 @@ source /etc/profile.d/tui.sh
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU Lesser General Public License (LGPL)
 #	Created:	2014.05.18
-#	Changed:	2014.05.28
-	script_version=0.5.1
+#	Changed:	2014.05.29
+	script_version=0.5.2
 	TITLE="Video Handler by sea"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
