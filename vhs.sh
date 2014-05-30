@@ -525,7 +525,7 @@ EOF
 			override_container=true
 			;;
 		e)	override_container=true
-			doLog "Options: Overwrite \"$container\" with \"$OPTARG\""
+			#doLog "Options: Overwrite \"$container\" with \"$OPTARG\""
 			container="$OPTARG"
 			;;
 		h)	printf "$help_text"
