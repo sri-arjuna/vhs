@@ -1,28 +1,32 @@
-#!/bin/bash
-# index
-#------------------------------------------------
-#	Variables:	 69
-#	Functions:	146
-#	Envir checks:	480
-#	Arguments:	525
-#	User - Display:	636
-#	-------------------
-#	DVD:		
-#	WebCam:		
-#	Screen:		
-#	
+#!/bin/bash 
+# ------------------------------------------------------------------------
+#
+# Copyright (c) 2014 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
+# All rights reserved.
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+#
 #-----------------------------------------------
 #
-# This script requires TUI - Text User Interface
-# See:		https://github.com/sri-arjuna/tui
 #
 #
-#	File:		/home/sea/prjs/vhs/vhs2
+#	File:		vhs
 #	Author: 	Simon Arjuna Erat (sea)
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU Lesser General Public License (LGPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.07.16
+#	Changed:	2014.07.22
 	script_version=0.6
 	TITLE="Video Handler Script by sea"
 #	Description:	All in one movie handler, wrapper for ffmpeg
@@ -39,17 +43,25 @@
 #			https://support.google.com/youtube/answer/1722171?hl=en&ref_topic=2888648
 #
 #
+# This script requires TUI - Text User Interface
+# See:		https://github.com/sri-arjuna/tui
+#
 #	Check if TUI is installed...
 #
 	S=/etc/profile.d/tui.sh
 	if [[ ! -f $S ]]
-	then 	[[ 0 -eq $UID ]] || \
-			( printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" ; exit 1 )
-		git clone https://github.com/sri-arjuna/tui.git /tmp/tui.inst
+	then 	[[ ! 0 -eq $UID ]] && \
+			printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" && \
+			exit 1
+		if ! git clone https://github.com/sri-arjuna/tui.git /tmp/tui.inst
+		then 	mkdir -p /tmp/tui.inst && cd /tmp/tui.inst/
+			curl --progress-bar https://github.com/sri-arjuna/tui/archive/master.zip -o master.zip
+			unzip master.zip && rm master.zip
+		fi
     		sh /tmp/tui.inst/install.sh || \
     			(printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n";exit 1)
     	fi
-    	source $S
+    	source $S ; S=""
 #
 #	Script Environment
 #
@@ -68,6 +80,7 @@
 	# Get basic container, set to open standard if none exist
 	[[ -f "$CONFIG" ]] && container=$(tui-value-get "$CONFIG" "container") || container=webm
 	[[ -d "$TMP_DIR" ]] || mkdir -p "$TMP_DIR"
+	[[ -d "$CONFIG_DIR" ]] || mkdir -p "$CONFIG_DIR"
 #
 #	Variables
 #
@@ -88,13 +101,14 @@
 	override_container=false
 	# Value's
 	BIT_VIDEO=768
-	BIT_AUDIO=192	# Equals ~1 MB in total
+	BIT_AUDIO=192	# Equals ~1 MB in total for filesize saving HD experience
 	audio_rate=""
 	lang=""
 	langs=""
 	PASS=1
 	extra=""
 	verbose=" -v quiet"	# -hide-banner
+	#accel="-hwaccel vdpau"
 	web=""
 	#pass=""
 	mode="file"
@@ -273,15 +287,18 @@ Log:		$LOG
 		cat "$TMP"|wc -l
 	}
 	getSingleAudio() { # video lang
-	# Returns the map ID of a single audio stream.
+	# Returns the map ID of the first found audio stream.
 	# If there are multiple streams, but just one with favorite lang, supply this optional
 		touch "$TMP"
 		ffmpeg -psnr -i "$1"  2>&1 | grep Stream |grep Audio > "$TMP"
 		[[ ! -z $2 ]] && \
 		 	tmp_str=$(grep "$2" "$TMP") && \
 		 	printf "$tmp_str" > "$TMP"
-		 tmp_str=$(grep Audio "$TMP"|awk '{print $2}')
-		 printf "${tmp_str:3:-6}"
+		 #tmp_str=$(grep Audio "$TMP"|awk '{print $2}')
+		 tmp_str=$(grep -n Audio "$TMP"|grep ^1|awk '{print $3}')
+		 printf "$tmp_str"|grep -q "(" && \
+		 	num=6 || num=1
+		 printf "${tmp_str:3:-$num}"
 	}
 	hasDTS() { # video
 	# Checks if filename-video has audio streams with dts
@@ -376,8 +393,10 @@ audio_codec=$ca
 video_codec=$cv
 codec_extra=$ce
 file_extra=$fe" > $entry
-			tui-status $? "Wrote container info ($entry)" && \
-				doLog "Container: Created '$entry' definitions"
+			[[ 0 -eq $? ]] && \
+				tui-printf "Wrote container info ($entry)" "$DONE" && \
+					doLog "Container: Created '$entry' definitions" || \
+					( tui-printf "Wrote container info ($entry)" "$DONE" ; doLog "Container: Created '$entry' definitions")
 		done
 	}
 	UpdateLists() { #
@@ -450,7 +469,7 @@ file_extra=$fe" > $entry
 
 # Available containers:
 # -> avi mkv mp4 ogg webm
-container=webm
+container=mkv
 
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
 BIT_AUDIO=$BIT_AUDIO
@@ -545,26 +564,15 @@ EOF
 		doLog "Setup : Writing configuration and list files"
 		WriteContainers
 		UpdateLists
-		MenuSetup
 		#
 		#	Install missing packages
 		#
 			tui-progress -ri movies-req -m $(printf ${REQUIRES}|wc|awk '{print $2}') " "
 			if [[ ! true = "$req_inst" ]]
-			then 	doLog "Req : Checking for installed packages"
-				for R in $REQUIRES;do
-					#tui-echo "Check for required:" "$R"
-					tui-progress -i movies-req -m $(printf ${REQUIRES}|wc|awk '{print $2}')  "Check for required: $R"
-					rpm -qa $F > /dev/zero && \
-						doLog "Reg : Found $R" || \
-						( REQUIRED+=" $R" ; doLog "Req : Missing $R" )
-				done
-			fi
-			if [[ ! " " = "$(printf "${REQUIRED} ")" ]]
-			then 	tui-title "Installing missing packages"
+			then 	tui-title "Verify all required packages are installed"
 				doLog "Req : Installing missing packages: $REQUIRED"
-				sudo yum install -y $REQUIRED && \
-					printf "req_inst=true\n" >> "$CONFIG"
+				tui-install -vl "$LOG" $REQUIRED && \
+					tui-value-set "$CONFIG" req_inst "true"
 				tui-status $? "Installed: $REQUIRED"
 				[[ 0 -eq $? ]] && \
 					ret_info="succeeded" || \
@@ -574,6 +582,7 @@ EOF
 					printf "req_inst=true\n" >> "$CONFIG" && \
 					doLog "Req : All required packages are already installed"
 			fi
+		MenuSetup
 	#else	doLog "Setup : Load $USER's configuration"
 	fi
 	source "$LIST_FILE"
@@ -723,9 +732,10 @@ EOF
 		doLog "Options: $container (default)"
 		
 	src="$CONTAINER/$container"
-	if [[ true = $doCopy ]]
-	then 	doLog "Options: Just copy streams..."
-	elif [[ true = $doQuality ]]
+	#if [[ true = $doCopy ]]
+	#theSn 	echo #doLog "Options: Just copy streams..."
+	#el
+	if [[ true = $doQuality ]]
 	then 	source "$src"
 	else	bolCodecExtra=$(tui-value-get "$src" "codec_extra")
 		bolFileExtra=$(tui-value-get "$src" "file_extra")
@@ -775,10 +785,10 @@ EOF
 		*)	#
 			#	Verify Inputfile exists and outputfile has not the same name
 			#	
-				[[ -f "$video" ]] && \
-					tui-status $? "Inputfile ($video) checked." && \
-					doLog "Input Found: $video" || \
-					( tui-status $? "Input ($video) not found!" ; doLog "Input Missing: $video" ; exit 1 )
+				#[[ -f "$video" ]] && \
+				#	tui-status $? "Inputfile ($video) checked." && \
+				#	doLog "Input Found: $video" || \
+				#	( tui-status $? "Input ($video) not found!" ; doLog "Input Missing: $video" ; exit 1 )
 				# Output File
 				OF=$(genFilename "${video}" "$container")
 			#
@@ -790,7 +800,7 @@ EOF
 				found=0
 				langs_todo=""
 				
-				tui-title "Available audio streams"
+				#tui-title "Available audio streams"
 				aStreams=$(countAudioStreams "$video")
 				# Show general info on audio streams
 				while read line;do tui-echo "$line";done<"$TMP"
@@ -802,7 +812,9 @@ EOF
 					#	getSingleAudio "$video" $lang 
 					for id in $(seq 1 1 $(getSingleAudio "$video" $lang));do
 						audio_maps=" -map 0:$id"
-						msg="Added '$lang' from stream '$id'"
+						msg="Added '$lang' from Audio-stream: '$id'"
+						tui-status 0 "$msg"
+						#doLog "$msg"
 					done
 					[[ $(countLang "$video" "$lang") -ge 1 ]] && \
 						tui-echo "$msg" && \
@@ -1190,11 +1202,11 @@ $custom_bit \
 				RET=$?
 			fi
 		#
-		#	Log if encode was successfull or not
+		#	Do some post-encode checks
 		#	
-			# Set default language if mkv
 			if [[ mkv = $container ]] && [[ $RET -eq 0 ]] && [[ $PASS -ge 2 ]]
-			then	# aid = audio id (of stream)
+			then	# Set default language if mkv encoding was a successfull 2-pass
+				# aid = audio id (of stream)
 				[[ 0 -eq $aid ]] && aid=1
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
@@ -1205,10 +1217,12 @@ $custom_bit \
 							--edit track:a$aid --set language=$lang
 				tui-status $? "$msg"
 			fi
+			#Generate log message
 			if [[ 0 -eq $RET ]] 
 			then	ret_info="successfully (ret: $RET) \"$OF\""
 			else	ret_info="a faulty (ret: $RET) \"$OF\""
 			fi
+			# Remove tempfiles that were required for 2-pass
 			if  [[ $PASS -ge 2 ]] && [[ 0 -eq $RET ]]
 			then 	tui-title "Remove Tempfiles"
 				for F in "$tmp_of" "${done_files[*]}" ffmpeg2pass-0.log ffmpeg2pass-0.log.mbtree ;do
@@ -1217,12 +1231,17 @@ $custom_bit \
 				tui-status $? "Removed: \"$F\"" 
 				done
 			fi
+		#
+		#	Log if encode was successfull or not
+		#
 			doLog "End: Encoded $ret_info "
 			if [[ ! -z $2 ]] 
 			then	doLog "--------------------------------"
+				msg="Cooldown - $sleep_between seconds between encodings..."
 				[[ ! -z $sleep_between ]] && \
-					doLog "Script : Cooldown - $sleep_between seconds..." && \
-					sleep $sleep_between
+					doLog "Script : $msg" && \
+					tui-wait $sleep_between "$msg"
+				# Show empty log entry line as optical divider
 				doLog ""
 			fi
 		else	msg="Skiped: $video"
