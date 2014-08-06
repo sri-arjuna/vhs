@@ -73,10 +73,10 @@
 	[[ -d $HOME/.cache ]] && \
 		TMP_DIR=$HOME/.cache || \
 		TMP_DIR="$CONFIG_DIR/tmp"	# Base of possible temp files
-	TMP="$TMP_DIR/$ME-tmp"			# Direct tempfile access
+	TMP="$TMP_DIR/$ME.tmp"			# Direct tempfile access
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
-	LIST_FILE="${CONFIG:0:(-4)}list"	# Contains lists of codecs, formats
-	LOG="${CONFIG:0:(-5)}.log" 		#-$(date +'%T')	# If a daily log file is prefered
+	LIST_FILE="$CONFIG_DIR/$ME.list"	# Contains lists of codecs, formats
+	LOG="$CONFIG_DIR/$ME.log" 		#-$(date +'%T')	# If a daily log file is prefered
 	
 	# Get basic container, set to open standard if none exist
 	[[ -f "$CONFIG" ]] && container=$(tui-value-get "$CONFIG" "container") || container=webm
@@ -227,7 +227,7 @@ Log:		$LOG
 		esac
 		return 0
 	}
-	genFilename() { # Filename container
+	genFilename() { # Filename_with_ext container
 	# Parses for file extension and compares with new container
 	# If identical, add a number to avoid overwriting sourcefile.
 		video="$1"
@@ -422,7 +422,6 @@ file_extra=$fe" > $entry
 			for a in $raw;do clean+=" $a";done
 			printf "$var=\"$clean\"\n" >> "$LIST_FILE"
 			doLog "Lists : Updated $txt_prog"
-			#sleep 0.3
 		done
 		
 		tui-progress "Saving Codecs-Format"
@@ -432,7 +431,7 @@ file_extra=$fe" > $entry
 		for f in $formats_raw;do formats+=" $f";done
 		printf "codecs_formats=\"$formats\"\n" >> "$LIST_FILE"
 		doLog "Lists : Updated Codecs-Format"
-		#sleep 0.3
+
 		
 		if [[ -e /dev/video0 ]]
 		then 	#v4l2-ctl cant handle video1 .. ??
@@ -443,8 +442,7 @@ file_extra=$fe" > $entry
 			for w in $wf;do webcam_formats+=" $w";done
 			printf "webcam_formats=\"$webcam_formats\"\n" >> "$LIST_FILE"
 			doLog "Lists : Updated WebCam-Format"
-		#	sleep 0.3
-		
+
 			tui-progress "Saving WebCam-frames"
 			webcam_frames=""
 			wf="$( v4l2-ctl --list-formats-ext|grep -A6 Siz|awk '{print $4}')"
@@ -452,7 +450,9 @@ file_extra=$fe" > $entry
 			for w in $wf;do webcam_frames+=" ${w/(/}";((C++));[[ $C -ge 6 ]] && break;done
 			printf "webcam_frames=\"$webcam_frames\"\n"|sed s,"\.000","",g >> "$LIST_FILE"
 			doLog "Lists : Updated WebCam-Frames"
-		#	#sleep 0.3
+		elif [[ -e /dev/video1 ]]
+		then 	#v4l2-ctl cant handle video1 .. ??
+			tui-status 1 "As far as i tried, i could not make v4l2-ctl handle video1."
 		fi
 		tui-status $? "Updated $LIST_FILE"
 	}
