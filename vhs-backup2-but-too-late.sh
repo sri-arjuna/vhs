@@ -380,13 +380,12 @@ Log:		$LOG
 		sub_ids=$(listSubtitleIDs)
 		subtitle_maps=""
 		for SI in $(listSubtitleIDs);do
-			$beVerbose && tui-echo "Parsing subtitle id: $SI"
-			for l in $lang $lang_alt $langs;do
-				$beVerbose && tui-echo "Parsing subtitle id: $SI / $l"
-				listIDs|grep $SI|grep $l && \
-					subtitle_maps+=" -map 0:$SI" && \
-					subtitle_ids+=" $SI" && \
-					tui-echo "Found subtitle for $l on $SI ($subtitle_ids)" "$DONE"
+			for l in $langs;do
+				listIDs|grep $SI|grep $l|awk '{print $1}' && \
+					for i in $(doSubs);do
+						subtitle_maps+=" -map 0:$SI"
+						subtitle_ids+=" $SI"
+					done
 			done
 		done
 		printf "$subtitle_ids" > "$TMP"
@@ -405,13 +404,13 @@ Log:		$LOG
 			;;
 		1)	tui-echo "Using only audio stream found..." "$DONE"
 			audio_ids=1
-			#audio_maps+=" -map:0:$audio_ids"
-			printf $audio_ids > $TMP
+			printf 1 > $TMP
 			;;
 		*)	count=0
 			for l in $lang $lang_alt $langs;do
 				((count++))
 				# 'this' contains all the ids for the specific langauge...
+				this=""
 				if hasLang $l
 				then 	# Prefered language found, is it dts, downcode it?
 					hasLangDTS $l && \
@@ -420,7 +419,6 @@ Log:		$LOG
 						$beVerbose && tui-echo "Downgrading channels from DTS to $channel"
 					# Get all stream ids for this language
 					found=0
-					this=""
 					for i in $(listAudioIDs);do
 						if listIDs|grep ^$i |grep -q $l
 						then	this+=" $i" 
@@ -1073,8 +1071,8 @@ EOF
 	$code_extra && extra+=" -strict -2"					# codec requires strict, toggle by container
 	$useRate && cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
 	$useSubs && \
-		cmd_subtitle_all=" -c:s $subtitle" || \
-		cmd_subtitle_all=" -sn"
+		cmd_subtitle_all=""="$cmd_all -c:s $subtitle" || \
+		cmd_subtitle_all=""="$cmd_all -sn"
 	$override_audio_codec && \
 		cmd_audio_all+=" -c:a $audio_codec_ov" || \
 		cmd_audio_all+=" -c:a $audio_codec"				# Set audio codec if provided
@@ -1094,7 +1092,7 @@ EOF
 		[[ -z $langs ]] || tui-echo "Additional Languages:"	"$langs"
 	fi
 	
-	# Special container treatment
+	# Special treatment
 	case "$container" in
 	"webm")	threads="$(grep proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
 		cmd_audio_all+=" -cpu-used $threads"
@@ -1166,19 +1164,16 @@ EOF
 		audio_ids=$(cat "$TMP") #1&>/dev/zero 2&>/dev/zero
 		if [[ ! -z $audio_ids ]]
 		then # all good
-			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
-			#$beVerbose && tui-echo "Using audio ids: $audio_ids" "maps: $audio_maps"
+			for i in $audio_ids;do audio_maps+=" -map 0:$i";done
 		else	# handle empty
 			tui-echo "No audio stream could be recognized"
 			tui-echo "Please select the ids you want to use, choose done to continue."
 			select i in $(seq 1 1 $(countAudio)) done;do 
 				[[ $i = done ]] && break
 				audio_ids+=" $i"
-				cmd_audio_maps+=" -map 0:$i"
 				tui-echo "Now using audio ids: $audio_ids"
 			done
 		fi
-#		echo $cmd_audio_maps ; exit
 		msg="Using for audio streams: $audio_ids"
 		$beVerbose && tui-echo "$msg"
 		doLog "$msg"
@@ -1187,27 +1182,25 @@ EOF
 			( $beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)" ) && \
 			doSubs && \
 			subtitle_ids=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
-		#cat $TMP
-		#exit
 		$useSubs && \
 			if [[ ! -z $subtitle_ids ]]
 			then # all good
-				#for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
-				$beVerbose && tui-echo "Using subtitle ids: $subtitle_ids" "maps: $subtitle_maps"
+				for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
 			else	# handle empty
 				tui-echo "No subtitle stream could be recognized"
 				tui-echo "Please select the ids you want to use, choose done to continue."
 				select i in $(listSubtitleIDs) done;do 
 					[[ $i = done ]] && break
-					subtitle_ids+=" $i"
-					tui-echo "Now using subtitles ids: $subtitle_ids"
+					audio_ids+=" $i"
+					tui-echo "Now using audio ids: $audio_ids"
 				done
 			fi
 		
 		
 		#$useSubs && [[ ! -z $subtitle_ids ]] && \
 	#		( $beVerbose && tui-echo "Using subtitles... ($subtitle_ids)" )
-	#	$useSubs && cmd_run_specific+=" $cmd_subtitle_all)" && \
+	#	$useSubs && \
+	#		cmd_run_specific+=" $cmd_subtitle_all)" && \
 			
 	#
 	#	Handle video pass 1
@@ -1217,7 +1210,7 @@ EOF
 		oPWD="$(pwd)"
 		case $PASS in
 		1)	# Command just needs to be generated
-			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
+			#cmd="ffmpeg $verbose -i \"${video}\" $web $extra $bits -dcodec copy -vcodec $video_codec -map 0:0  -acodec $audio_codec $audio_maps -ar 48000 $audio_streams $F \"${OF}\""
 			cmd="$cmd_all $cmd_input_all $web $extra $cmd_video_all $cmd_audio_all $cmd_run_specific $cmd_audio_maps $cmd_output_all"
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"

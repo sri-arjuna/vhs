@@ -1,4 +1,11 @@
 #!/bin/bash
+checkfiles=( 	"/mnt/windows/Users/Arjuna/Videos/Gantz 2011 BRRip 470MB [Audio-JAP,ENG] x264 AAC - VYTO/Gantz (jap-eng,2011,BRRip.mkv" \
+		"/mnt/windows/Users/Arjuna/Videos/Gantz.Perfect.Answer.2011.BluRay.720p.x264.Ganool.mkv" \
+		"/mnt/windows/Users/Arjuna/Videos/2_xxx/x_art_scarlet_christine_mrX_fantasy_come_true_540.mov"
+		"/home/sea/net/pub/Videos-Series/Stargate/SG Atlantis/Stargate Atlantis - S1/01&02 - Rising.0.mkv"
+	)
+#for C in "${checkfiles[@]}";do ./vhs-todo.sh -i "$C";./vhs-todo.sh -Vl jpn -Bl fre -d dvd "$C";done
+#exit
 # ------------------------------------------------------------------------
 #
 # Copyright (c) 2014 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
@@ -25,12 +32,28 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU Lesser General Public License (LGPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.08.13
+#	Changed:	2014.08.06
 	script_version=0.7
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
-#			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
+#
+#			Easy mass re-code files as it takes each file's name as replaces its container extension for the output.
+#			If that new name exists, it numbers it incremently, so you cannot delete your input file by accident (from the script
+
+#			The script suggestions are based upon personal prefered relation of filesize-and-videoquality,
+#			with a slight tendency to prefer small filesizes.
+#			Kind:	~Resolution:	Audio:	Video:
+#			VHS	 576*360	128k	 256k
+#			CLIP	 640*480	128k	 384k
+#			DVD	 720*576 	192k	 512k
+#			HDR	1280*720	192k	 768k
+#			FHD	1920*1080	256k	1280k
+#
+#			It should encode a DVD with your prefered language only - when called from terminal,
+#			but let you choose which languages, when your prefered langauge is not found.
+#
+#			You may add languages to encode, by passing '-l LNG' multiple times
 #			
 #
 #	Resources:	http://ffmpeg.org/index.html
@@ -94,7 +117,6 @@
 	override_video_codec=false	# -c v	/ -C
 	override_container=false	# -e ext
 	useRate=false			# -R
-	useSubs=false			# -t
 	codec_extra=false		# Depends on container /file extension
 	file_extra=false		# Depends on container /file extension
 	# Values - 
@@ -119,7 +141,7 @@
 #
 	help_text="
 $ME ($script_version) - ${TITLE^}
-Usage: 		$ME [options] videos ...
+Usage: 		$ME [options] [arguments]
 
 Examples:	$ME -s				| Enter the configuration/setup menu
 		$ME -b a128 -b v512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
@@ -131,49 +153,30 @@ Examples:	$ME -s				| Enter the configuration/setup menu
 Where options are: (only the first letter)
 	-h(elp) 			This screen
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
-	-B(itrates)			Use bitrates (av) from configuration ($CONFIG)
+	-B(itrates)			Use bitrates (av) from configuration
+	-C(opy)				Just copy streams, fake convert
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
-	-C(onfig)			Shows the configuration dialog
-	-d(imension)	ID		Encodes the video at ID's default resolution, might strech or become boxed
+	-d(imension)	ID		Set the videos resolution to ID
+					Available: dvd screen hdr fhd (hd ready, full hd)
+					This is to downsize only, upsize will NOT improve quality
 	-D(VD)				Encode from DVD
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-E(xternal)			Requires '-p 2|3', Saves the audio streams as external files
 	-f(aststart)			Moves the videos info to start of file (web compatibility)
-	-i(nfo)		VIDEO		Shows a short overview of the video its streams
-	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa)
+	-i(nfo)		VIDEO		Shows a tui-title per video and tui-echo its streams
+	-l(anguage)	LNG		Only encode LNG audio stream (3 letter abrevihation, eg: eng,fre,ger,spa)
 	-L(OG)				Show the log file
 	-O(utputFile)	NAME		Forces to save as NAME, this is internal use for '-Ep 2|3'
-(BETA)	-p(ass)		PASS		Encodes the video with 2|3-Pass
-	-q(uality)	ID		Sets to ID-resolution, keeps aspect-ratio (:-1)
-	-Q(uality)	ID		Sets to ID-resolution, keeps aspect-ratio (:-1), uses (sea)'s prefered bitrates
-	-r(ate)		HRZ		Values from 48000 to 96000, or similar
-	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
+(BETA)	-p(ass)		NUM		Encodes the video with 2|3-Pass
+	-r(ate)		NUM		Values from 48000 to 96000, or similar
+	-R(ate)				Uses the frequency rate from $CONFIG
 	-S(creen)			Records the fullscreen desktop
-(PLAN)	-t(itles)	??		Use default and provided langauges as subtitles where available
+	-s(etup)			Shows the configuration dialog
+(PLAN)	-t(itles)	??		Include this subtitle
 	-T(imeout)	TIME		Set the timeout between videos to SECONDS (append either 'm' or 'h' as other units)
 	-v(erbose)			Displays encode data from ffmpeg
-	-V(erbose)			Show script debuging info. (!=! set -x)
+	-V(erbose)			Show script debuging info.
 (BETA)	-W(ebcam)			Encodes from webcam
-	-x(tract)			Clean up the log file
-	-X(tract)			Clean up system from $ME-configurations
-	-y(copY)			Just copy streams, fake convert
-
-Values:
-------------------------------------------------------
-NUM:		Number for specific bitrate (ranges from 96 to 15536
-NAME:		See '$LIST_FILE' for lists on diffrent codecs
-ID:		* screen (your fullscreen size)
-		* clip	(320x240)
-		* vhs	(640x480)
-		* dvd	(720x576)
-		* hdr	(1280x720)
-		* fhd 	(1920x1280)
-CONTAINER:	aac ac3 dts mkv mp3 mp4 ogg vorbis wav webm
-VIDEO:		[/path/to/]videofile
-LNG:		A valid 3 letter abrevihation for diffrent langauges
-PASS:		2 3
-HRZ:		44000 *48000* 72000 *96000* 128000, but im no audio technician
-TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
 
 Info:
@@ -228,7 +231,7 @@ Log:		$LOG
 			cmd="StreamInfo \"$1\""
 		eval $cmd|grep -i audio|wc -l
 	}
-	countSubtitles() { # [VIDEO]
+	countSubtitle() { # [VIDEO]
 	# Returns the number of subtitles found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
 		[[ -z $1 ]] && \
@@ -290,32 +293,30 @@ Log:		$LOG
 	genFilename() { # Filename_with_ext container
 	# Parses for file extension and compares with new container
 	# If identical, add a number to avoid overwriting sourcefile.
-		[[ $# -lt 2 ]] && tui-echo "Requires 'filename-with.ext' and 'extension/container'." "$FAIL" && return 1
 		video="$1"
 		container="$2"
-		# TODO find better way to get extension
-		for ext in $(printf "$video"|sed s,"\."," ",g);do printf "" > /dev/zero;done
+		for ext in $(printf "$video"|sed s,'\.',' ',g);do printf "" > /dev/zero;done
 		
 		if [[ ! $ext = $container ]]
-		then 	outputfile="${video/$ext/$container}"
-			[[ ! -f $outputfile ]] && \
-				doLog "Output: \"$outputfile\"" && \
-				printf "$outputfile" && return 0 || \
-				name="${video/$ext/}"
-		else	name="${video/$container/}"
+		then 	video="${video/$ext/}$container"
+			[[ ! -f $video ]] && \
+				doLog "Output: \"$video\"" && \
+				printf "$video" && return 0
 		fi
 		
 		# new file name would be the same
+		name="${video/$ext/}"
 		N=0
-		while [[ -f "$name$N.$container" ]] ; do ((N++));done
-		outputfile="$name$N.$container"
+		while [[ -f "$name.$N.$container" ]] ; do ((N++));done
+		outputfile="$name.$N.$container"
 		doLog "Output: Has same extension, incrementing to \"$outputfile\""
+		
 		printf "$outputfile"
 	}
 	getRes() { # [-l] ID
 	# Returns 2 digits (W*H) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd)
+		LIST=( screen clip dvd hdr fhd)
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
@@ -325,76 +326,39 @@ Log:		$LOG
 		case "$1" in
 		"${LIST[0]}")	xrandr|grep \*|awk '{print $1}'	;;
 			#xrandr|grep \*|sed s,x,' ',g|awk '{print $1" "$2}'|sed s,x,\ ,g
-		"${LIST[1]}")	printf "320x240"  ;;
-		"${LIST[2]}")	printf "640x480"  ;;
-		"${LIST[3]}")	printf "720x576"  ;;
-		"${LIST[4]}")	printf "1280x720" ;;
-		"${LIST[5]}")	printf "1920x1080";;
-		esac
-		return 0
-	}
-	getQualy() { # [-l] ID
-	# Returns 2 numbers (audio video) according to ID
-	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd)
-		[[ "-l" = "$1" ]] && \
-			printf "${LIST[*]}" && \
-			return 0
-		[[ -z $1 ]] && \
-			printf "Must provide a valid ID!" && \
-			exit 1
-		case "$1" in
-		"${LIST[0]}")	printf "192 1280";;
-		"${LIST[1]}")	printf "128 256" ;;
-		"${LIST[2]}")	printf "128 384" ;;
-		"${LIST[3]}")	printf "192 512" ;;
-		"${LIST[4]}")	printf "192 768" ;;
-		"${LIST[5]}")	printf "256 1280";;
+		"${LIST[1]}")	printf "640x480" ;;
+		"${LIST[2]}")	printf "720x576" ;;
+		"${LIST[3]}")	printf "1280x720" ;;
+		"${LIST[4]}")	printf "1920x1080" ;;
 		esac
 		return 0
 	}
 	doExecute() { # SCRIPT [OF STR1 STR2]
 	# Executes the script according to script options
 	#
-		[[ -z $1 ]] && tui-echo "Must provide at least a script to execute!" && return 1
-		$beVerbose && tui-echo "showFFMPEG is set to: $showFFMPEG"
-		$beVerbose && tui-title "Executing:" "$(cat $TMP)"
+		[[ -z $1 ]] && tui-echo "Must provide a script to execute!" && return 1
+echo		$SCRIPT
+		SCRIPT="$1"
 		if $showFFMPEG
 		then	case $MODE in
 			dvd|video)	msg="Encoded to"	;;
 			screen|webcam)	msg="Recorded to"	;;
 			esac
-			tui-status $RET_TODO "$msg $2"
-			sh "$1"
-			tui-status $? "$msg $2"
+			tui-status $RET_TODO "$msg $OF"
+			sh "$SCRIPT"
+			tui-status $? "$msg $OF"
 			RET=$?
-		else	tui-bgjob -f "$2" "$1" "$3" "$4"
+		else	tui-bgjob -f "$2" "$SCRIPT" "$3" "$4"
 			RET=$?
 		fi
 		return $RET
 	}
-	doSubs() { # [VIDEO]
-	# Fills the variable/list: subtitle_ids
-	# Its just a list of the subtitle id's used
-		#subs=$(countSubtitles)
-		sub_ids=$(listSubtitleIDs)
-		subtitle_maps=""
-		for SI in $(listSubtitleIDs);do
-			$beVerbose && tui-echo "Parsing subtitle id: $SI"
-			for l in $lang $lang_alt $langs;do
-				$beVerbose && tui-echo "Parsing subtitle id: $SI / $l"
-				listIDs|grep $SI|grep $l && \
-					subtitle_maps+=" -map 0:$SI" && \
-					subtitle_ids+=" $SI" && \
-					tui-echo "Found subtitle for $l on $SI ($subtitle_ids)" "$DONE"
-			done
-		done
-		printf "$subtitle_ids" > "$TMP"
-		export subtitle_maps
-	}
 	doAudio() { # [VIDEO]
 	# Fills the variable/list: audio_ids
 	# Its just a list of the audio id's used
+		[[ ! -z $1 ]]  && StreamInfo "$1" > "$TMP.info" && \
+			tui-echo "Created $TMP.info again, just to be sure"
+		
 		countAudio=$(countAudio)
 		$beVerbose && tui-echo "Found $countAudio audio stream/s in total"
 		case $countAudio in
@@ -405,13 +369,12 @@ Log:		$LOG
 			;;
 		1)	tui-echo "Using only audio stream found..." "$DONE"
 			audio_ids=1
-			#audio_maps+=" -map:0:$audio_ids"
-			printf $audio_ids > $TMP
 			;;
 		*)	count=0
 			for l in $lang $lang_alt $langs;do
 				((count++))
 				# 'this' contains all the ids for the specific langauge...
+				this=""
 				if hasLang $l
 				then 	# Prefered language found, is it dts, downcode it?
 					hasLangDTS $l && \
@@ -420,14 +383,18 @@ Log:		$LOG
 						$beVerbose && tui-echo "Downgrading channels from DTS to $channel"
 					# Get all stream ids for this language
 					found=0
-					this=""
 					for i in $(listAudioIDs);do
-						if listIDs|grep ^$i |grep -q $l
+						if listIDs|grep ^$i |grep  $l
 						then	this+=" $i" 
 							((found++)) 
 							$beVerbose && tui-echo "Found $l on stream $i"
 						fi
 					done
+					
+					
+			# TODO
+			# 	Insert check for default stream
+			# TODO
 					
 					$beVerbose && tui-echo "There are $found audio streams found for $l"
 					# found is the amount of indexes per langauge
@@ -469,9 +436,11 @@ Log:		$LOG
 				else	$beVerbose && tui-echo "Didnt find: $l"
 				fi
 			done
+			# If both (lang & lang_alt) are requested, add up the list
+			#$lang_force_both && audio_ids+=" $lang_force_both_store"
 			;;
 		esac
-		printf "$audio_ids" > "$TMP"
+		#printf "$audio_ids"
 	}
 	doDVD() { # FILEforCOMMAND
 	# Writes the generated command to 'FILEforCommand'
@@ -596,33 +565,75 @@ Log:		$LOG
 			avi)	# TODO, this is just assumed / memory
 				ca=mpeg2video 	# Codec Audio
 				cv=mp3		# Codec Video
-				ce=false	# Codec extra (-strict 2)
-				fe=true		# File extra (audio codec dependant '-f ext')
+				ce=false	# Codec extra
+				fe=true		# File extra (audio codec dependant)
 				ba=128		# Bitrate Audio
 				bv=384		# Bitrate Video
 				ext=$entry	# Extension used for the video file
 				;;
-			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry 	;;
-			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ba=256	; bv=1024	; ext=$entry	;;
-			ogg)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry	;;
-			webm)	ca=libvorbis 	; cv=libvpx	; ce=true	; fe=true	; ba=256	; bv=1280	; ext=$entry	;;
+			mp4)	ca=aac ;	cv=libx264
+				ce=true ;	fe=true	
+				ba=192 ;	bv=768
+				ext=$entry	;;
+			mkv)	ca=ac3	;	cv=libx264
+				ce=false ;	fe=false
+				ba=256 ;	bv=1024
+				ext=$entry	;;
+			ogg)	ca=libvorbis ;	cv=libtheora
+				ce=true	;	fe=true		
+				ba=192 ;	bv=768
+				ext=$entry	;;
+			webm)	ca=libvorbis ;	cv=libvpx	
+				ce=true	;	fe=true	
+				ba=256 ;	bv=1280
+				ext=$entry	;;
 		# Audio Codecs
-			aac)	ca=aac 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry	;;
-			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry 	;;
-			mp3)	ca=mp3 		; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
-			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
-			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
-			wav)	ca=wav		; cv=		; ce=false	; fe=false	; ba=384	; bv=		; ext=$entry	;;
-
+			aac)	ca=aac ;	cv=
+				ce=false ;	fe=false
+				ba=256 ;	bv=
+				ext=$entry	;;
+			ac3)	ca=ac3 ;	cv=
+				ce=false ;	fe=false
+				ba=256 ; 	bv=
+				ext=$entry 	;;
+			dts)	ca=dts ;	cv=
+				ce=false ;	fe=false
+				ba=512 ;	bv=
+				ext=$entry	;;
+			mp3)	ca=mp3 ;	cv=
+				ce=false ;	fe=false
+				ba=256 ; 	bv=
+				ext=$entry	;;
+			vorbis)	ca=libvorbis ; 	cv=
+				ce=false ; 	fe=false
+				ba=256 ; 	bv=
+				ext=$entry	;;	
 		# Experimental
-			clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ba=128	; bv=384	; ext=mp4	;;
-			dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
+			clip)	ca=aac ;	cv=libx264
+				ce=true	;	fe=true	
+				ba=128 ;	bv=384
+				ext=mp4		;;
+			dvd)	ca=mpeg2video ;	cv=mp3	
+				ce= ;		fe=	
+				ba=128 ;	bv=512
+				ext=mpeg	;;
 			webcam)	# TODO
-				ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
-			# blob)	ca=	; cv=	; ce=false	; fe=false	; ba=	; bv=	; ext=$entry	;;
+				ca=mpeg2video ;	cv=mp3	
+				ce= ;		fe=	
+				ba=128 ;	bv=512
+				ext=mpeg	;;
+			# blob)	ca=
+			#	cv=
+			#	ce=
+			#	fe=
+			#	ba=
+			#	bv=
+			#	ext=$entry
+			#	;;
 			esac
 			touch $entry
 			tui-printf "Write container info ($entry)" "$WORK"
+#container=$entry
 			printf "$header
 ext=$ext
 audio_codec=$ca
@@ -741,7 +752,7 @@ audio_rate=48000
 audio_rate_force=false
 
 # Subtitle
-subtitle=subrip
+subtitle=
 
 # How long to wait by default between encodings if multiple files are queued?
 # Note that 's' is optional, and could be as well either: 'm' or 'h'.
@@ -816,6 +827,26 @@ EOF
 			tui-echo "Press [ENTER] to see the menu:" "$INFO"
 		done
 	}
+	# set -x
+	# DEBUG =
+	$beVerbose && \
+		clear && \
+		for F in "${checkfiles[@]}";do
+			tui-title "$F"
+			StreamInfo "$F" > $TMP.info
+			echo "listIDs ::
+$(listIDs)
+
+	countVideo :: $(countVideo)		
+	countAudio :: $(countAudio)
+	countSubtitle :: $(countSubtitle)
+
+
+	hasLang ger :: $(hasLang ger;echo $?)
+	hasLangDTS ger :: $(hasLangDTS ger;echo $?)
+	hasSubtitle ger :: $(hasSubtitle ger;echo $?)
+"
+		done
 #
 #	Environment checks
 #
@@ -850,7 +881,7 @@ EOF
 #	Catching Arguments
 #
 	tui-log -e "$LOG" "\r---- New call $$ ----"
-	while getopts "aBb:c:Cd:De:Efhi:I:Ll:O:p:Rr:SstT:q:Q:vVWxXy" opt
+	while getopts "aBb:c:Cd:De:Efhi:I:Ll:O:p:Rr:SstT:Q:vVW" opt
 	do 	case $opt in
 		b)	char="${OPTARG:0:1}"
 			case "$char" in
@@ -887,9 +918,14 @@ EOF
 			esac
 			$beVerbose && tui-echo "Options: -'$opt', passed: $char ${OPTARG:1}"
 			;;
-		C)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
-			MenuSetup
-			exit 0	;;
+		C)	override_audio_codec=true
+			override_video_codec=true
+			video_codec_ov=copy
+			audio_codec_ov=copy
+			msg="Options: Just copy streams, no encoding"
+			doLog "$msg"
+			$beVerbose && tui-echo "$msg"
+			;;
 		d)	RES=$(getRes $OPTARG )
 			msg="Options: Set video dimension (resolution) to: $RES"
 			doLog "$msg"
@@ -926,23 +962,20 @@ EOF
 			exit $RET_HELP
 			;;
 		i)	# Creates $TMP.info
-			#shift $(($OPTIND - 1))
+			shift $(($OPTIND - 1))
 			for A in "$@";do
-			if [[ -f "$A" ]]
-			then	$beVerbose && tui-echo "Video exist, showing info"
-				tui-printf "Retrieving data from ${A##*/}" "$WORK"
-				StreamInfo "$A" > "$TMP.info"
-				tui-title "Input: ${A##*/}"
+			[[ -f "$A" ]] && \
+				tui-printf "Retrieving data from ${A##*/}" "$WORK" && \
+				StreamInfo "$A" > "$TMP.info" && \
+				tui-title "Stream info of: ${A##*/}" && \
 				while read line;do tui-echo "$line";done<"$TMP.info"
-			else	$beVerbose && tui-echo "Input '$A' not found, skipping..." "$SKIP"
-			fi
 			done
-			msg="Options: Showed info of $@ videos"
+			msg="Options: Showed info of $# videos"
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"
 			exit $RET_DONE
 			;;
-		I)	ID_FORCED+="$OPTARG"
+		I)	ID_FOCED+="$OPTARG"
 			msg="Options: Foced to use this id: $ID_FORCED"
 			$beVerbose && tui-echo "$msg"
 			doLog "$msg"
@@ -967,22 +1000,6 @@ EOF
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"
 			;;
-		q)	RES=$(getRes $OPTARG|sed s/x.../",-1"/g)
-			msg="Options: Set video dimension (resolution) to: $RES"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
-			;;
-		Q)	RES=$(getRes $OPTARG|sed s/x.../",-1"/g|sed s,-1.,-1,g)
-			Q=$(getQualy "$OPTARG")
-			C=0
-			for n in $Q;do 
-				[[ $C -eq 1 ]] && BIT_VIDEO=$n
-				[[ $C -eq 0 ]] && BIT_AUDIO=$n && ((C++))
-			done
-			msg="Options: Set Quality to $OPTARG ($RES) with  $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
-			$beVerbose && tui-echo "$msg"
-			doLog "$msg"
-			;;
 		R)	useRate=true
 			msg="Options : Force audio_rate to $audio_rate"
 			doLog "$msg"
@@ -1000,7 +1017,12 @@ EOF
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"
 			;;
-		t)	useSubs=true	;;
+		s)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+			MenuSetup
+			exit 0	;;
+		t)	msg="Options: Added these $OPTARG to subtitles"
+			# TODO
+			;;
 		T)	msg="Options: Changed delay between jobs from \"$sleep_between\" to \"$OPTARG\""
 			doLog "$msg"
 			$beVerbose && \
@@ -1028,24 +1050,6 @@ EOF
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"
 			;;
-		x)	printf "" > "$LOG"
-			RET=$?
-			$beVerbose && tui-status $RET "Cleaned logfile"
-			;;
-		X)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
-			if tui-yesno "Are you sure to remove '$CONFIG_DIR'?"
-			then	rm -fr "$CONFIG_DIR"
-				exit $?
-			fi
-			;;
-		y)	override_audio_codec=true
-			override_video_codec=true
-			video_codec_ov=copy
-			audio_codec_ov=copy
-			msg="Options: Just copy streams, no encoding"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
-			;;
 		*)	msg="Invalid argument: $opt : $OPTARG"
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"
@@ -1053,7 +1057,6 @@ EOF
 		esac
 	done
 	shift $(($OPTIND - 1))
-	[[ -z $1 ]] && printf "$help_text" && exit $RET_HELP
 #
 #	Little preparations before we start showing the interface
 #
@@ -1061,7 +1064,7 @@ EOF
 	src="$CONTAINER/$container" ; source "$src"
 	# If (not) set...
 	[[ -z $video_codec ]] && [[ ! -z $audio_codec ]] && MODE=audio		# If there is no video codec, go audio mode
-	[[ ! -z $video_codec ]] && [[ $PASS -lt 2 ]] && cmd_video_all+=" -map 0:0"			# Make sure video stream is used always
+	[[ -z $video_codec ]] || cmd_video_all+=" -map 0:0"			# Make sure video stream is used always
 	[[ -z $FFMPEG ]] && cmd_all="$ffmpeg_silent" || cmd_all="$FFMPEG"	# Initialize the final command
 	[[ -z $BIT_AUDIO ]] || cmd_audio_all="-b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
 	[[ -z $BIT_VIDEO ]] || cmd_video_all="-b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
@@ -1072,9 +1075,6 @@ EOF
 	$file_extra && F="-f $container"					# File extra, toggle by container
 	$code_extra && extra+=" -strict -2"					# codec requires strict, toggle by container
 	$useRate && cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
-	$useSubs && \
-		cmd_subtitle_all=" -c:s $subtitle" || \
-		cmd_subtitle_all=" -sn"
 	$override_audio_codec && \
 		cmd_audio_all+=" -c:a $audio_codec_ov" || \
 		cmd_audio_all+=" -c:a $audio_codec"				# Set audio codec if provided
@@ -1092,9 +1092,11 @@ EOF
 		tui-echo "Video:"	"$cmd_video_all"
 		tui-echo "Subtitles:"	"$cmd_subtitle_all"
 		[[ -z $langs ]] || tui-echo "Additional Languages:"	"$langs"
+		#tui-echo "Dimension:"	"$RES"
+		#tui-echo "Outputfile:"	"$OF"
 	fi
 	
-	# Special container treatment
+	# Special treatment
 	case "$container" in
 	"webm")	threads="$(grep proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
 		cmd_audio_all+=" -cpu-used $threads"
@@ -1108,6 +1110,8 @@ EOF
 #	Display & Action
 #
 	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+	# TODO Figure out audio MODE -- container?!
+	# 
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
 	case $MODE in
 	dvd|screen|webcam) 	# TODO For these 3 i can implement the bitrate suggestions...
@@ -1129,12 +1133,28 @@ EOF
 				dvd)	doDVD		;;
 				esac
 				doLog "$msgA"
-				doExecute $TMP.cmd
+				
+				
+				#
+				# TODO
+				#
+				# TODO
+				#
+				# TODO
+				#		Execute & exit
+				# TODO
+				#
+				# TODO
+				#
+				# TODO
+				
+				cat $TMP.cmd
+				sh $TMP.cmd
 				exit
 			;;
-	audio)		# TODO Figure out audio MODE -- container?!
-			$beVerbose && tui-echo "Save as $OF_FORCED, using $ID_FORCED"
+	audio)		$beVerbose && tui-echo "Save as $OF_FORCED, using $ID_FORCED"
 			cmd="$FFMPEG -i $1 $cmd_audio_all" 
+			
 			echo "TODO:: $cmd"
 			exit $?
 			;;
@@ -1143,186 +1163,117 @@ EOF
 #
 #	Show menu or go for the loop of files
 #
+	
 	for video in "${@}";do 
 		doLog "----- $video -----"
 		$beVerbose && tui-title "Video: $video"
+	#
+	#	per entry defaults
+	#
 		OF=$(genFilename "${video}" "$container")		# Output File
 		audio_ids=						# Used ids for audio streams
 		audio_maps=""						# String generated using the audio maps
-		subtitle_ids=""
-		subtitle_maps=""
 		found=0							# Found streams per language
-		cmd_input_all="-i \\\"$video\\\""				
-		cmd_output_all="$F \\\"$OF\\\""
+		cmd_input_all="-i \"$video\""				
+		cmd_output_all="$F \"$OF\""
 		cmd_run_specific=""					# Contains stuff that is generated per video
 		cmd_audio_external=""					# 
-	#
-	#	Output per video
-	#
 		$0 -i "$video"						# Calling itself with -info for video
 		tui-echo
-	# Audio	
+#
+#	Handle Audio
+#
 		doAudio "$video"					## Fills the list: audio_ids
-		audio_ids=$(cat "$TMP") #1&>/dev/zero 2&>/dev/zero
-		if [[ ! -z $audio_ids ]]
-		then # all good
-			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
-			#$beVerbose && tui-echo "Using audio ids: $audio_ids" "maps: $audio_maps"
-		else	# handle empty
-			tui-echo "No audio stream could be recognized"
-			tui-echo "Please select the ids you want to use, choose done to continue."
-			select i in $(seq 1 1 $(countAudio)) done;do 
-				[[ $i = done ]] && break
-				audio_ids+=" $i"
-				cmd_audio_maps+=" -map 0:$i"
-				tui-echo "Now using audio ids: $audio_ids"
-			done
-		fi
-#		echo $cmd_audio_maps ; exit
+		# Generate string for the stream ids to map
 		msg="Using for audio streams: $audio_ids"
-		$beVerbose && tui-echo "$msg"
+		for i in $audio_ids;do audio_maps+=" -map 0:$i";done
+		#$beVerbose && tui-echo "$msg"
 		doLog "$msg"
-	# Subtitles
-		$useSubs && \
-			( $beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)" ) && \
-			doSubs && \
-			subtitle_ids=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
-		#cat $TMP
-		#exit
-		$useSubs && \
-			if [[ ! -z $subtitle_ids ]]
-			then # all good
-				#for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
-				$beVerbose && tui-echo "Using subtitle ids: $subtitle_ids" "maps: $subtitle_maps"
-			else	# handle empty
-				tui-echo "No subtitle stream could be recognized"
-				tui-echo "Please select the ids you want to use, choose done to continue."
-				select i in $(listSubtitleIDs) done;do 
-					[[ $i = done ]] && break
-					subtitle_ids+=" $i"
-					tui-echo "Now using subtitles ids: $subtitle_ids"
-				done
-			fi
-		
-		
-		#$useSubs && [[ ! -z $subtitle_ids ]] && \
-	#		( $beVerbose && tui-echo "Using subtitles... ($subtitle_ids)" )
-	#	$useSubs && cmd_run_specific+=" $cmd_subtitle_all)" && \
-			
-	#
-	#	Handle video pass 1
-	#
+#
+#	Handle video pass 1
+#
 		tmp_of="${OF##*/}\""
 		tmp_if="${video##*/}\""
-		oPWD="$(pwd)"
 		case $PASS in
 		1)	# Command just needs to be generated
-			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
+			#cmd="ffmpeg $verbose -i \"${video}\" $web $extra $bits -dcodec copy -vcodec $video_codec -map 0:0  -acodec $audio_codec $audio_maps -ar 48000 $audio_streams $F \"${OF}\""
 			cmd="$cmd_all $cmd_input_all $web $extra $cmd_video_all $cmd_audio_all $cmd_run_specific $cmd_audio_maps $cmd_output_all"
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
 			STR2="Encoded \"$tmp_if\" to \"$tmp_of"
 			STR1="Encoding \"$tmp_if\" to \"$tmp_of"
 			;;
-	#
-	#	Handle video passes 2/3
-	#
+#
+#	Handle video passes 2/3
+#
 		*)	# How to encode audio, external or internal
-			unset done_files	# This array will be used to save the externaly stored files
-			C=0
-			cd $(dirname "$video")
-			#set -x
+			files_used=""
 			if $doExternal
-			then	# Save one file per audio or subtitle id
-				for task in audio $($useSubs && printf subtitle);do
-					tui-title "Extracting $task streams"
-					if [[ $task = audio ]]
-					then	list="$audio_ids"
-						tmp_codec="$audio_codec"
-					else	list="$subtitle_ids"
-						tmp_codec="$subtitle"
-					fi
-					tmp_OF="$video-$l.$temp_codec"
+			then	# Save one file per audio id
+				tui-title "Saving audio streams..."
+				for i in $audio_ids;do
+					tui-echo "Stream ID: $i"
+					this="$video-$l.$audio_codec"
 					
-					for i in $list;do
-						lng=$(listIDs|grep $i|awk '{print $2}')
-						[[ [AVS] = ${lng:0:1} ]] && lng=$(tui-read "Please enter the language for $task stream $i:")
-						[[ -z $lng ]] && lng=$i
-						
-						$0 -O "$tmp_OF" -e $tmp_codec "$video"
-						tui-status $? "Extracted $task from ${video##/*}"
-						[[ $? -eq 0 ]] && done_files[$C]="$this" && ((C++)) && doLog "Extract: "
-						$beVerbose && tui-echo "* Optimize Audio (optionaly placeholder, todo)" "$TODO"
-						cmd_run_specific+=" -i \"$tmp_OF\""
-					done
+					
+					# TODO
+					#	external audio
+					# TODO
+					
+					
+					
+					tui-title "This is in plan.. hold on"
+					$0 -O "$this" -I $i -e $audio_codec "$video"
+					
+					
+					
+					if [[ $RET -eq 0 ]]
+					then	#tui-title "TODO"
+						tui-echo "* Optimize Audio (optionaly placeholder, todo)" "$TODO"
+					fi
+					# Add filename as input, per langauge
+					cmd_run_specific+=" -i \"$this\""
 				done
-				
 			else	# Just use the pre-generated $audio_maps
 				cmd_run_specific+=" $audio_maps"
-				cmd_run_specific+=" $subtitle_maps"
 			fi
-	#		
-	#	 PASS 1
-	#
+			
+			# Do encode passes 1&2 and generate command for p3, or -1
+			pre="$FFMPEG $cmd_input_all -an -pass "
+			cmd_video1="$pre 1 $cmd_video_all"
+			cmd_video2="$pre 2 $cmd_video_all"
+			cmd_video3="$pre 3 $cmd_video_all"
+			
+			# PASS 1
+			dummy="$(dirname $OF)/ffmpeg-?????.log"	# for x pass only, not final
 			# TODO ffmpeg2pass-0.log ffmpeg2pass-0.log.mbtree
-			tmp_ofv="${video/.$container/}-video"
-			if [[ -f "$tmp_ofv.$container" ]]
-			then 	N=0
-				while [[ -f "${tmp_ofv}.$N.$container" ]];do ((N++));done
-				tmp_ofv="${tmp_ofv}.$N.$container"
-			else	tmp_ofv+=".$container"
-			fi
+			
 			
 			STR1="Encoding '$tmp_if' - Pass"
 			STR2="Encoded '$tmp_if' - Pass"
+			doExecute "$cmd_video1" "$dummy" "$STR1 1/$PASS" "$STR2 1/$PASS"
+			# doExecute() { # SCRIPT [OF STR1 STR2]
 			
-			# Do encode passes 1&2 and generate command for p3, or -1
-			cmd_video1="$cmd_all $cmd_input_all -an -pass 1 -y -map 0:0"
-			[[ -z $video_codec ]] || cmd_video1="$cmd_video1 -c:v $video_codec"
-			[[ -z $BIT_VIDEO ]] || cmd_video1="$cmd_video1 -b:v ${BIT_VIDEO}K"
-			
-			# TODO braucht mehr fein tuning
-			cmd_video2="${cmd_video1/pass 1/pass 2}"
-			cmd_video3="${cmd_video1/pass 1/pass 3}"
-			
-			printf "$cmd_video1 $F \"${tmp_ofv}\"" > "$TMP"
-			$beVerbose && tui-title "Executing:" "$(cat $TMP)"
-			doLog "Encode Pass 1: $(cat $TMP)"
-			doExecute "$TMP" "$tmp_ofv" "${STR1/$OF/$tmp_ofv} 1/$PASS" "${STR2/$OF/$tmp_ofv} 1/$PASS"
-	#
-	#	PASS 2/3
-	#			
-			# first 	cmd_video="ffmpeg $verbose -i \"${video}\" -an -pass 1 -y -vcodec $video_codec -b:v ${BIT_VIDEO}K -map 0:0  \"${tmp_of}\""
-			# second:	sed s,"pass 1","pass 2",g -i "$TMP"		
-			
-			$showFFMPEG && tui-title "First past done"
 			# If pass is set to 2, this is generated, if its 3, 2 will be executed
 			if [[ $PASS -eq 2 ]]
 			then	# Generate cmd
-				cmd="$cmd_video2 $cmd_audio_all $cmd_run_specific -i \"$tmp_ofv\" $web $extra $F \"$OF\""
-				doLog "Encode Pass 2: $cmd"
+				cmd="$cmd_video2 $cmd_audio_all $cmd_run_specific $cmd_output_all"
 				$beVerbose && tui-echo "Generated command for final pass ($PASS)"
-				STR1="${STR1} 2/$PASS"
+				STR1="${STR2} 2/$PASS"
 				STR2="${STR2} 2/$PASS"
 			else	# Execute pass 2
 				$beVerbose && tui-echo "Executing command for pass 2/$PASS"
-				printf "$cmd_video2 $cmd_audio_all $cmd_run_specific \"$tmp_ofv\"" > "$TMP"
-				doLog "Encode Pass 2: $(cat $TMP)"
-				$beVerbose && tui-title "Executing:" "$(cat $TMP)"
-				doExecute "$TMP" "$tmp_ofv" "${STR1/$OF/$tmp_ofv} 2/$PASS" "${STR2/$OF/$tmp_ofv} 2/$PASS"
+				doExecute "$cmd_video2" "$dummy" "$STR1 2/$PASS" "$STR2 2/$PASS"
 				# Generate pass 3
 				$beVerbose && tui-echo "Generated command for final pass ($PASS)"
-				cmd="$cmd_video3 $cmd_audio_all $cmd_run_specific -i \"$tmp_ofv\" $F \"$OF\""
-				#cmd="$cmd_video3 -i \"$tmp_ofv\" $web $extra -y $cmd_output_all"
-				doLog "Encode Pass 3: $cmd"
-				STR1="${STR1} 3/$PASS"
+				cmd="$cmd_video3 $cmd_audio_all $cmd_run_specific $cmd_output_all"
+				STR1="${STR2} 3/$PASS"
 				STR2="${STR2} 3/$PASS"
 			fi
-			printf "$cmd" > "$TMP"
 			;;
 		esac
-	# Verify file does not already exists
-	# TODO should no longer be required, atm just failsafe
+# Verify file does not already exists
+# TODO should no longer be required, atm just failsafe
 		skip=false
 		if [[ -f "$OF" ]]
 		then 	if tui-yesno "Outputfile ($OF) exists, overwrite it?"
@@ -1330,29 +1281,24 @@ EOF
 			else	skip=true
 			fi
 		fi
-	# Skip if it was not removed
+# Skip if it was not removed
 		if [[ false = $skip ]] 
 		then
 		#
 		#	Execute the command
 		#
-			printf "$cmd" > "$TMP"
-			$showFFMPEG && tui-echo "Executing:" "$cmd"
-			doExecute "$TMP" "$OF" "$STR1" "$STR2"
-			RET=$?
+			echo doExecute "$TMP" # OPTS
+
 		#
 		#	Do some post-encode checks
 		#	
 			if [[ mkv = $container ]] && [[ $RET -eq 0 ]] && [[ $PASS -ge 2 ]]
 			then	# Set default language if mkv encoding was a successfull 2-pass
-				lang2=$(listIDs|grep Audio|grep ^${audio_ids:0:1}|awk '{print $2}')
-				[[ ${#lang2} -gt 3 ]] && \
-					tui-echo "Could not determine proper langauge, probably wasnt labled before" "$FAIL" && \
-					tui-echo "Labeling it as '$lang', eventhough that might bewrong" || \
-					lang=$lang2
+				# aid = audio id (of stream)
+				[[ 0 -eq $aid ]] && aid=1
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
-				doLog "Audio : Set default audio stream ${audio_ids:0:1}"
+				doLog "Audio : Set default audio stream $aid($lang)"
 				mkvpropedit -q "$OF"	--edit track:a$aid --set flag-default=0 \
 							--edit track:a$aid --set flag-enabled=1 \
 							--edit track:a$aid --set flag-forced=0 \
@@ -1360,18 +1306,17 @@ EOF
 				tui-status $? "$msg"
 			fi
 			#Generate log message
-			[[ 0 -eq $RET ]] && \
-				ret_info="successfully (ret: $RET) \"$OF\"" || \
-				ret_info="a faulty (ret: $RET) \"$OF\""
+			if [[ 0 -eq $RET ]] 
+			then	ret_info="successfully (ret: $RET) \"$OF\""
+			else	ret_info="a faulty (ret: $RET) \"$OF\""
+			fi
 			# Remove tempfiles that were required for 2-pass
 			if  [[ $PASS -ge 2 ]] && [[ 0 -eq $RET ]]
 			then 	tui-title "Remove Tempfiles"
-				for F in "$tmp_ofv" "${done_files[*]}" ffmpeg2pass-0.log ffmpeg2pass-0.log.mbtree ;do
-					tui-printf "Removing \"$F\"" "$WORK"
-					if [[ -f "$F" ]] 
-					then	rm "$F" 2>/dev/zero
-						tui-status $? "Removed: \"$F\"" 
-					fi
+				for F in "$tmp_of" "${done_files[*]}" ffmpeg2pass-0.log ffmpeg2pass-0.log.mbtree ;do
+				tui-printf "Removing \"$F\"" "$WORK"
+				rm "$F"
+				tui-status $? "Removed: \"$F\"" 
 				done
 			fi
 		#
@@ -1391,11 +1336,11 @@ EOF
 			doLog "$msg"
 			tui-status $RET_SKIP "$msg"
 		fi
-	done
-	[[ -z $oPWD ]] || cd "$oPWD"
+	done	
 	if [[ $show_menu = true ]]
 	then 	tui-status $RET_INFO "See '$ME -h' for help"
 		tui-status 1 "Menu is not supported yet" || exit $?
+		
 		# Show menu
 		# after 'generating' the basic variables
 		tui-echo "Selected input:" "$video"
