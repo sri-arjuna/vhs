@@ -1164,6 +1164,7 @@ EOF
 	# Audio	
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") #1&>/dev/zero 2&>/dev/zero
+		#cmd_audio_maps="-map 0:0"
 		if [[ ! -z $audio_ids ]]
 		then # all good
 			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
@@ -1218,6 +1219,7 @@ EOF
 		case $PASS in
 		1)	# Command just needs to be generated
 			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
+			[ -z $video_codec ] || cmd_video_all+=" -map 0:0"
 			cmd="$cmd_all $cmd_input_all $web $extra $cmd_video_all $cmd_audio_all $cmd_run_specific $cmd_audio_maps $cmd_output_all"
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
