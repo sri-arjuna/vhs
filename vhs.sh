@@ -1118,6 +1118,7 @@ EOF
 		doLog "$msg"
 		$beVerbose && tui-echo "$msg"
 		;;
+#	*)	cmd_video_all+=" $buffer"	;;
 	esac
 #
 #	Display & Action
@@ -1231,18 +1232,26 @@ EOF
 		tmp_of="${OF##*/}\""
 		tmp_if="${video##*/}\""
 		# Make these strings match onto a single line
-		tmp_border=$[ 6 + 8 + 2]	# Thats TUI_BORDERS TUI_WORK and 2 space chars
-		if [ $(tput cols) -gt $[ ${#tmp_if} + ${#tmp_of} + $tmp_border ] ]
-		then	tmp_if="${tmp_if:0:${#tmp_if}/3}...${tmp_if:(-7)}"
-			tmp_of="${tmp_of:0:${#tmp_of}/3}...${tmp_of:(-7)}"
+		tmp_border=$[ 6 + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
+		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
+		# Currently shortens every file... :(
+		if [ $string_line -gt $(tput cols) ]
+		then	tmp_if="${tmp_if:0:${#tmp_if}/4}...${tmp_if:(-6)}"
+			tmp_of="${tmp_of:0:${#tmp_of}/4}...${tmp_of:(-6)}"
 		fi
+		
+		
+		# TODO TEMPFIX
+	#	buffer="-preset veryfast $buffer"
+		# TODO done tempfix
+		
 		
 		oPWD="$(pwd)"
 		case $PASS in
 		1)	# Command just needs to be generated
 			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
 			#[ -z $video_codec ] || cmd_video_all+=" -map 0:0"
-			cmd="$cmd_all $cmd_input_all $web $extra $cmd_video_all $cmd_audio_all $cmd_run_specific $cmd_audio_maps $cmd_output_all"
+			cmd="$cmd_all $cmd_input_all $web  $extra $cmd_video_all $cmd_audio_all $cmd_run_specific $cmd_audio_maps $cmd_output_all"
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
 			STR2="Encoded \"$tmp_if\" to \"$tmp_of"
