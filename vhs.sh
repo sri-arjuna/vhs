@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU Lesser General Public License (LGPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.09.21
-	script_version=0.8
+#	Changed:	2014.09.25
+	script_version=0.8.1
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
