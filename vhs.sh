@@ -410,7 +410,7 @@ Log:		$LOG
 			exit $RET_FAIL
 			;;
 		1)	tui-echo "Using only audio stream found..." "$DONE"
-			audio_ids=1
+			audio_ids=$(listAudioIDs)
 			#audio_maps+=" -map:0:$audio_ids"
 			printf $audio_ids > $TMP
 			;;
