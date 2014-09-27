@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.09.25
-	script_version=0.8.1
+#	Changed:	2014.09.27
+	script_version=0.8.2
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -557,24 +557,23 @@ Log:		$LOG
 		# Done ?? dont work for me, but seems to for others
 		# Maybe because i have disabled the laptop's internal webcam in BIOS
 		msg+=" Capturing"
-		tui-status $RET_INFO "Press 'q' to stop recording from the $MODE..."
-		srcs=($(ls /dev/video*))
-		case ${#srcs[@]} in
-		1)	echo jup ;;
-		esac
+		#tui-status $RET_INFO "Press 'q' to stop recording from the $MODE..."
+		srcs=($(ls /dev/video*)) 
+		[[ -z $srcs ]] && tui-echo "No video recording device found!" "$TUI_FAIL" && exit 1
 		if [[ "$(printf $srcs)" = "$(printf $srcs|awk '{print $1}')" ]]
 		then 	input_video="$srcs"
 		else	tui-echo "Please select the video source to use:"
 			select input_video in $srcs;do break;done
 		fi
 		
-		tui-status $RET_INFO "Standard is said to be working, sea's should - but might not, please report"
-		select webcam_mode in standard sea;do
+		#tui-status $RET_INFO "Standard is said to be working, sea's should - but might not, please report"
+		[[ -z "$verbose" ]] && verbose="-v quiet"
+		#select webcam_mode in standard sea;do
+		webcam_mode=standard
 			case $webcam_mode in
 			standard)	# Forum users said this line works
 					doLog "Overwrite already generated name, for 'example' code.. "
-					OF="$(genFilename output.mpg mpg)"
-					## cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i /dev/video0 $F \"${OF}\"" ## ORGINAL
+					OF="$(genFilename $HOME/webcam-out.mpg mpg)"
 					cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i $input_video $F \"${OF}\""
 					;;
 			sea)		# Non working ??
@@ -584,9 +583,11 @@ Log:		$LOG
 			esac
 			doLog "WebCam: Using $webcam_mode command"
 			doLog "Command-Webcam: $cmd"
-			break
-		done
+		#	break
+		#done
 		printf "$cmd" > "$TMP.cmd"
+		OF="$OF"
+		#doExecute "$OF" "Saving Webcam to '$OF'"
 	}
 	WriteContainers() { # 
 	# Writes several container files and their default / suggested values
@@ -1127,6 +1128,8 @@ EOF
 	case $MODE in
 	dvd|screen|webcam) 	# TODO For these 3 i can implement the bitrate suggestions...
 				#OF="$HOME/$OF"
+				#OF=$(genFilename "$HOME/$OF" "$container")
+				
 				$beVerbose && tui-echo "Set outputfile to $OF"
 				msg="Beginn:"
 				msgA="Generated command for $MODE-encoding in $TMP.cmd"
@@ -1139,12 +1142,13 @@ EOF
 					cmd="$cmd_all $cmd_input_all $cmd_audio_all $cmd_video_all $extra $web $F \"${OF}\""
 					printf "$cmd" > "$TMP.cmd"
 					$beVerbose && tui-echo "$msgA"
-					tui-status $RET_INFO "Press 'q' to stop recording from the $MODE..."
 					;;
 				dvd)	doDVD		;;
 				esac
+				#tui-status $RET_INFO "Press 'q' to stop recording from the $MODE..."
+				tui-status $RET_INFO "Press 'CTRL+C' to stop recording from the $MODE..."
 				doLog "$msgA"
-				doExecute $TMP.cmd "$OF" "Recording screen to '$OF'"
+				doExecute $TMP.cmd "$OF" "Saving to '$OF'"
 				exit
 			;;
 	audio)		# TODO Figure out audio MODE -- container?!
