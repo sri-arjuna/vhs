@@ -126,15 +126,14 @@ Usage: 		$ME [options] videos ...
 Examples:	$ME -s				| Enter the configuration/setup menu
 		$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
 		$ME -c ${BOLD}a${RESET}LIBX -c ${BOLD}v${RESET}LIBY filename	| Force given codecs to be used for either audio or video (leading char)
-		$ME -DC filename		| Re-encode a DVD and just copy streams
+		$ME -Dy filename		| Re-encode a DVD and just copy streams
 		$ME -[DSW]			| Encodes from DVD or captures video from screen or webcam
 		$ME -l ger			| Add this language to be added automaticly if found
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
-	-H(help)			This and more help
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
-	-B(itrates)			Use bitrates (av) from configuration ($CONFIG)
+	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
 	-C(onfig)			Shows the configuration dialog
 	-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1)
@@ -1067,7 +1066,7 @@ EOF
 		esac
 	done
 	shift $(($OPTIND - 1))
-	[[ -z $1 ]] && printf "$help_text" && exit $RET_HELP
+	#[[ -z $1 ]] && printf "$help_text" && exit $RET_HELP
 #
 #	Little preparations before we start showing the interface
 #
@@ -1145,7 +1144,7 @@ EOF
 				dvd)	doDVD		;;
 				esac
 				doLog "$msgA"
-				doExecute $TMP.cmd
+				doExecute $TMP.cmd "$OF" "Recording screen to '$OF'"
 				exit
 			;;
 	audio)		# TODO Figure out audio MODE -- container?!
