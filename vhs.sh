@@ -26,7 +26,7 @@
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
 #	Changed:	2014.09.29
-	script_version=0.9.0
+	script_version=0.9.1
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -191,7 +191,7 @@ RES:		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280
 		* ${BOLD}dvd${RESET}	720x576 	a192 v512
 		* ${BOLD}hdr${RESET}	1280x720	a192 v1024
 		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1280
-		* ${BOLD}4k${RESET} 	4096x2160	a385 v2560
+		* ${BOLD}4k${RESET} 	3840x2160	a384 v2560
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
 VIDEO:		[/path/to/]videofile
@@ -352,7 +352,7 @@ Log:		$LOG
 		"${LIST[3]}")	printf "720x576"  ;;
 		"${LIST[4]}")	printf "1280x720" ;;
 		"${LIST[5]}")	printf "1920x1080";;
-		"${LIST[6]}")	printf "4096x2160";;
+		"${LIST[6]}")	printf "3840x2160";;
 		esac
 		return 0
 	}
