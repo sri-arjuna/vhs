@@ -1517,18 +1517,8 @@ EOF
 		fi
 	done
 	[[ -z $oPWD ]] || cd "$oPWD"
-	if [[ $show_menu = true ]]
-	then 	tui-status $RET_INFO "See '$ME -h' for help"
-		tui-status 1 "Menu is not supported yet" || exit $?
-		# Show menu
-		# after 'generating' the basic variables
-		tui-echo "Selected input:" "$video"
-		# Verify output filename
-		outputfile=$(genFilename "$video" "$container")
-		tui-echo "What is the outputs name? (leave empty for: $outputfile)"
-		newname=$(tui-read "Type the name:")
-		[[ -z "$newname" ]] && newname="$outputfile"
-		# If user has not passed file container / extension
-		printf "$newname"|grep -q $container || newname+=".$container"
+	if [[ -z "$1" ]]
+	then 	printf "$help_text"
+		exit $RET_HELP
 	fi
 exit 0
