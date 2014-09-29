@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.09.28
-	script_version=0.8.5
+#	Changed:	2014.09.29
+	script_version=0.9.0
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -93,6 +93,7 @@
 	override_audio_codec=false	# -c a	/ -C
 	override_video_codec=false	# -c v	/ -C
 	override_container=false	# -e ext
+	useFPS=false			# -f / -F
 	useRate=false			# -R
 	useSubs=false			# -t
 	useJpg=false			# -j
@@ -115,23 +116,25 @@
 	ffmpeg_silent="ffmpeg -v quiet" # [-V]		Regular or debug verbose
 	ffmpeg_verbose="ffmpeg -v verbose"	# -v		ffmpeg verbose
 	hwaccel="-hwaccel vdpau"	# NOT USED -H		Enable hw acceleration
-	txt_meta_me="'Re-encoded by VHS ($TITLE $script_version)'"
+	txt_meta_me="'Encoded by VHS ($TITLE $script_version), using $(ffmpeg -version|grep ^ffmpeg|sed s,'version ',,g)'"
 	txt_mjpg=""
+	FPS_ov=""
 #
 #	Help text
 #
-	BOLD=$TUI_FONT_BOLD
-	RESET=$TUI_COLOR_RESET
+	BOLD="$TUI_FONT_BOLD"
+	RESET="$TUI_COLOR_RESET"
 	help_text="
 $ME ($script_version) - ${TITLE^}
 Usage: 		$ME [options] videos ...
 
-Examples:	$ME -s				| Enter the configuration/setup menu
+Examples:	$ME -C				| Enter the configuration/setup menu
 		$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
-		$ME -c ${BOLD}a${RESET}LIBX -c ${BOLD}v${RESET}LIBY filename	| Force given codecs to be used for either audio or video (leading char)
-		$ME -Dy filename		| Re-encode a DVD and just copy streams
-		$ME -[DSW]			| Encodes from DVD or captures video from screen or webcam
-		$ME -l ger			| Add this language to be added automaticly if found
+		$ME -c ${BOLD}a${RESET}LIBX -c ${BOLD}v${RESET}LIBY filename	| Force given codecs to be used for either audio or video (NOT recomended!)
+		$ME -e mp4 filename		| Re-encode a file, just this one time to mp4, using the input files bitrates
+		$ME -[S|W]			| Record a video from screen or webcam
+		$ME -l ger			| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
+		$ME -Q fhd filename		| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
@@ -140,10 +143,11 @@ Where options are: (only the first letter)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
 	-C(onfig)			Shows the configuration dialog
 	-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1)
-	-D(VD)				Encode from DVD
+(drop?)	-D(VD)				Encode from DVD
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-E(xternal)			Requires '-p 2|3', Saves the audio streams as external files
-	-f(aststart)			Moves the videos info to start of file (web compatibility)
+	-f(ps)		FPS		Force the use of the passed FPS
+	-F(PS)				Use the FPS from the config file
 	-i(nfo)		VIDEO		Shows a short overview of the video its streams
 	-j(pg)				Include the 'icon-image' if available
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa)
@@ -155,11 +159,12 @@ Where options are: (only the first letter)
 	-r(ate)		HRZ		Values from 48000 to 96000, or similar
 	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
 	-S(creen)			Records the fullscreen desktop
-(PLAN)	-t(itles)			Use default and provided langauges as subtitles where available
-	-T(imeout)	TIME		Set the timeout between videos to SECONDS (append either 'm' or 'h' as other units)
+(ALPHA)	-t(itles)			Use default and provided langauges as subtitles where available
+	-T(imeout)	TIME		Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
 	-v(erbose)			Displays encode data from ffmpeg
 	-V(erbose)			Show additional info on the fly
-(BETA)	-W(ebcam)			Encodes from webcam
+	-w(eb-optimized)		Moves the videos info to start of file (web compatibility)
+	-W(ebcam)			Encodes from webcam
 	-x(tract)			Clean up the log file
 	-X(tract)			Clean up system from $ME-configurations
 	-y(copY)			Just copy streams, fake convert
@@ -169,7 +174,7 @@ Info:
 ------------------------------------------------------
 After installing codecs, drivers or plug in of webcam,
 it is highy recomended to update the list file.
-You can do so by entering the Setup dialog: $ME -S
+You can do so by entering the Setup dialog: $ME -C
 and select 'UpdateLists'.
 
 Recording from webcam does a terminal lockup on my system.
@@ -181,13 +186,15 @@ Values:
 ------------------------------------------------------
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
-RES:		* ${BOLD}screen${RESET} (screen res) 	a192 v1280
+RES:		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280
 		* ${BOLD}clip${RESET}	320x240 	a128 v256
 		* ${BOLD}vhs${RESET}	640x480 	a128 v384
 		* ${BOLD}dvd${RESET}	720x576 	a192 v512
-		* ${BOLD}hdr${RESET}	1280x720	a192 v768
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1024
-CONTAINER:	aac ac3 dts mkv mp3 mp4 ogg vorbis wav webm
+		* ${BOLD}hdr${RESET}	1280x720	a192 v1024
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1280
+		* ${BOLD}4k${RESET} 	4096x2160	a385 v2560
+CONTAINER (a):	aac ac3 dts mp3 wav
+CONTAINER (v):  mkv mp4 ogm webm
 VIDEO:		[/path/to/]videofile
 LNG:		A valid 3 letter abrevihation for diffrent langauges
 PASS:		2 3
@@ -288,7 +295,7 @@ Log:		$LOG
 	listAttachents(){ #
 	# To call after StreamInfo or vhs -i video
 	#
-		for TaID in $(grep Attach $TMP|awk '{print $2}');do
+		for TaID in $(grep Attach $TMP|awk '{print $2}');do # |grep mjpg
 			printf " ${TaID:3:(-1)} "
 		done
 	}
@@ -310,8 +317,9 @@ Log:		$LOG
 		container="$2"
 		# TODO find better way to get extension
 		for ext in $(printf "$video"|sed s,"\."," ",g);do printf "" > /dev/zero;done
+		[[ "$ext" = "$video" ]] && ext="$container" && video="$video.$container"
 		
-		if [[ ! $ext = $container ]]
+		if [[ ! "$ext" = "$container" ]]
 		then 	outputfile="${video/$ext/$container}"
 			[[ ! -f $outputfile ]] && \
 				doLog "Output: \"$outputfile\"" && \
@@ -330,7 +338,7 @@ Log:		$LOG
 	getRes() { # [-l] ID
 	# Returns 2 digits (W*H) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd)
+		LIST=( screen clip vhs dvd hdr fhd 4k)
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
@@ -345,13 +353,14 @@ Log:		$LOG
 		"${LIST[3]}")	printf "720x576"  ;;
 		"${LIST[4]}")	printf "1280x720" ;;
 		"${LIST[5]}")	printf "1920x1080";;
+		"${LIST[6]}")	printf "4096x2160";;
 		esac
 		return 0
 	}
 	getQualy() { # [-l] ID
 	# Returns 2 numbers (audio video) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd)
+		LIST=( screen clip vhs dvd hdr fhd 4k)
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
@@ -363,8 +372,9 @@ Log:		$LOG
 		"${LIST[1]}")	printf "128 256" ;;
 		"${LIST[2]}")	printf "128 384" ;;
 		"${LIST[3]}")	printf "192 512" ;;
-		"${LIST[4]}")	printf "192 768" ;;
-		"${LIST[5]}")	printf "256 1024";;
+		"${LIST[4]}")	printf "192 1024";;
+		"${LIST[5]}")	printf "256 1280";;
+		"${LIST[6]}")	printf "384 2560";;
 		esac
 		return 0
 	}
@@ -730,7 +740,8 @@ file_extra=$fe" > $entry
 req_inst=false
 
 # Available (yet supported) containers:
-# -> (avi) mkv mp4 ogg webm
+# VIDEO -> avi mkv mp4 ogg webm
+# AUDIO -> aac ac3 dts mp4 wav
 container=mkv
 
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
@@ -742,6 +753,10 @@ audio_bit=192
 # AFAIK: for full hd (1920*1080) movies 1280kb video bit rate should be almost visualy lossless.
 video_bit=768
 
+# Make sure the video has at least this amount of Frames per Second
+# This is only applied, if you pass -F, -f ARG will overwrite this value
+FPS=25
+
 # See ffmpeg output (vhs -i FILE // ffmpeg -psnr -i FILE) for your language abrevihation
 # if 'lang' is not found it will take 'lang_alt' if available
 lang=ger
@@ -749,14 +764,14 @@ lang_alt=eng
 lang_force_both=false
 
 # If DTS is found, to how many channels shall it 'downgrade'?
-# Range::  1) Mono, 2) Stereo, [3-5]) unkown, 6) 5.1 Surround
+# Range::  1) Mono, 2) Stereo, [3-5]) unkown, 6) 5.1 Surround, 7) '6.1' Surround
 # If you use a surround system, just set channel_downgrade=false
 channels=2
 channel_downgrade=true
 
 # Suggested audio rates (hz) are around 44000 to 96000
 audio_rate=48000
-audio_rate_force=false
+useRate=false
 
 # Subtitle
 subtitle=ssa
@@ -766,7 +781,7 @@ subtitle=ssa
 sleep_between=45s
 
 # This is a default value that should work on most webcams
-# Please use the script's Setup to change the values
+# Please use the script's Configscreen (-C) to change the values
 webcam_res=640x480
 webcam_fps=25
 EOF
@@ -868,7 +883,7 @@ EOF
 #	Catching Arguments
 #
 	tui-log -e "$LOG" "\r---- New call $$ ----"
-	while getopts "aBb:c:Cd:De:EfhHi:I:Ll:O:p:Rr:SstT:q:Q:vVWxXy" opt
+	while getopts "aBb:c:Cd:De:Ef:FhHi:I:jLl:O:p:Rr:SstT:q:Q:vVwWxXy" opt
 	do 	case $opt in
 		b)	char="${OPTARG:0:1}"
 			case "$char" in
@@ -935,9 +950,10 @@ EOF
 			$beVerbose && tui-echo "$msg"
 			doLog "$msg"
 			;;
-		f)	doLog "Options: Optimize for web usage."
-			web="-movflags faststart"
-			$beVerbose && tui-echo "Options: Moved 'faststart' flag to front, stream/web optimized"
+		f)	useFPS=true
+			FPS_ov="$OPTARG"
+			;;
+		F)	useFPS=true
 			;;
 		h)	doLog "Show Help"
 			printf "$help_text"
@@ -1042,6 +1058,10 @@ EOF
 			tui-title "Retrieve options"
 			tui-echo "$msg"
 			;;
+		w)	doLog "Options: Optimize for web usage."
+			web="-movflags faststart"
+			$beVerbose && tui-echo "Options: Moved 'faststart' flag to front, stream/web optimized"
+			;;
 		W)	MODE=webcam
 			OF=$(genFilename "$HOME/webcam-out.$container" $container )
 			override_container=true
@@ -1082,11 +1102,11 @@ EOF
 	$beVerbose && tui-title "Analyse provided options..."
 	src="$CONTAINER/$container" ; source "$src"
 	# If (not) set...
-	echo $video_codec
 	[[ -z $video_codec ]] && [[ ! -z $audio_codec ]] && MODE=audio		# If there is no video codec, go audio mode
 	#[[ ! -z $video_codec ]] && [[ $PASS -lt 2 ]] && \
 		cmd_video_all=" -map 0:0"			# Make sure video stream is used always
-	[[ -z $FFMPEG ]] && cmd_all="$ffmpeg_silent" || cmd_all="$FFMPEG"	# Initialize the final command
+	$showFFMPEG && FFMPEG="$ffmpeg_verbose" || FFMPEG="$ffmpeg_silent"	# Initialize the final command
+	[[ -z $FFMPEG ]] && cmd_all="$ffmpeg_silent" || cmd_all="$FFMPEG"	
 	[[ -z $BIT_AUDIO ]] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
 	[[ -z $BIT_VIDEO ]] || cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
 	[[ -z $RES ]] || cmd_video_all+=" -vf scale=$RES"			# Set video resolution
@@ -1095,6 +1115,11 @@ EOF
 	# Bools...
 	$file_extra && F="-f $container"					# File extra, toggle by container
 	$code_extra && extra+=" -strict -2"					# codec requires strict, toggle by container
+	$channel_downgrade && cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
+	if $useFPS
+	then	[[ -z $FPS_ov ]] || FPS=$FPS_ov
+		cmd_video_all+=" -r $FPS"
+	fi
 	$useRate && cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
 	$useSubs && \
 		cmd_subtitle_all=" -c:s $subtitle" || \
@@ -1156,23 +1181,60 @@ EOF
 				exit
 			;;
 	audio)		# TODO Figure out audio MODE -- container?!
-			$beVerbose && tui-echo "Save as $OF_FORCED, using $ID_FORCED"
+			tui-echo "THIS IS BETA and considred UNSTABLE!"
+			
+			lids="" ; for i in $(listAudioIDs);do lids+=" $i";done
+			tui-echo "Found audio ids:" "$lids"
+		# Shared vars	
+			tDir=$(dirname "$(pwd)/$1")
+			tIF=$(basename "$1")
+			tui-echo "Audio files are encoded within pwd:" "$tDir"
+					
+			
+			
+			
+			if [[ ! -z "$ID_FORCED" ]]
+			then	# Just this one ID
+				tui-echo "However, this ID is forced:" "$ID_FORCED"
+			# Generate command
+				audio_maps="-map 0:$ID_FORCED"
+				[[ -z "$OF_FORCED" ]] && \
+					OF=$(genFilename "${1}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
+					OF=$(genFilename "$OF_FORCED" $ext)
+				tOF=$(basename "$OF")
+				tui-echo "Outputfile will be:" "$tOF"
+				cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra -y \"$OF\""
+				printf "$cmd" > "$TMP"
+			# Execute
+				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
+				exit $?
+			else	# Parse all available audio streams
+				for AID in $(listAudioIDs);do
+				# Generate command
+					OF=$(genFilename "${1}" $ext)
+					OF=${OF/.$ext/.id$AID.$ext}
+					tOF=$(basename "$OF")
+					audio_maps=""
+					for i in $FORCED_IDS;do
+						audio_maps+=" -map 0:$i"
+					done
+			
+					cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra -y \"$OF\""
+					printf "$cmd" > "$TMP"
+				# Display progress	
+					tui-title "Saving audio stream: $AID"
+					doExecute "$TMP" \
+						"$OF" \
+						"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
+				done
+			fi
+			
+			#$beVerbose && 
+			#	tui-echo "Save as $OF_FORCED, using $ID_FORCED"
 			$showFFMPEG && \
 				FFMPEG=$ffmpeg_verbose || \
 				FFMPEG=$ffmpeg_silent
-		# Generate command
-			OF=$(genFilename "${1}" $ext)
-			audio_maps=""
-			for i in $FORCED_IDS;do
-				audio_maps+=" -map 0:$i"
-			done
 			
-			cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra \"$OF\""
-			printf "$cmd" > "$TMP"
-		# Display progress	
-			tui-title "Saving audio stream"
-			tui-echo "Audio files are encoded within pwd:" "$(pwd)"
-			doExecute "$TMP" "$OF" "Encoding \"$1\" to $container" "Encoded audio to \"$OF\""
 			exit $?
 			;;
 	# video)		echo just continue	;;
@@ -1199,18 +1261,22 @@ EOF
 	#
 		$0 -i "$video"						# Calling itself with -info for video
 		if $useJpg
-		then	for i in $(listAttachents);do
+		then	tui-echo
+			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
+			for i in $(listAttachents);do
 				txt_mjpg+=" -map 0:$i"
 			done
 		fi
-		
-		tui-echo
+	# Metadata
+		METADATA="$txt_mjpg -metadata composer=$txt_meta_me -metadata description=$txt_meta_me"
 	# Audio	
+		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
 		if [[ ! -z $audio_ids ]]
 		then	# all good
 			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
+			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
 		else	# handle empty
 			tui-echo "No audio stream could be recognized"
 			tui-echo "Please select the ids you want to use, choose done to continue."
@@ -1221,21 +1287,16 @@ EOF
 				tui-echo "Now using audio ids: $audio_ids"
 			done
 		fi
-
 		msg="Using for audio streams: $audio_ids"
-		$beVerbose && tui-echo "$msg"
 		doLog "$msg"
 	# Subtitles
 		if $useSubs
 		then	doSubs > /dev/zero
 			$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
 			subtitle_list=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
-			#cat $TMP
-			#exit
 			if [[ ! -z $subtitle_list ]]
 			then # all good
 				for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
-				#$beVerbose && tui-echo "Using subtitle ids: $subtitle_ids" "maps: $subtitle_maps"
 			else	# handle empty
 				tui-echo "No subtitle stream could be recognized"
 				tui-echo "Please select the ids you want to use, choose done to continue."
@@ -1245,7 +1306,7 @@ EOF
 					tui-echo "Now using subtitles ids: $subtitle_ids"
 				done
 			fi
-		fi	
+		fi
 	#
 	#	Handle video pass 1
 	#
@@ -1264,7 +1325,7 @@ EOF
 		case $PASS in
 		1)	# Command just needs to be generated
 			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
-			cmd="$cmd_all $cmd_input_all $web  $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $txt_mjpg -metadata composer=$txt_meta_me -metadata description=$txt_meta_me $cmd_output_all"
+			cmd="$cmd_all $cmd_input_all $web  $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $METADATA $cmd_output_all"
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
 			STR2="Encoded \"$tmp_if\" to \"$tmp_of"
