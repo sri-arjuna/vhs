@@ -189,9 +189,9 @@ RES:		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280
 		* ${BOLD}clip${RESET}	320x240 	a128 v256
 		* ${BOLD}vhs${RESET}	640x480 	a128 v384
 		* ${BOLD}dvd${RESET}	720x576 	a192 v512
-		* ${BOLD}hdr${RESET}	1280x720	a192 v1024
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1280
-		* ${BOLD}4k${RESET} 	3840x2160	a384 v2560
+		* ${BOLD}hdr${RESET}	1280x720	a192 v1280
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v2048
+		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
 VIDEO:		[/path/to/]videofile
@@ -371,9 +371,9 @@ Log:		$LOG
 		"${LIST[1]}")	printf "128 256" ;;
 		"${LIST[2]}")	printf "128 384" ;;
 		"${LIST[3]}")	printf "192 512" ;;
-		"${LIST[4]}")	printf "192 1024";;
-		"${LIST[5]}")	printf "256 1280";;
-		"${LIST[6]}")	printf "384 2560";;
+		"${LIST[4]}")	printf "192 1280";;
+		"${LIST[5]}")	printf "256 2048";;
+		"${LIST[6]}")	printf "384 4096";;
 		esac
 		return 0
 	}
@@ -1104,7 +1104,7 @@ EOF
 				SS_END="$t_mins:$t_secs"
 			fi
 			TIMEFRAME="-ss $SS_START -to $SS_END"
-			tui-echo "Start: $SS_START" "End: $SS_END"
+			$beVerbose && tui-echo "Start: $SS_START" "End: $SS_END"
 			;;
 		*)	msg="Invalid argument: $opt : $OPTARG"
 			doLog "$msg"
