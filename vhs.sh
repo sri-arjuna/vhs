@@ -1261,7 +1261,7 @@ EOF
 				exit
 			;;
 	guide)		# ffmpeg -y -f v4l2 -s 1280x720 -framerate 24 -i /dev/video0 -f x11grab -s 1280x720 -framerate 24 -i :0 -f pulse -i default -filter_complex '[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay' -c:v libx264 -crf 23 -preset veryfast -c:a libmp3lame -q:a 4 overlay.mp4
-			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 \"$OF\""
+			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $METADATA \"$OF\""
 			printf "$cmd" > "$TMP"
 			
 			doLog "Command-Guide: $cmd"
