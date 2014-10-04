@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.10.03
-	script_version=1.0.0
+#	Changed:	2014.10.04
+	script_version=1.0.3
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -36,7 +36,7 @@
 #	Resources:	http://ffmpeg.org/index.html
 #			https://wiki.archlinux.org/index.php/FFmpeg
 #			https://support.google.com/youtube/answer/1722171?hl=en&ref_topic=2888648
-#			kepstin-laptop of #ffmpeg on freenode.irc
+#			users of #ffmpeg on freenode.irc
 #
 #
 # This script requires TUI - Text User Interface
@@ -193,8 +193,8 @@ RES:		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280
 		* ${BOLD}clip${RESET}	320x240 	a128 v256	(1min ~ 2.4 mb)
 		* ${BOLD}vhs${RESET}	640x480 	a128 v384	(1min ~ 3.1 mb)
 		* ${BOLD}dvd${RESET}	720x576 	a192 v512	(1min ~ 4.1 mb)
-		* ${BOLD}hdr${RESET}	1280x720	a192 v1280	(1min ~ 8.3 mb)
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v2048	(1min ~ 12.9 mb)
+		* ${BOLD}hdr${RESET}	1280x720	a192 v1024	(1min ~ 9.8 mb)
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1536	(1min ~ 14.9 mb)
 		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096	(1min ~ 24.4 mb)
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
@@ -375,8 +375,8 @@ Log:		$LOG
 		"${LIST[1]}")	printf "128 256" ;;
 		"${LIST[2]}")	printf "128 384" ;;
 		"${LIST[3]}")	printf "192 512" ;;
-		"${LIST[4]}")	printf "192 1280";;
-		"${LIST[5]}")	printf "256 2048";;
+		"${LIST[4]}")	printf "192 1024";;
+		"${LIST[5]}")	printf "256 1536";;
 		"${LIST[6]}")	printf "384 4096";;
 		esac
 		return 0
@@ -603,14 +603,14 @@ Log:		$LOG
 			case $webcam_mode in
 			standard)	# Forum users said this line works
 					doLog "Overwrite already generated name, for 'example' code.. "
-					OF="$(genFilename $HOME/webcam-out.mpg mpg)"
+					OF="$(genFilename $HOME/webcam-out.$container $container)"
 					#sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
 					web_audio=" -f alsa -i default"
-					cmd="ffmpeg $verbose -f v4l2 -s $webcam_res -i $input_video $web_audio $F \"${OF}\""
+					cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $web_audio $extra $METADATA $F \"${OF}\""
 					;;
 			sea)		# Non working ??
 					OF="$SCREEN_OF"
-					cmd="ffmpeg $verbose -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f $sound -i default -acodec $audio_codec -vcodec $video_codec $extra $F \"${OF}\""
+					cmd="$FFMPEG -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f $sound -i default -acodec $audio_codec -vcodec $video_codec $extra $METADATA $F \"${OF}\""
 					;;
 			esac
 			doLog "WebCam: Using $webcam_mode command"
@@ -628,35 +628,43 @@ Log:		$LOG
 		header="# $ME ($script_version) - Container definition"
 		[[ -d "$CONTAINER" ]] || mkdir -p "$CONTAINER"
 		cd "$CONTAINER"
-		for entry in avi mp4 mkv ogg webm aac ac3 dts wav mp3 vorbis clip dvd;do
+		for entry in aac ac3 avi dts flac mpeg mp4 mkv ogg ogv mp3 theora vorbis webm wma wmv wav xvid;do	# clip dvd
 			case $entry in
 		# Containers
 			avi)	# TODO, this is just assumed / memory
-				ca=mpeg2video 	# Codec Audio
-				cv=mp3		# Codec Video
+				ca=libmp3lame 	# Codec Audio
+				cv=msvideo1		# Codec Video
 				ce=false	# Codec extra (-strict 2)
 				fe=true		# File extra (audio codec dependant '-f ext')
 				ba=128		# Bitrate Audio
 				bv=384		# Bitrate Video
 				ext=$entry	# Extension used for the video file
 				;;
+			#									## These bitrates are NOT used... !!
 			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry 	;;
-			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ba=256	; bv=1024	; ext=$entry	;;
-			ogg)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry	;;
+			mpeg)	ca=libmp3lame 	; cv=mpeg2video	; ce=false	; fe=false	; ba=128	; bv=768	; ext=$entry	;;
+			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ba=256	; bv=1280	; ext=$entry	;;
+			ogv)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ba=192	; bv=1024	; ext=ogv	;;
+			theora)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ba=192	; bv=1024	; ext=ogv	;;
 			webm)	ca=libvorbis 	; cv=libvpx	; ce=true	; fe=true	; ba=256	; bv=1280	; ext=$entry	;;
+			wmv)	ca=wmav2  	; cv=wmv2	; ce=false	; fe=false	; ba=256	; bv=768	; ext=$entry	;;
+			xvid)	ca=libmp3lame  	; cv=libxvid	; ce=false	; fe=true	; ba=256	; bv=768	; ext=avi	;;
 		# Audio Codecs
 			aac)	ca=aac 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry	;;
 			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry 	;;
-			mp3)	ca=mp3 		; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
-		#	vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=ogm	;;
 			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
+			flac)	ca=flac		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
+			mp3)	ca=mp3 		; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
+			ogg)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
+			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=ogg	;;
+			wma)	ca=wmav2  	; cv=		; ce=false	; fe=true	; ba=256	; bv=		; ext=$entry	;;
 			wav)	ca=pcm_s16le	; cv=		; ce=false	; fe=false	; ba=384	; bv=		; ext=$entry	;;
 
 		# Experimental
-			clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ba=128	; bv=384	; ext=mp4	;;
-			dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
-			webcam)	# TODO
-				ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
+		#	clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ba=128	; bv=384	; ext=mp4	;;
+		#	dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
+		#	webcam)	# TODO
+		#		ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
 			# blob)	ca=	; cv=	; ce=false	; fe=false	; ba=	; bv=	; ext=$entry	;;
 			esac
 			touch $entry
@@ -880,6 +888,7 @@ EOF
 	then 	tui-header "$ME ($script_version)" "$(date +'%F %T')"
 		tui-bol-dir "$CONFIG_DIR"
 		$beVerbose && tui-echo "Entering first time setup." "$SKIP"
+		req_inst=false
 		
 		doLog "Setup: Writing container and list files"
 		WriteContainers
@@ -980,7 +989,6 @@ EOF
 			doLog "Force using FPS from config file"
 			;;
 		G)	MODE=guide
-			OF=$(genFilename "$HOME/guide-out.$container" $container )
 			msg="Options: Set MODE to Guide, saving as $OF"
 			doLog "$msg"
 			$beVerbose && tui-echo "$msg"doLog "Mode: $MODE"
@@ -1089,10 +1097,6 @@ EOF
 			$beVerbose && tui-echo "$msg"
 			;;
 		S)	MODE=screen
-			OF=$(genFilename "$HOME/screen-out.$container" $container )
-			msg="Options: Set MODE to Screen, saving as $OF"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
 			;;
 		t)	useSubs=true
 			doLog "Options: Use subtitles"
@@ -1122,7 +1126,7 @@ EOF
 			$beVerbose && tui-echo "Options: Moved 'faststart' flag to front, stream/web optimized"
 			;;
 		W)	MODE=webcam
-			OF=$(genFilename "$HOME/webcam-out.$container" $container )
+			OF=$(genFilename "$HOME/webcam-out.$container" $ext )
 			override_container=true
 			msg="Options: Set MODE to Webcam, saving as $OF"
 			doLog "$msg"
@@ -1189,7 +1193,7 @@ EOF
 	[[ -z $OF ]] || cmd_output_all="$OF"					# Set output file 
 	[[ -z $BIT_VIDEO ]] || buffer=" -minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
 	# Bools...
-	$file_extra && F="-f $container"					# File extra, toggle by container
+	$file_extra && F="-f $ext"					# File extra, toggle by container
 	$code_extra && extra+=" -strict -2"					# codec requires strict, toggle by container
 	$channel_downgrade && cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
 	if $useFPS
@@ -1245,10 +1249,14 @@ EOF
 				case $MODE in
 				webcam) doWebCam	;;
 				screen) #doScreen
+					OF=$(genFilename "$HOME/screen-out.$container" $container )
+					msg="Options: Set MODE to Screen, saving as $OF"
+					doLog "$msg"
+					$beVerbose && tui-echo "$msg"
 					msg+=" Capturing"
 					[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
 					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-					cmd="$cmd_all $cmd_input_all $web $METADATA $F \"${OF}\""
+					cmd="$cmd_all $cmd_input_all $web $METADATA $extra $F \"${OF}\""
 					printf "$cmd" > "$TMP.cmd"
 					doLog "Screenrecording: $cmd"
 					$beVerbose && tui-echo "$msgA"
@@ -1261,7 +1269,10 @@ EOF
 				exit
 			;;
 	guide)		# ffmpeg -y -f v4l2 -s 1280x720 -framerate 24 -i /dev/video0 -f x11grab -s 1280x720 -framerate 24 -i :0 -f pulse -i default -filter_complex '[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay' -c:v libx264 -crf 23 -preset veryfast -c:a libmp3lame -q:a 4 overlay.mp4
-			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $METADATA \"$OF\""
+			[[ -z "$ext" ]] && source $CONTAINER/$container
+			OF=$(genFilename "$HOME/guide-out.$container" $ext )
+			
+			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA \"$OF\""
 			printf "$cmd" > "$TMP"
 			
 			doLog "Command-Guide: $cmd"
@@ -1290,8 +1301,9 @@ EOF
 					OF=$(genFilename "$OF_FORCED" $ext)
 				tOF=$(basename "$OF")
 				tui-echo "Outputfile will be:" "$tOF"
-				cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $TIMEFRAME $METADATA $extra -y \"$OF\""
+				cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
+				doLog "Command-Audio: $cmd"
 			# Execute
 				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
 				exit $?
@@ -1307,9 +1319,10 @@ EOF
 					for i in $FORCED_IDS;do
 						audio_maps+=" -map 0:$i"
 					done
-			
-					cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra $TIMEFRAME $METADATA -y \"$OF\""
+
+					cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
 					printf "$cmd" > "$TMP"
+					doLog "Command-Audio: $cmd"
 				# Display progress	
 					tui-title "Saving audio stream: $AID"
 					doExecute "$TMP" \
@@ -1334,7 +1347,7 @@ EOF
 	for video in "${@}";do 
 		doLog "----- $video -----"
 		$beVerbose && tui-title "Video: $video"
-		OF=$(genFilename "${video}" "$container")		# Output File
+		OF=$(genFilename "${video}" "$ext")		# Output File
 		audio_ids=						# Used ids for audio streams
 		audio_maps=""						# String generated using the audio maps
 		subtitle_ids=""
