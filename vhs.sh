@@ -833,13 +833,14 @@ EOF
 		tui-echo
 		tui-echo "Which variable to change?"
 		LIST_BOOL="false true"
-		LIST_LANG="ara bul cze dan eng fin fre ger hin hun ice nor pol rum spa srp slo slv swe tur"
+		LIST_LANG="ara bul chi cze dan eng fin fre ger hin hun ice nor pol rum spa srp slo slv swe tur"
 		select var in Back UpdateLists ReWriteContainers $VARS;do
 			case $var in
 			Back)		break	;;
 			UpdateLists)	$var 	;;
 			ReWriteContainers) WriteContainers ;;							
 			*)	val=$(tui-value-get "$CONFIG" "$var")
+				newval=""
 				tui-echo "${var^} is set to:" "$val"
 				if tui-yesno "Change the value of $var?"
 				then	case $var in
@@ -870,10 +871,14 @@ EOF
 					esac
 					msg="Changed \"$var\" from \"$val\" to \"$newval\""
 					# Save the new value to variable in config 
-					tui-value-set "$CONFIG" "$var" "$newval"
-					tui-status $? "$msg" && \
+					if [[ -z "$newval" ]]
+					then	tui-status 1 "$msg"
+						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
+					else	tui-value-set "$CONFIG" "$var" "$newval"
+						tui-status $? "$msg" && \
 						doLog "Setup: $msg" || \
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
+					fi
 				fi
 			;;
 			esac
