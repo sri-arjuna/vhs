@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.10.04
-	script_version=1.0.3
+#	Changed:	2014.10.13
+	script_version=1.0.4
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -120,10 +120,10 @@
 	hwaccel="-hwaccel vdpau"	# NOT USED -H		Enable hw acceleration
 	txt_meta_me="'Encoded by VHS ($TITLE $script_version), using $(ffmpeg -version|grep ^ffmpeg|sed s,'version ',,g)'"
 	txt_mjpg=""
-	FPS_ov=""
-	SS_START=""
-	SS_END=""
-	TIMEFRAME=""
+	FPS_ov=""			# -f NUM -- string check
+	SS_START=""			# -z 1:23[-1:04:45.15] start value, triggered by beeing non-empty
+	SS_END=""			# -z 1:23[-1:04:45.15] calculated end value
+	TIMEFRAME=""			# the codesegment containg the above two variables.
 	guide_complex="'[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'"
 #
 #	Help text
@@ -132,15 +132,16 @@
 	RESET="$TUI_COLOR_RESET"
 	help_text="
 $ME ($script_version) - ${TITLE^}
-Usage: 		$ME [options] videos ...
+Usage: 		$ME [options] filename/s ...
 
 Examples:	$ME -C				| Enter the configuration/setup menu
 		$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
-		$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c sSUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but for subtitles!)
+		$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c ${BOLD}s${RESET}SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
 		$ME -e mp4 filename		| Re-encode a file, just this one time to mp4, using the input files bitrates
-		$ME -[S|W]			| Record a video from screen or webcam
+		$ME -[S|W|G]			| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
 		$ME -l ger			| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
 		$ME -Q fhd filename		| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
+		$ME -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
@@ -154,20 +155,20 @@ Where options are: (only the first letter)
 	-f(ps)		FPS		Force the use of the passed FPS
 	-F(PS)				Use the FPS from the config file (25 by default)
 	-G(uide)			Capures your screen & puts Webcam as PiP (default: top left @ 320), use -p ARGS to change
-	-i(nfo)		VIDEO		Shows a short overview of the video its streams
-	-I(d)		StreamID	Force this ID to be used (Audio-extraction, internal use)
+	-i(nfo)		filename	Shows a short overview of the video its streams
+	-I(d)		NUM		Force this ID to be used (Audio-extraction, internal use)
 	-j(pg)				Include the 'icon-image' if available
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-O(utputFile)	NAME		Forces to save as NAME, this is internal use for '-Ep 2|3'
-	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; NUM would be the width of the PiP webcam
+	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
 	-q(uality)	RES		Encodes the video at ID's default resolution, might strech or become boxed
 	-Q(uality)	RES		Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
-	-r(ate)		HRZ		Values from 48000 to 96000, or similar
+	-r(ate)		48000		Values from 48000 to 96000, or similar
 	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
 	-S(creen)			Records the fullscreen desktop
 	-t(itles)			Use default and provided langauges as subtitles, where available
-	-T(imeout)	TIME		Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
+	-T(imeout)	2m		Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
 	-v(erbose)			Displays encode data from ffmpeg
 	-V(erbose)			Show additional info on the fly
 	-w(eb-optimized)		Moves the videos info to start of file (web compatibility)
@@ -175,7 +176,7 @@ Where options are: (only the first letter)
 	-x(tract)			Clean up the log file
 	-X(tract)			Clean up system from $ME-configurations
 	-y(copY)			Just copy streams, fake convert
-	-z(example)	1:30[-2:50]	Encdodes a sample file which starts at 1:30 and lasts 1 minute, or till the optional endtime 2:50
+	-z(sample)	 1:23[-1:04:45[.15]]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes, 45 seconds and 15 mili-seconds
 
 
 Info:
@@ -189,16 +190,18 @@ Values:
 ------------------------------------------------------
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
-RES:		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280
-		* ${BOLD}clip${RESET}	320x240 	a128 v256	(1min ~ 2.4 mb)
-		* ${BOLD}vhs${RESET}	640x480 	a128 v384	(1min ~ 3.1 mb)
-		* ${BOLD}dvd${RESET}	720x576 	a192 v512	(1min ~ 4.1 mb)
-		* ${BOLD}hdr${RESET}	1280x720	a192 v1024	(1min ~ 9.8 mb)
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1536	(1min ~ 14.9 mb)
-		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096	(1min ~ 24.4 mb)
+RES:		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} RES' to use the shown bitrates here.
+		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280	(1min ~ 10.1 mb)
+		* ${BOLD}clip${RESET}	320x240 	a128 v256	(1min ~  2.6 mb)
+		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  4.3 mb, aka VGA)
+		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  5.4 mb)
+		* ${BOLD}hdr${RESET}	1280x720	a192 v1280	(1min ~ 10.1 mb, aka HD Ready)
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)
+		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
 VIDEO:		[/path/to/]videofile
+LOCATIoN:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
 LNG:		A valid 3 letter abrevihation for diffrent langauges
 PASS:		2 3
 HRZ:		44000 *48000* 72000 *96000* 128000, but im no audio technician
@@ -345,7 +348,7 @@ Log:		$LOG
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
-		[[ -z $1 ]] && \
+		[[ -z "$1" ]] && \
 			printf "Must provide a valid ID!" && \
 			exit 1
 		case "$1" in
@@ -367,16 +370,16 @@ Log:		$LOG
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
-		[[ -z $1 ]] && \
+		[[ -z "$1" ]] && \
 			printf "Must provide a valid ID!" && \
 			exit 1
 		case "$1" in
 		"${LIST[0]}")	printf "192 1280";;
 		"${LIST[1]}")	printf "128 256" ;;
-		"${LIST[2]}")	printf "128 384" ;;
-		"${LIST[3]}")	printf "192 512" ;;
-		"${LIST[4]}")	printf "192 1024";;
-		"${LIST[5]}")	printf "256 1536";;
+		"${LIST[2]}")	printf "128 512" ;;
+		"${LIST[3]}")	printf "192 640" ;;
+		"${LIST[4]}")	printf "192 1280";;
+		"${LIST[5]}")	printf "256 1664";;
 		"${LIST[6]}")	printf "384 4096";;
 		esac
 		return 0
@@ -628,12 +631,12 @@ Log:		$LOG
 		header="# $ME ($script_version) - Container definition"
 		[[ -d "$CONTAINER" ]] || mkdir -p "$CONTAINER"
 		cd "$CONTAINER"
-		for entry in aac ac3 avi dts flac mpeg mp4 mkv ogg ogv mp3 theora vorbis webm wma wmv wav xvid;do	# clip dvd
+		for entry in aac ac3 avi dts flac flv mpeg mp4 mkv ogg ogv mp3 theora vorbis webm wma wmv wav xvid;do	# clip dvd
 			case $entry in
 		# Containers
 			avi)	# TODO, this is just assumed / memory
 				ca=libmp3lame 	# Codec Audio
-				cv=msvideo1		# Codec Video
+				cv=msvideo1	# Codec Video
 				ce=false	# Codec extra (-strict 2)
 				fe=true		# File extra (audio codec dependant '-f ext')
 				ba=128		# Bitrate Audio
@@ -641,6 +644,7 @@ Log:		$LOG
 				ext=$entry	# Extension used for the video file
 				;;
 			#									## These bitrates are NOT used... !!
+			flv)	ca=aac		; cv=flv	; ce=false	; fe=false	; ba=128	; bv=384	; ext=$entry	;;
 			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry 	;;
 			mpeg)	ca=libmp3lame 	; cv=mpeg2video	; ce=false	; fe=false	; ba=128	; bv=768	; ext=$entry	;;
 			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ba=256	; bv=1280	; ext=$entry	;;
@@ -654,12 +658,11 @@ Log:		$LOG
 			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry 	;;
 			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
 			flac)	ca=flac		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
-			mp3)	ca=mp3 		; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
+			mp3)	ca=libmp3lame	; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
 			ogg)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
 			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=ogg	;;
 			wma)	ca=wmav2  	; cv=		; ce=false	; fe=true	; ba=256	; bv=		; ext=$entry	;;
 			wav)	ca=pcm_s16le	; cv=		; ce=false	; fe=false	; ba=384	; bv=		; ext=$entry	;;
-
 		# Experimental
 		#	clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ba=128	; bv=384	; ext=mp4	;;
 		#	dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
@@ -676,9 +679,9 @@ video_codec=$cv
 codec_extra=$ce
 file_extra=$fe" > $entry
 			if [[ 0 -eq $? ]] 
-			then	tui-printf "Wrote container info ($entry)" "$DONE"
+			then	tui-status $? "Wrote container info ($entry)"
 				doLog "Container: Created '$entry' definitions succeeded" 
-			else	tui-printf "Wrote container info ($entry)" "$FAIL"
+			else	tui-status $?  "Wrote container info ($entry)"
 				doLog "Container: Created '$entry' definitions failed"
 			fi
 			$beVerbose && printf "\n"
@@ -690,6 +693,7 @@ file_extra=$fe" > $entry
 		[[ -f "$LIST_FILE" ]] || touch "$LIST_FILE"
 		tui-title "Generating a list file"
 		$beVerbose && tui-progress "Retrieve raw data..."
+		[[ -z "$verbose" ]] && verbose="-v quiet"
 		ffmpeg $verbose -codecs | grep \ DE > "$TUI_TEMP_FILE"
 		printf "" > "$LIST_FILE"
 		
@@ -1228,7 +1232,7 @@ EOF
 		[[ -z $langs ]] || tui-echo "Additional Languages:"	"$langs"
 	fi
 	# Metadata
-	METADATA="$txt_mjpg -metadata composer=$txt_meta_me -metadata description=$txt_meta_me"
+	METADATA="$txt_mjpg -metadata description=$txt_meta_me"
 	
 	# Special container treatment
 	case "$container" in
@@ -1239,6 +1243,7 @@ EOF
 		doLog "$msg"
 		$beVerbose && tui-echo "$msg"
 		;;
+	flv)	cmd_audio_all+=" -r 44100"	;;
 #	*)	cmd_video_all+=" $buffer"	;;
 	esac
 #
@@ -1294,7 +1299,7 @@ EOF
 			tDir=$(dirname "$(pwd)/$1")
 			tIF=$(basename "$1")
 			tui-echo "Audio files are encoded within pwd:" "$tDir"
-					
+			
 		# If ID is forced, just do this	
 			if [[ ! -z "$ID_FORCED" ]]
 			then	# Just this one ID
