@@ -150,7 +150,7 @@ Where options are: (only the first letter)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
 	-C(onfig)			Shows the configuration dialog
 	-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
-(drop?)	-D(VD)				Encode from DVD
+(drop?)	-D(VD)				Encode from DVD (not working since code rearrangement)
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-f(ps)		FPS		Force the use of the passed FPS
 	-F(PS)				Use the FPS from the config file (25 by default)
