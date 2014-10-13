@@ -71,15 +71,15 @@ If you still want more output, there you go:
 Examples
 -----------
 
-	vhs [/path/to/]file			# Encodes a specific file
+	vhs [/path/to/]file				# Encodes a specific file
 	vhs *						# Encodes all files in current directory, using the sources bitrates
 	vhs -b a128 -b v256 files		# Encode a video with given bitrates in kbytes
-	vhs -B files				# Encode a video with default bitrates
+	vhs -B files					# Encode a video with default bitrates
 	vhs -c vlibtheora -c alibvorbis files	# Encode a file with given codecs
-	vhs -e XY files				# Encode a video with container XY rather than favorite
-	vhs -w files				# Encode a video and move info flags in front (web/streaming)
-	vhs -v files				# Encode a video and (ffmpeg) be verbose
-	vhs -C files				# Copy streams - dont encode
+	vhs -e XY files					# Encode a video with container XY rather than favorite
+	vhs -w files					# Encode a video and move info flags in front (web/streaming)
+	vhs -v files					# Encode a video and (ffmpeg) be verbose
+	vhs -C files					# Copy streams - dont encode
 
 
 Help-screen
@@ -88,14 +88,14 @@ Help-screen
 	vhs (1.0.4) - Video Handler Script
 	Usage: 		vhs [options] filename/s ...
 
-	Examples:	vhs -C					| Enter the configuration/setup menu
-			vhs -b a128 -b v512 filename		| Encode file with audio bitrate of 128k and video bitrate of 512k
-			vhs -c aAUDIO -c vVIDEO -c sSUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
-			vhs -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
-			vhs -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
-			vhs -l ger					| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
-			vhs -Q fhd filename			| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
-			vhs -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
+	Examples:	$ME -C					| Enter the configuration/setup menu
+			$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
+			$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c ${BOLD}s${RESET}SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
+			$ME -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
+			$ME -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
+			$ME -l ger				| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
+			$ME -Q fhd filename			| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
+			$ME -Bjtq fhd filename			| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
 	Where options are: (only the first letter)
 		-h(elp) 					This screen
@@ -104,7 +104,7 @@ Help-screen
 		-c(odec)		[av]NAME	Set codec to NAME for audio or video
 		-C(onfig)					Shows the configuration dialog
 		-d(imension)	RES			Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
-	(drop?)	-D(VD)					Encode from DVD
+	(drop?)	-D(VD)					Encode from DVD (not working since code rearrangement)
 		-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 		-f(ps)			FPS			Force the use of the passed FPS
 		-F(PS)						Use the FPS from the config file (25 by default)
@@ -121,7 +121,7 @@ Help-screen
 		-r(ate)			48000		Values from 48000 to 96000, or similar
 		-R(ate)						Uses the frequency rate from configuration (/home/sea/.config/vhs/vhs.conf)
 		-S(creen)					Records the fullscreen desktop
-		-t(itles)						Use default and provided langauges as subtitles, where available
+		-t(itles)					Use default and provided langauges as subtitles, where available
 		-T(imeout)		2m			Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
 		-v(erbose)					Displays encode data from ffmpeg
 		-V(erbose)					Show additional info on the fly
@@ -130,7 +130,7 @@ Help-screen
 		-x(tract)					Clean up the log file
 		-X(tract)					Clean up system from vhs-configurations
 		-y(copY)					Just copy streams, fake convert
-		-z(sample)	 1:23[-1:04:45]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes, 45 seconds and 15 mili-seconds
+		-z(sample)	1:23[-1:04:45]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes, 45 seconds and 15 mili-seconds
 
 
 	Info:
