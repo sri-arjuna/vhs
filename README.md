@@ -72,7 +72,7 @@ Examples
 -----------
 
 	vhs [/path/to/]file				# Encodes a specific file
-	vhs *						# Encodes all files in current directory, using the sources bitrates
+	vhs *							# Encodes all files in current directory, using the sources bitrates
 	vhs -b a128 -b v256 files		# Encode a video with given bitrates in kbytes
 	vhs -B files					# Encode a video with default bitrates
 	vhs -c vlibtheora -c alibvorbis files	# Encode a file with given codecs
@@ -89,18 +89,18 @@ Help-screen
 	Usage: 		vhs [options] filename/s ...
 
 	Examples:	$ME -C					| Enter the configuration/setup menu
-			$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
-			$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c ${BOLD}s${RESET}SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
+			$ME -b *a*128 -b *v*512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
+			$ME -c *a*AUDIO -c *v*VIDEO -c *s*SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
 			$ME -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
 			$ME -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
-			$ME -l ger				| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
+			$ME -l ger					| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
 			$ME -Q fhd filename			| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
-			$ME -Bjtq fhd filename			| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
+			$ME -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
 	Where options are: (only the first letter)
 		-h(elp) 					This screen
 		-b(itrate)		[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
-		-B(itrates)					Use bitrates (a|v) from configuration (/home/sea/.config/vhs/vhs.conf)
+		-B(itrates)					Use bitrates (a|v) from configuration (~/.config/vhs/vhs.conf)
 		-c(odec)		[av]NAME	Set codec to NAME for audio or video
 		-C(onfig)					Shows the configuration dialog
 		-d(imension)	RES			Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
@@ -119,7 +119,7 @@ Help-screen
 		-q(uality)		RES			Encodes the video at ID's default resolution, might strech or become boxed
 		-Q(uality)		RES			Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
 		-r(ate)			48000		Values from 48000 to 96000, or similar
-		-R(ate)						Uses the frequency rate from configuration (/home/sea/.config/vhs/vhs.conf)
+		-R(ate)						Uses the frequency rate from configuration (~/.config/vhs/vhs.conf)
 		-S(creen)					Records the fullscreen desktop
 		-t(itles)					Use default and provided langauges as subtitles, where available
 		-T(imeout)		2m			Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
