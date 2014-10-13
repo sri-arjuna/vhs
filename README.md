@@ -21,12 +21,12 @@ Also i needed to save up some space, so the goal was set...
 
 Make a script to easy re-enconde inputfiles to a certain container,
 
-	* reuse the codec info of diffrent containers,
-	* strip down audio streams to favorite ones, 
-	* automaticly (but toggable) downcode to stereo,
-	* remove subtitles unless told they shall be kept
-	* make a log file for easier debuging & code reuse
-	* make ffmpeg less verbose, so i can better find the filename its currently working on
+* reuse the codec info of diffrent containers,
+* strip down audio streams to favorite ones, 
+* automaticly (but toggable) downcode to stereo,
+* remove subtitles unless told they shall be kept
+* make a log file for easier debuging & code reuse
+* make ffmpeg less verbose, so i can better find the filename its currently working on
 	
 	
 	
