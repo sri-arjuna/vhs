@@ -1,31 +1,47 @@
-vhs
+VHS - Video Handler Script
 ===
 
-Video Handler Script by sea, using [ffmpeg](http://ffmpeg.org)
+by sea, using [ffmpeg](http://ffmpeg.org)
+
 (This is a [demonstration script](http://github.com/sri-arjuna/vhs) for the use of [TUI](http://github.com/sri-arjuna/tui) - Text User Interface)
-If you want a video guide, please acknowledge that i dont like to be recorded:  [VHS - Playlist](https://www.youtube.com/playlist?list=PLLFcWWccyIef2wUuT-KUMzRdlvNj525mG)
+
+
 
 
 Intro
 -----
 
 This is a handler script.
+
 It lets you generate a full valid ffmpeg-command, using alot fewer arguments due to the use of a config file.
+
 Now since my TV doesnt support webm formated videos, i have to reencode many files (docs, howtos, guides) to a basic (main-target) container-extension.
+
 Also i needed to save up some space, so the goal was set...
 
+
 Make a script to easy re-enconde inputfiles to a certain container,
+
 	* reuse the codec info of diffrent containers,
+	
 	* strip down audio streams to favorite ones, 
+	
 	* automaticly (but toggable) downcode to stereo,
+	
 	* remove subtitles unless told they shall be kept
+	
 	* make a log file for easier debuging & code reuse
+	
 	* make ffmpeg less verbose, so i can better find the filename its currently working on
 	
 	
+	
 On the road ffmpeg showed it had alot more functionality to offer:
+
 	* Screen recording
+	
 	* Webcam recording
+	
 	* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using presets (wiht -p ARG) like: tl, br
 
 
@@ -33,7 +49,8 @@ Reason
 ------
 
 So for lazy people like me, i usualy just call the first line, rather than the second...
-Using subtitles and use 'full' preset Quality **-Q RES**
+
+Using subtitles and use 'full' preset Quality *-Q RES*
 
 	vhs -tQ fhd videofile
 	ffmpeg -i "inputfile"  -strict -2  -map 0:0 -b:v 1664K -vf scale=1920x1080 -c:v libx264  -minrate 3328K -maxrate 3328K -bufsize 1664K  -b:a 256K -ac 2 -c:a ac3   -c:s ssa  -map 0:3  -map 0:1  "outputfile"
@@ -163,10 +180,9 @@ Help-screen
 	Lists:		/home/sea/.config/vhs/vhs.list
 	Log:		/home/sea/.config/vhs/vhs.log
 
-	
 
-Install
--------
+Videoguide
+----------
 
-
+If you want a video guide, please acknowledge that i dont like to be recorded: [VHS - Playlist](https://www.youtube.com/playlist?list=PLLFcWWccyIef2wUuT-KUMzRdlvNj525mG)
 
