@@ -14,6 +14,9 @@ This is a handler script and therefor it lets you generate a full valid ffmpeg-c
 
 Now since my TV doesnt support webm formated videos, i have to reencode many files (docs, howtos, guides) to a basic (main-target) container-extension, which would be Matroska (mkv) for my TV.
 
+Its main goal is, to simplify the process of re-encoding a video using my custom (config file) preferences to the same name but changed file extension, increasing the added number if the file already exists.
+
+
 Also i needed to save up some space, so the goal was set, make a script to:
 
 * easy re-enconde inputfiles to a certain container
@@ -30,7 +33,7 @@ On the road ffmpeg showed it had alot more functionality to offer:
 
 * Screen recording
 * Webcam recording
-* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using presets (wiht -p ARG) like: tl, br
+* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using (-p ARG) presets like: tl, br
 * DVD encoding, but 'currently droped' due to issues of actualy doing so, and not beeing top priority
 
 
@@ -163,11 +166,11 @@ Help-screen
 
 	Files:		
 	------------------------------------------------------
-	Script:		/home/sea/.local/bin/vhs
-	Config:		/home/sea/.config/vhs/vhs.conf
-	Containers:	/home/sea/.config/vhs/containers
-	Lists:		/home/sea/.config/vhs/vhs.list
-	Log:		/home/sea/.config/vhs/vhs.log
+	Script:		~/.local/bin/vhs
+	Config:		~/.config/vhs/vhs.conf
+	Containers:	~/.config/vhs/containers
+	Lists:		~/.config/vhs/vhs.list
+	Log:		~/.config/vhs/vhs.log
 
 
 Videoguide
