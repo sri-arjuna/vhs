@@ -99,25 +99,25 @@ Help-screen
 
 	Where options are: (only the first letter)
 		-h(elp) 				This screen
-		-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
-		-B(itrates)				Use bitrates (a|v) from configuration (/home/sea/.config/vhs/vhs.conf)
-		-c(odec)	[av]NAME	Set codec to NAME for audio or video
-		-C(onfig)				Shows the configuration dialog
-		-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
+		-b(itrate)	[av]NUM			Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
+		-B(itrates)					Use bitrates (a|v) from configuration (/home/sea/.config/vhs/vhs.conf)
+		-c(odec)	[av]NAME		Set codec to NAME for audio or video
+		-C(onfig)					Shows the configuration dialog
+		-d(imension)	RES			Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
 	(drop?)	-D(VD)					Encode from DVD
 		-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
-		-f(ps)		FPS		Force the use of the passed FPS
+		-f(ps)		FPS			Force the use of the passed FPS
 		-F(PS)					Use the FPS from the config file (25 by default)
 		-G(uide)				Capures your screen & puts Webcam as PiP (default: top left @ 320), use -p ARGS to change
-		-i(nfo)		filename	Shows a short overview of the video its streams
-		-I(d)		NUM		Force this ID to be used (Audio-extraction, internal use)
+		-i(nfo)		filename		Shows a short overview of the video its streams
+		-I(d)		NUM				Force this ID to be used (Audio-extraction, internal use)
 		-j(pg)					Include the 'icon-image' if available
-		-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
+		-l(anguage)	LNG			Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 		-L(OG)					Show the log file
 		-O(utputFile)	NAME		Forces to save as NAME, this is internal use for '-Ep 2|3'
 		-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
-		-q(uality)	RES		Encodes the video at ID's default resolution, might strech or become boxed
-		-Q(uality)	RES		Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
+		-q(uality)	RES			Encodes the video at ID's default resolution, might strech or become boxed
+		-Q(uality)	RES			Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
 		-r(ate)		48000		Values from 48000 to 96000, or similar
 		-R(ate)					Uses the frequency rate from configuration (/home/sea/.config/vhs/vhs.conf)
 		-S(creen)				Records the fullscreen desktop
