@@ -10,17 +10,13 @@ Video Handler Script by sea, using [ffmpeg](http://ffmpeg.org)
 Intro
 -----
 
-This is a handler script.
+This is a handler script and therefor it lets you generate a full valid ffmpeg-command, using alot fewer arguments due to the use of a config file.
 
-It lets you generate a full valid ffmpeg-command, using alot fewer arguments due to the use of a config file.
+Now since my TV doesnt support webm formated videos, i have to reencode many files (docs, howtos, guides) to a basic (main-target) container-extension, which would be Matroska (mkv) for my TV.
 
-Now since my TV doesnt support webm formated videos, i have to reencode many files (docs, howtos, guides) to a basic (main-target) container-extension.
+Also i needed to save up some space, so the goal was set, make a script to:
 
-Also i needed to save up some space, so the goal was set...
-
-
-Make a script to easy re-enconde inputfiles to a certain container,
-
+* easy re-enconde inputfiles to a certain container
 * reuse the codec info of diffrent containers,
 * strip down audio streams to favorite ones, 
 * automaticly (but toggable) downcode to stereo,
@@ -32,9 +28,10 @@ Make a script to easy re-enconde inputfiles to a certain container,
 	
 On the road ffmpeg showed it had alot more functionality to offer:
 
-	* Screen recording
-	* Webcam recording
-	* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using presets (wiht -p ARG) like: tl, br
+* Screen recording
+* Webcam recording
+* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using presets (wiht -p ARG) like: tl, br
+* DVD encoding, but 'currently droped' due to issues of actualy doing so, and not beeing top priority
 
 
 Reason
