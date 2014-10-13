@@ -87,15 +87,14 @@ Help-screen
 
 	vhs (1.0.4) - Video Handler Script
 	Usage: 		vhs [options] filename/s ...
-
-	Examples:	$ME -C					| Enter the configuration/setup menu
-			$ME -b *a*128 -b *v*512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
-			$ME -c *a*AUDIO -c *v*VIDEO -c *s*SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
-			$ME -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
-			$ME -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
-			$ME -l ger					| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
-			$ME -Q fhd filename			| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
-			$ME -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
+	Examples:	vhs -C				| Enter the configuration/setup menu
+				vhs -b a128 -b v512 filename		| Encode file with audio bitrate of 128k and video bitrate of 512k
+				vhs -c aAUDIO -c vVIDEO -c sSUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
+				vhs -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
+				vhs -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
+				vhs -l ger					| Add this language to be added automaticly if found (applies to audio and subtitle (if '-t' is passed)
+				vhs -Q fhd filename			| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
+				vhs -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
 	Where options are: (only the first letter)
 		-h(elp) 					This screen
