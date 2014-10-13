@@ -196,7 +196,7 @@ RES:		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use
 		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  4.3 mb, aka VGA)
 		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  5.4 mb)
 		* ${BOLD}hdr${RESET}	1280x720	a192 v1280	(1min ~ 10.1 mb, aka HD Ready)
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)	-- tmp :: fixed
 		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
@@ -204,7 +204,7 @@ VIDEO:		[/path/to/]videofile
 LOCATIoN:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
 LNG:		A valid 3 letter abrevihation for diffrent langauges
 PASS:		2 3
-HRZ:		44000 *48000* 72000 *96000* 128000, but im no audio technician
+HRZ:		44100 *48000* 72000 *96000* 128000
 TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
 
@@ -907,13 +907,17 @@ EOF
 		# Install missing packages
 		tui-progress -ri movies-req -m $(printf ${REQUIRES}|wc|awk '{print $2}') " "
 		if [[ false = "$req_inst" ]]
-		then 	tui-title "Verify all required packages are installed"
+		then 	# Packages are not yet installed
+			tui-title "Verify all required packages are installed"
 			doLog "Req : Installing missing packages: $REQUIRED"
+			# Do the installation
 			tui-install -vl "$LOG" $REQUIRED && \
 				FIRST_RET=true || FIRST_RET=false
+			# Prints result to user, and generate log entry
 			tui-status $? "Installed: $REQUIRED" && \
 				ret_info="succeeded" || \
 				ret_info="failed"
+			# Print log file
 			doLog "Req: Installing $REQUIRED $ret_info"
 		fi	
 		
@@ -969,8 +973,10 @@ EOF
 			$beVerbose && tui-echo "Options: -'$opt', passed: $char ${OPTARG:1}"
 			;;
 		C)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+			doLog "Options: Entering configuration mode"
 			MenuSetup
-			exit 0	;;
+			source "$CONFIG"
+			;;
 		d)	RES=$(getRes $OPTARG|sed s/x.../",-1"/g)
 			msg="Options: Set video dimension (resolution) to: $RES"
 			doLog "$msg"
@@ -995,10 +1001,10 @@ EOF
 			;;
 		f)	useFPS=true
 			FPS_ov="$OPTARG"
-			doLog "Force using $FPS_ov FPS"
+			doLog "Options: Force using $FPS_ov FPS"
 			;;
 		F)	useFPS=true
-			doLog "Force using FPS from config file"
+			doLog "Options: Force using FPS from config file"
 			;;
 		G)	MODE=guide
 			msg="Options: Set MODE to Guide, saving as $OF"
@@ -1033,6 +1039,9 @@ EOF
 			doLog "$msg"
 			;;
 		j)	useJpg=true
+			msg="Use attached images"
+			doLog "Options: $msg"
+			$beVerbose && tui-echo "$msg"
 			;;
 		l)	langs+=" $OPTARG"
 			msg="Options: Increased language list to: $langs"
@@ -1081,6 +1090,10 @@ EOF
 			cc)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$width_center:main_h-overlay_h-$horizont_center'"	;;
 			cr)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center'"	;;
 			esac
+			
+			msg+=", orietiation: $char @ $num"
+			doLog "$msg"
+			$beVerbose && tui-echo "$msg"
 			;;
 		q)	RES=$(getRes $OPTARG)
 			msg="Options: Set video dimension (resolution) to: $RES"
@@ -1180,7 +1193,8 @@ EOF
 				SS_END="$t_mins:$t_secs"
 			fi
 			TIMEFRAME="-ss $SS_START -to $SS_END"
-			$beVerbose && tui-echo "Start: $SS_START" "End: $SS_END"
+			msg="Options: set starttime to \"$SS_START\" and endtime to \"$SS_END\""
+			$beVerbose && tui-echo "$msg"
 			;;
 		*)	msg="Invalid argument: $opt : $OPTARG"
 			doLog "$msg"
@@ -1446,10 +1460,11 @@ EOF
 		STR1="Encoding \"$tmp_if\" to \"$tmp_of"
 
 	# Verify file does not already exists
-	# TODO should no longer be required, atm just failsafe
+	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
 		skip=false
 		if [[ -f "$OF" ]]
-		then 	if tui-yesno "Outputfile ($OF) exists, overwrite it?"
+		then 	tui-echo "ATTENTION: Failsafe catcher!"
+			if tui-yesno "Outputfile ($OF) exists, overwrite it?"
 			then 	rm -f "$OF"
 			else	skip=true
 			fi
@@ -1505,7 +1520,7 @@ EOF
 			tui-status $RET_SKIP "$msg"
 		fi
 	done
-	[[ -z $oPWD ]] || cd "$oPWD"
+	[[ -z "$oPWD" ]] || cd "$oPWD"
 	if [[ -z "$1" ]]
 	then 	printf "$help_text"
 		exit $RET_HELP
