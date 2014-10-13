@@ -1,10 +1,9 @@
-VHS - Video Handler Script
+VHS
 ===
 
-by sea, using [ffmpeg](http://ffmpeg.org)
+Video Handler Script by sea, using [ffmpeg](http://ffmpeg.org)
 
 (This is a [demonstration script](http://github.com/sri-arjuna/vhs) for the use of [TUI](http://github.com/sri-arjuna/tui) - Text User Interface)
-
 
 
 
@@ -23,15 +22,10 @@ Also i needed to save up some space, so the goal was set...
 Make a script to easy re-enconde inputfiles to a certain container,
 
 	* reuse the codec info of diffrent containers,
-	
 	* strip down audio streams to favorite ones, 
-	
 	* automaticly (but toggable) downcode to stereo,
-	
 	* remove subtitles unless told they shall be kept
-	
 	* make a log file for easier debuging & code reuse
-	
 	* make ffmpeg less verbose, so i can better find the filename its currently working on
 	
 	
@@ -39,9 +33,7 @@ Make a script to easy re-enconde inputfiles to a certain container,
 On the road ffmpeg showed it had alot more functionality to offer:
 
 	* Screen recording
-	
 	* Webcam recording
-	
 	* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using presets (wiht -p ARG) like: tl, br
 
 
