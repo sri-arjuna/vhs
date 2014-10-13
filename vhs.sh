@@ -763,8 +763,8 @@ file_extra=$fe" > $entry
 req_inst=false
 
 # Available (yet supported) containers:
-# VIDEO -> avi mkv mp4 ogg webm
-# AUDIO -> aac ac3 dts mp4 wav
+# VIDEO -> avi flv mkv mp4 ogg webm wmv
+# AUDIO -> aac ac3 dts mp3 wav wma
 container=mkv
 
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
@@ -773,7 +773,6 @@ audio_bit=192
 
 # Video bitrate suggested range (value examples): 128 256 512 768 1024 1280 1536 1920 2048 2560 4096 5120
 # Note that he lower the resolution, the lower the visual lossless bitrate
-# AFAIK: for full hd (1920*1080) movies 1280kb video bit rate should be almost visualy lossless.
 video_bit=768
 
 # Make sure the video has at least this amount of Frames per Second
@@ -804,10 +803,12 @@ subtitle=ssa
 
 # How long to wait by default between encodings if multiple files are queued?
 # Note that 's' is optional, and could be as well either: 'm' or 'h'.
-sleep_between=45s
+sleep_between=1m
 
 # This is a default value that should work on most webcams
 # Please use the script's Configscreen (-C) to change the values
+# Default values are for res: 640x480
+# Default values are for fps: 25
 webcam_res=640x480
 webcam_fps=25
 EOF
@@ -923,7 +924,9 @@ EOF
 #
 #	Catching Arguments
 #
-	tui-log -e "$LOG" "\r---- New call $$ ----"
+	# [[:space:]]
+	echo "${@}"|grep -q \\-[Lih] || \
+		tui-log -e "$LOG" "\r---- New call $$ ----"
 	while getopts "aBb:c:Cd:De:f:FGhHi:I:jLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		b)	char="${OPTARG:0:1}"
