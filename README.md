@@ -87,8 +87,8 @@ Help-screen
 
 	vhs (1.0.4) - Video Handler Script
 	Usage: 		vhs [options] filename/s ...
-	Examples:	vhs -C				| Enter the configuration/setup menu
-				vhs -b a128 -b v512 filename		| Encode file with audio bitrate of 128k and video bitrate of 512k
+	Examples:	vhs -C						| Enter the configuration/setup menu
+				vhs -b a128 -b v512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
 				vhs -c aAUDIO -c vVIDEO -c sSUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
 				vhs -e mp4 filename			| Re-encode a file, just this one time to mp4, using the input files bitrates
 				vhs -[S|W|G]				| Record a video from Screen (desktop) or Webcam, or make a Guide-video placing the webcam stream as pip upon a screencast
@@ -144,13 +144,13 @@ Help-screen
 	NUM:		Number for specific bitrate (ranges from 96 to 15536
 	NAME:		See '/home/sea/.config/vhs/vhs.list' for lists on diffrent codecs
 	RES:		Use '-q RES' if you want to keep the original bitrates, use '-Q RES' to use the shown bitrates here.
-			* screen 1920x1080 	a192 v1280	(1min ~ 10.1 mb)
-			* clip	320x240 	a128 v256	(1min ~  2.6 mb)
-			* vhs	640x480 	a128 v512	(1min ~  4.3 mb, aka VGA)
-			* dvd	720x576 	a192 v640	(1min ~  5.4 mb)
-			* hdr	1280x720	a192 v1280	(1min ~ 10.1 mb, aka HD Ready)
-			* fhd 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)
-			* 4k 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
+				* screen 1920x1080 	a192 v1280	(1min ~ 10.1 mb)
+				* clip	320x240 	a128 v256	(1min ~  2.6 mb)
+				* vhs	640x480 	a128 v512	(1min ~  4.3 mb, aka VGA)
+				* dvd	720x576 	a192 v640	(1min ~  5.4 mb)
+				* hdr	1280x720	a192 v1280	(1min ~ 10.1 mb, aka HD Ready)
+				* fhd 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)
+				* 4k 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
 	CONTAINER (a):	aac ac3 dts mp3 wav
 	CONTAINER (v):  mkv mp4 ogm webm
 	VIDEO:		[/path/to/]videofile
