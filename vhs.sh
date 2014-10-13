@@ -176,7 +176,7 @@ Where options are: (only the first letter)
 	-x(tract)			Clean up the log file
 	-X(tract)			Clean up system from $ME-configurations
 	-y(copY)			Just copy streams, fake convert
-	-z(sample)	 1:23[-1:04:45[.15]]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes, 45 seconds and 15 mili-seconds
+	-z(sample)  1:23[-1:04:45[.15]]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
 
 
 Info:
@@ -197,7 +197,7 @@ RES:		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use
 		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  5.4 mb)
 		* ${BOLD}hdr${RESET}	1280x720	a192 v1280	(1min ~ 10.1 mb, aka HD Ready)
 		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 12.9 mb, aka Full HD)	-- tmp :: fixed
-		* ${BOLD}4k${RESET} 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
+		* ${BOLD}uhd${RESET} 	3840x2160	a384 v4096	(1min ~ 29.9 mb, aka 4k)
 CONTAINER (a):	aac ac3 dts mp3 wav
 CONTAINER (v):  mkv mp4 ogm webm
 VIDEO:		[/path/to/]videofile
@@ -344,7 +344,7 @@ Log:		$LOG
 	getRes() { # [-l] ID
 	# Returns 2 digits (W*H) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd 4k)
+		LIST=( screen clip vhs dvd hdr fhd uhd)
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
@@ -366,7 +366,7 @@ Log:		$LOG
 	getQualy() { # [-l] ID
 	# Returns 2 numbers (audio video) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd 4k)
+		LIST=( screen clip vhs dvd hdr fhd uhd)
 		[[ "-l" = "$1" ]] && \
 			printf "${LIST[*]}" && \
 			return 0
@@ -925,91 +925,89 @@ EOF
 		tui-value-set "$CONFIG" "req_inst" "$FIRST_RET"
 	fi
 	source "$CONFIG"
-#
-#	Catching Arguments
-#
-	# [[:space:]]
-	echo "${@}"|grep -q \\-[Lih] || \
+	# Print Log entry only if its neither:
+	#	info, help, Log
+	printf '%s\n' "$@" | grep -q -- -[Lih] || \
 		tui-log -e "$LOG" "\r---- New call $$ ----"
+#
+##
+###
+####	Catching Arguments
+###
+##
+#
 	while getopts "aBb:c:Cd:De:f:FGhHi:I:jLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		b)	char="${OPTARG:0:1}"
 			case "$char" in
-			a)	doLog "Options: Override audio bitrate ($BIT_AUDIO) with ${OPTARG:1}"
+			a)	log_msg="Override audio bitrate ($BIT_AUDIO) with ${OPTARG:1}"
 				BIT_AUDIO="${OPTARG:1}"
 				;;
-			v)	doLog "Options: Override video bitrate ($BIT_VIDEO) with ${OPTARG:1}"
+			v)	log_msg="Override video bitrate ($BIT_VIDEO) with ${OPTARG:1}"
 				BIT_VIDEO="${OPTARG:1}"
 				;;
-			*)	tui-status 1 "You did not define whether its audio or video: -$opt a|v$OPTARG"
+			*)	log_msg="You did not define whether its audio or video: -$opt a|v$OPTARG"
+				tui-status 1 "$log_msg"
 				exit 1
 				;;
 			esac
-			$beVerbose && tui-echo "Options: Bitrates passed: $char ${OPTARG:1}"
 			;;
-		B)	doLog "Options: Using bitrates from $CONFIG (A:$BIT_AUDIO V:$BIT_VIDEO )"
-			BIT_AUDIO=$audio_bit
+		B)	BIT_AUDIO=$audio_bit
 			BIT_VIDEO=$video_bit
-			$beVerbose && tui-echo "Options: Using default bitrates from $CONFIG"
+			log_msg="Using bitrates from $CONFIG (A:$BIT_AUDIO V:$BIT_VIDEO )"
 			;;
 		c)	char="${OPTARG:0:1}"
 			case "$char" in
 			a)	override_audio_codec=true
-				doLog "Options: Override audio codec ($audio_codec) with ${OPTARG:1}"
+				log_msg="Override audio codec ($audio_codec) with ${OPTARG:1}"
 				audio_codec_ov="${OPTARG:1}"
 				;;
 			s)	override_sub_codec=true
-				doLog "Options: Override subtitle codec ($video_codec) with ${OPTARG:1}"
+				log_msg="Override subtitle codec ($video_codec) with ${OPTARG:1}"
 				sub_codec_ov="${OPTARG:1}"
 				;;
 			v)	override_video_codec=true
-				doLog "Options: Override video codec ($video_codec) with ${OPTARG:1}"
+				log_msg="Override video codec ($video_codec) with ${OPTARG:1}"
 				video_codec_ov="${OPTARG:1}"
 				;;
-			*)	tui-status 1 "You did not define whether its audio or video: -$opt a|v$OPTARG"
+			*)	log_msg="You did not define whether its audio or video: -$opt a|v|s$OPTARG"
+				tui-status 1 "$log_msg"
 				exit 1
 				;;
 			esac
-			$beVerbose && tui-echo "Options: -'$opt', passed: $char ${OPTARG:1}"
 			;;
 		C)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
-			doLog "Options: Entering configuration mode"
+			log_msg="Entering configuration mode"
 			MenuSetup
 			source "$CONFIG"
 			;;
 		d)	RES=$(getRes $OPTARG|sed s/x.../",-1"/g)
-			msg="Options: Set video dimension (resolution) to: $RES"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Set video dimension (resolution) to: $RES"
 			;;
 		D)	# TODO very low prio, since code restructure probably dont work
 			MODE=dvd
-			$beVerbose && tui-echo "Options: Set MODE to DVD"
-			doLog "Mode: DVD"
 			tempdata=( $(ls /run/media/$USER) )
 			[[ "${#tempdata[@]}" -ge 2 ]] && \
 				tui-echo "Please select which entry is the DVD:" && \
 				select name in "${tempdata[@]}";do break;done || \
 				name="$(printf $tempdata)"
 			OF=$(genFilename "$HOME/dvd-$tempdata.$container" $container )
+			log_msg="Options: Set MODE to ${MODE^}, saving as $OF"
 			override_container=true
 			;;
 		e)	override_container=true
-			doLog "Options: Overwrite \"$container\" with \"$OPTARG\""
+			log_msg="Overwrite \"$container\" to file extension: \"$OPTARG\""
 			container="$OPTARG"
-			$beVerbose && tui-echo "Options: Set container format to: $container"
 			;;
 		f)	useFPS=true
 			FPS_ov="$OPTARG"
-			doLog "Options: Force using $FPS_ov FPS"
+			doLog "Force using $FPS_ov FPS"
 			;;
 		F)	useFPS=true
-			doLog "Options: Force using FPS from config file"
+			doLog "Force using FPS from config file ($FPS)"
 			;;
 		G)	MODE=guide
-			msg="Options: Set MODE to Guide, saving as $OF"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"doLog "Mode: $MODE"
+			log_msg="Options: Set MODE to ${MODE^}, saving as $OF"
 			;;
 		h)	doLog "Show Help"
 			printf "$help_text"
@@ -1017,7 +1015,7 @@ EOF
 			;;
 		i)	# Creates $TMP.info
 			#shift $(($OPTIND - 1))
-			for A in "$@";do
+			for A in "${@}";do
 			if [[ -f "$A" ]]
 			then	$beVerbose && tui-echo "Video exist, showing info"
 				tui-printf "Retrieving data from ${A##*/}" "$WORK"
@@ -1027,40 +1025,30 @@ EOF
 			else	$beVerbose && tui-echo "Input '$A' not found, skipping..." "$SKIP"
 			fi
 			done
-			msg="Options: Showed info of $@ videos"
-			#doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Options: Showed info of $@ videos"
 			exit $RET_DONE
 			;;
 		I)	# TODO
 			ID_FORCED+="$OPTARG"
-			msg="Options: Foced to use this id: $ID_FORCED"
-			$beVerbose && tui-echo "$msg"
-			doLog "$msg"
+			log_msg="Options: Foced to use this id: $ID_FORCED"
 			;;
 		j)	useJpg=true
-			msg="Use attached images"
-			doLog "Options: $msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Use attached images"
 			;;
-		l)	langs+=" $OPTARG"
-			msg="Options: Increased language list to: $langs"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+		l)	log_msg="Adding '$OPTARG' to the list of language: $langs"
+			langs+=" $OPTARG"
 			;;
 		L)	doLog "Show Logfile"
 			sleep 0.1
 			less "$LOG"
 			exit $RET_DONE
 			;;
-		O)	msg="Options: Forced Output File -> $OPTARG"
+		O)	log_msg="Forced Output File -> $OPTARG"
 			OF_FORCED="$OPTARG"
-			$beVerbose && tui-echo "$msg"
-			doLog "$msg"
 			;;
 		p)	# TODO
 			# Picture in Picure alignments
-			msg="Options Picture in Picure alignment"
+			log_msg="Picture in Picure alignment"
 			# default :: '[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'
 			num=$(printf $OPTARG|tr -d [[:alpha:]])
 			char=$(printf $OPTARG|tr -d [[:digit:]])
@@ -1091,14 +1079,10 @@ EOF
 			cr)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center'"	;;
 			esac
 			
-			msg+=", orietiation: $char @ $num"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg+=", orietiation: $char @ $num"
 			;;
 		q)	RES=$(getRes $OPTARG)
-			msg="Options: Set video dimension (resolution) to: $RES"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Set video dimension (resolution) to: $RES"
 			;;
 		Q)	RES=$(getRes $OPTARG)
 			Q=$(getQualy "$OPTARG")
@@ -1107,61 +1091,45 @@ EOF
 				[[ $C -eq 1 ]] && BIT_VIDEO=$n
 				[[ $C -eq 0 ]] && BIT_AUDIO=$n && ((C++))
 			done
-			msg="Options: Set Quality to $OPTARG ($RES) with  $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
-			$beVerbose && tui-echo "$msg"
-			doLog "$msg"
+			log_msg="Set Quality to $OPTARG ($RES) with  $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
 			;;
 		R)	useRate=true
-			msg="Options : Force audio_rate to $audio_rate"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Force audio_rate to $audio_rate"
 			;;
 		r)	audio_rate="$OPTARG"
-			msg="Options: Force audio_rate to $audio_rate"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Force audio_rate to $audio_rate"
 			;;
 		S)	MODE=screen
+			log_msg="Set MODE to ${MODE^}, saving as $OF"
 			;;
 		t)	useSubs=true
-			doLog "Options: Use subtitles"
+			log_msg="Use subtitles ($langs)"
 			;;
-		T)	msg="Options: Changed delay between jobs from \"$sleep_between\" to \"$OPTARG\""
-			doLog "$msg"
-			$beVerbose && \
-				tui-echo "$msg" && \
-				tui-echo "Note this only jumps in if you encode more than 1 video"
+		T)	log_msg="Changed delay between jobs from \"$sleep_between\" to \"$OPTARG\""
 			sleep_between="$OPTARG"
 			;;
-		v)	msg="Options: Be verbose (ffmpeg)!"
-			doLog "$smg"
-			$beVerbose && tui-echo "$msg"
+		v)	log_msg="Be verbose (ffmpeg)!"
 			FFMPEG="$ffmpeg_verbose"
 			showFFMPEG=true
 			;;
-		V)	msg="Options: Be verbose!"
-			doLog "$msg"
+		V)	log_msg="Be verbose ($ME)!"
 			FFMPEG="$ffmpeg_silent"
 			beVerbose=true
 			tui-title "Retrieve options"
-			tui-echo "$msg"
 			;;
-		w)	doLog "Options: Optimize for web usage."
-			web="-movflags faststart"
-			$beVerbose && tui-echo "Options: Moved 'faststart' flag to front, stream/web optimized"
+		w)	web="-movflags faststart"
+			log_msg="Moved 'faststart' flag to front, stream/web optimized"
 			;;
 		W)	MODE=webcam
 			OF=$(genFilename "$HOME/webcam-out.$container" $ext )
 			override_container=true
-			msg="Options: Set MODE to Webcam, saving as $OF"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Options: Set MODE to Webcam, saving as $OF"
 			;;
 		x)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 			tui-printf "Clearing logfile" "$TUI_WORK"
 			printf "" > "$LOG"
 			tui-status $? "Cleaned logfile"
-			exit $?
+			#exit $?
 			;;
 		X)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 			if tui-yesno "Are you sure to remove '$CONFIG_DIR'?"
@@ -1175,9 +1143,7 @@ EOF
 			video_codec_ov=copy
 			audio_codec_ov=copy
 			sub_codec_ov=copy
-			msg="Options: Just copy streams, no encoding"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+			log_msg="Just copy streams, no encoding"
 			;;
 		z)	t_secs=""
 			t_mins=""
@@ -1193,14 +1159,14 @@ EOF
 				SS_END="$t_mins:$t_secs"
 			fi
 			TIMEFRAME="-ss $SS_START -to $SS_END"
-			msg="Options: set starttime to \"$SS_START\" and endtime to \"$SS_END\""
-			$beVerbose && tui-echo "$msg"
+			
+			log_msg="Set starttime to \"$SS_START\" and endtime to \"$SS_END\""
 			;;
-		*)	msg="Invalid argument: $opt : $OPTARG"
-			doLog "$msg"
-			$beVerbose && tui-echo "$msg"
+		*)	log_msg="Invalid argument: $opt : $OPTARG"
 			;;
 		esac
+		$beVerbose && tui-echo "$log_msg"
+		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
 #
@@ -1263,6 +1229,13 @@ EOF
 	flv)	cmd_audio_all+=" -r 44100"	;;
 #	*)	cmd_video_all+=" $buffer"	;;
 	esac
+#
+##
+###
+#### SPECIAL MODE & AUDIO EXTRACTION
+###
+##
+#
 #
 #	Display & Action
 #
@@ -1369,6 +1342,13 @@ EOF
 	# video)		echo just continue	;;
 	esac
 #
+#
+##
+###
+#### HERE THE ACTUAL VIDEO ENCODING STARTS
+###
+##
+#
 #	Show menu or go for the loop of files
 #
 	for video in "${@}";do 
@@ -1441,10 +1421,10 @@ EOF
 		tmp_of="${OF##*/}\""
 		tmp_if="${video##*/}\""
 		# Make these strings match onto a single line
-		tmp_border=$[ 6 + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
+		tmp_border=$[ ${#TUI_BORDER_LEFT} + ${#TUI_BORDER_RIGHT} + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
 		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
 		# Currently shortens every file... :(
-		if [ $string_line -gt $(tput cols) ]
+		if [[ $string_line -gt $(tput cols) ]]
 		then	tmp_if="${tmp_if:0:${#tmp_if}/4}...${tmp_if:(-6)}"
 			tmp_of="${tmp_of:0:${#tmp_of}/4}...${tmp_of:(-6)}"
 		fi
@@ -1487,7 +1467,7 @@ EOF
 				lang2=$(listIDs|grep Audio|grep ^${audio_ids:0:1}|awk '{print $2}')
 				[[ ${#lang2} -gt 3 ]] && \
 					tui-echo "Could not determine proper langauge, probably wasnt labled before" "$FAIL" && \
-					tui-echo "Labeling it as '$lang', eventhough that might bewrong" || \
+					tui-echo "Labeling it as '$lang2', eventhough that might bewrong" || \
 					lang=$lang2
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
