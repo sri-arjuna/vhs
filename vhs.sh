@@ -963,18 +963,27 @@ EOF
 	while getopts "a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		a)	log_msg="Appending to input list: $OPTARG"
+			ARG="$OPTARG"
+			out_str=""
 			case ${OPTARG/*.} in
-		#	aac|ac3|dts|flac|wav|ogg|wma|mp3)
-		#		adders+=" -map $A"	;;
+		#	aac|ac3|dts|flac|mp3|ogg|wav|wma)
+		#		adders+=" -map $A"
+		#		;;
+			jpg|bmp|png|svg|ico)
+				out_str="out$A"
+				ARG=" -filter_complex 'overlay'"
+				;;
 			avi|xvid|webm|ogm|mkv|mp4|mpeg|ogv|ogm|flv|wmv)
 				adders+=" -map $A:a -map $A:v -filter_complex ${video_overlay/[X/[$A}"
 				;;
 			*)
-				adders+=" -map $A:a -map $A:v"
+				adders+=" -map $A"
 				;;
 			esac
 			A=$(( A+1 ))
-			ADDERS+=" -i \"$OPTARG\"" # $adder"
+			[[ -z "$out_str" ]] && \
+				ADDERS+=" -i '$OPTARG'" || \
+				ADDERS+=" -i '$OPTARG' $ARG"
 			;;
 		b)	char="${OPTARG:0:1}"
 			case "$char" in
