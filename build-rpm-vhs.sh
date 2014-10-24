@@ -32,7 +32,7 @@
 		dir_out="$1"
 	ext=tar.gz
 	# If this is not found, retrieve code from git
-	CHECK_FOR=bin/$app
+	CHECK_FOR=$app.sh
 	HUB_USER=sri-arjuna
 	GIT=https://github.com/$HUB_USER/$app.git
 	#build_link=/usr/bin/rpm-build-$app
@@ -46,8 +46,9 @@
 #
 	cd "$home"
 	[[ -d $HOME/rpmbuild ]] && rpmdev-wipetree
-	rpmdev-setuptree
-	[[ -f "$CHECK_FOR" ]] || git clone $GIT ../$app
+	[[ -d "$dir_out" ]] || mkdir -p "$dir_out"
+	rpmdev-setuptree > /dev/zero
+	[[ -f "$CHECK_FOR" ]] || ( git clone $GIT ../$app ) #; cd ../$app )
 #
 #	Version & tarball name
 #
@@ -59,7 +60,7 @@
 	cp $app.spec			$HOME/rpmbuild/SPECS
 	cp $app.spec			"$dir_out"
 	[[ -d ../$app ]] || (mkdir ../$app;cp -r * ../$app )
-	tar -acf $dir_out/$TARBALL 	../$app
+echo $(pwd)	tar -acf $dir_out/$TARBALL 	../$app
 	ln -sf $dir_out/$TARBALL 	$HOME/rpmbuild/SOURCES/$TARBALL
 #	
 # 	Build
