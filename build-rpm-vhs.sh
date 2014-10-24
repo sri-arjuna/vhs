@@ -27,6 +27,7 @@
 #
 	. $HOME/.config/fas/fas.conf
 	app=vhs
+	target=noarch
 	[[ -z $1 ]] && \
 		dir_out="$FAS_REVIEW/$app" || \
 		dir_out="$1"
@@ -60,12 +61,12 @@
 	cp $app.spec			$HOME/rpmbuild/SPECS
 	cp $app.spec			"$dir_out"
 	[[ -d ../$app ]] || (mkdir ../$app;cp -r * ../$app )
-echo $(pwd)	tar -acf $dir_out/$TARBALL 	../$app
+	tar -acf $dir_out/$TARBALL 	../$app
 	ln -sf $dir_out/$TARBALL 	$HOME/rpmbuild/SOURCES/$TARBALL
 #	
 # 	Build
 #
-	rpmbuild -ba $app.spec || exit
+	rpmbuild -ba $app.spec --target=$target|| exit
 #	
 # 	Get packages
 #
