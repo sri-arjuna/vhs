@@ -10,7 +10,7 @@ Source0:        vhs-%{version}.tar.gz
 Requires:       tui
 Requires:       ffmpeg
 Requires:       mkvtoolnix
-Requires:       v4l-tools
+Requires:       v4l-utils
 
 #Requires:       ogmtools
 #Requires:       oggvideotools
