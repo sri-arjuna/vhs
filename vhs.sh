@@ -963,7 +963,7 @@ EOF
 	while getopts "a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		a)	log_msg="Appending to input list: $OPTARG"
-			ARG="$OPTARG"
+			ARG=""
 			out_str=""
 			case ${OPTARG/*.} in
 		#	aac|ac3|dts|flac|mp3|ogg|wav|wma)
