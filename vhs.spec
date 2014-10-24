@@ -19,16 +19,19 @@ Requires:       v4l-tools
 #Requires:       speex-tools
 #Requires:       swftools
 #Requires:       mjpegtools
-# * Encode DVD
 #Requires:       libdvdcss
 
 %description
 A Script to handle diffrent multimedia tasks.
+* Re-encode existing videos
 * Capture webcam
 * Capture desktop
 * Capture webcam as PiP over desktop
-* Re-encode existing videos
-* Extract audio stream
+* Extract audio stream from video files
+* Include audio-, subtitlestreams
+* Include PiP Video
+* Include Logoimage (Top Left fixed)
+* Encode DVD, non-copy-protected only
 
 %prep
 %setup -q -c %{name}-%{version}
