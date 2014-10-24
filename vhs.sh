@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.10.20
+#	Changed:	2014.10.24
 	script_version=1.0.5
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
@@ -148,13 +148,13 @@ Examples:	$ME -C				| Enter the configuration/setup menu
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
-	-a(add)		FILE		Adds the FILE to the 'add/inlcude' list
+	-a(add)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
 	-C(onfig)			Shows the configuration dialog
 	-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
-(drop?)	-D(VD)				Encode from DVD (not working since code rearrangement)
+	-D(VD)				Encode from DVD (not working since code rearrangement)
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-f(ps)		FPS		Force the use of the passed FPS
 	-F(PS)				Use the FPS from the config file (25 by default)
@@ -165,7 +165,6 @@ Where options are: (only the first letter)
 	-K(ill)				Lets you select tje job to kill among currenlty running VHS jobs.
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
-	-O(utputFile)	NAME		Forces to save as NAME, this is internal use for '-Ep 2|3'
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
 	-q(uality)	RES		Encodes the video at ID's default resolution, might strech or become boxed
 	-Q(uality)	RES		Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
@@ -195,20 +194,20 @@ Values:
 ------------------------------------------------------
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
-RES:		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} RES' to use the shown bitrates here.
-		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280	(1min ~ 10.1 mb)
-		* ${BOLD}clip${RESET}	320x240 	a128 v256	(1min ~  3.1 mb)
-		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  5.2 mb, aka VGA)
-		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  6.7 mb)
-		* ${BOLD}hdr${RESET}	1280x720	a192 v1024	(1min ~ 10.3 mb, aka HD Ready)
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 16.2 mb, aka Full HD)
-		* ${BOLD}uhd${RESET} 	3840x2160	a384 v4096	(1min ~ 36.6 mb, aka 4k)
-CONTAINER (a):	aac ac3 dts mp3 wav
-CONTAINER (v):  mkv mp4 ogm webm
+RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
+		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} RES' to use the shown bitrates below.
+		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280	(1min ~ 11.1 mb)
+		* ${BOLD}clip${RESET}	320x240 	a128 v384	(1min ~  3.8 mb)
+		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  4.8 mb, aka VGA)
+		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  6.2 mb)
+		* ${BOLD}hdr${RESET}	1280x720	a192 v1024	(1min ~  9.1 mb, aka HD Ready)
+		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 14.4 mb, aka Full HD)
+		* ${BOLD}uhd${RESET} 	3840x2160	a384 v4096	(1min ~ 34.1 mb, aka Ultra HD / 4K)
+CONTAINER (a):	aac ac3 dts flac mp3 ogg wav wma
+CONTAINER (v):  avi flv mkv mp4 ogm webm wmv
 VIDEO:		[/path/to/]videofile
 LOCATIoN:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
 LNG:		A valid 3 letter abrevihation for diffrent langauges
-PASS:		2 3
 HRZ:		44100 *48000* 72000 *96000* 128000
 TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
@@ -385,7 +384,7 @@ Log:		$LOG
 			exit 1
 		case "$1" in
 		"${LIST[0]}")	printf "192 1280";;
-		"${LIST[1]}")	printf "128 256" ;;
+		"${LIST[1]}")	printf "128 384" ;;
 		"${LIST[2]}")	printf "128 512" ;;
 		"${LIST[3]}")	printf "192 640" ;;
 		"${LIST[4]}")	printf "192 1024";;
@@ -636,7 +635,7 @@ Log:		$LOG
 					;;
 			sea)		# Non working ??
 					OF="$SCREEN_OF"
-					cmd="$FFMPEG $ADDERS -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f $sound -i default -acodec $audio_codec -vcodec $video_codec $extra $METADATA $F \"${OF}\""
+					cmd="$FFMPEG -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f $sound -i default -acodec $audio_codec -vcodec $video_codec $extra $METADATA $F \"${OF}\""
 					;;
 			esac
 			doLog "WebCam: Using $webcam_mode command"
@@ -959,7 +958,8 @@ EOF
 ###
 ##
 #
-	A=1 # Files added counter
+	A=1 			# Files added counter
+	image_overlay=""	# Clean variable for 'default' value
 	while getopts "a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		a)	log_msg="Appending to input list: $OPTARG"
@@ -969,14 +969,15 @@ EOF
 		#	aac|ac3|dts|flac|mp3|ogg|wav|wma)
 		#		adders+=" -map $A"
 		#		;;
-			jpg|bmp|png|svg|ico)
+			jpg|jpeg|gif|bmp|png|ico)
 				out_str="out$A"
-				ARG=" -filter_complex 'overlay'"
+				ARG=" -filter_complex 'overlay$image_overlay'"
 				;;
 			avi|xvid|webm|ogm|mkv|mp4|mpeg|ogv|ogm|flv|wmv)
 				adders+=" -map $A:a -map $A:v -filter_complex ${video_overlay/[X/[$A}"
 				;;
-			*)
+			svg)	tui-status 1 "Not supportet: ${OPTARG/*.}" ; exit $?	;;
+			*)	# Audio & Subtitle stream files
 				adders+=" -map $A"
 				;;
 			esac
@@ -1085,7 +1086,8 @@ EOF
 		j)	useJpg=true
 			log_msg="Use attached images"
 			;;
-		K)	tui-title "VHS Task Killer"
+		K)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+			tui-title "VHS Task Killer"
 			RAW=""
 			fine=""
 			RAW=$(ps -ha|grep -v grep|grep -e vhs -e ffmpeg |grep  bgj|awk '{print $8}')
@@ -1121,6 +1123,7 @@ EOF
 			
 			[[ -z "$num" ]] && \
 				pip_scale=320 || pip_scale=$num
+				
 			pip_h=$[ ( $pip_scale * 9 ) / 16 ]
 			
 			GS=$(getRes screen)
@@ -1133,25 +1136,43 @@ EOF
 			# Tops
 			tl)	# Default
 				guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay'"
+				#image_overlay=""
+				;;
 			tc)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$width_center:main_h-overlay_h-$[ $H - $pip_h ]'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-$[ $H - $pip_h ]'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-$[ $H - $pip_h ]'"
+				#image_overlay="=[0:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-$[ $H - $pip_h ]"
+				;;
 			tr)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-$[ $H - $pip_h ]'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-$[ $H - $pip_h ]'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-$[ $H - $pip_h ]'"
+				#image_overlay="=[1:v:0]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-$[ $H - $pip_h ]"
+				;;
 			# Bottoms
 			bl)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=0:main_h-overlay_h-0'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_h-0'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_h-0'"
+				#image_overlay="=[1:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_h-0"
+				;;
 			bc)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$width_center:main_h-overlay_h-0'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-0'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-0'"
+				#image_overlay="[1:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_h-0"
+				;;
 			br)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-0'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-0'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-0'"
+				#image_overlay="=[1:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_h-0"
+				;;
 			# Special centers
 			cl)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=0:main_h-overlay_w-$horizont_center'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_w-$horizont_center'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_w-$horizont_center'"
+				#image_overlay="=[1:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=0:main_h-overlay_w-$horizont_center"
+				;;
 			cc)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$width_center:main_h-overlay_w-$horizont_center'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_w-$horizont_center'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_w-$horizont_center'"
+				#image_overlay="=[1:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$width_center:main_h-overlay_w-$horizont_center"
+				;;
 			cr)	guide_complex="'[0:v:0] scale=$pip_scale:-1 [a] ; [1:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center'"
-				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center'"	;;
+				video_overlay="'[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center'"
+				#image_overlay="=[X:v:0] scale=$pip_scale:-1 [a] ; [0:v:0][a]overlay=$[ $W - $pip_scale ]:main_h-overlay_w-$horizont_center"
+				;;
 			esac
 			
 			log_msg+=", orietiation: $char @ $num"
@@ -1338,7 +1359,7 @@ EOF
 					msg+=" Capturing"
 					[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
 					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-					cmd="$cmd_all $ADDERS $cmd_input_all $web $METADATA $extra $METADATA $adders $F \"${OF}\""
+					cmd="$cmd_all $cmd_input_all $web $METADATA $extra $METADATA $F \"${OF}\""
 					printf "$cmd" > "$TMP.cmd"
 					doLog "Screenrecording: $cmd"
 					$beVerbose && tui-echo "$msgA"
@@ -1350,11 +1371,10 @@ EOF
 				doExecute $TMP.cmd "$OF" "Saving to '$OF'"
 				exit
 			;;
-	guide)		# ffmpeg -y -f v4l2 -s 1280x720 -framerate 24 -i /dev/video0 -f x11grab -s 1280x720 -framerate 24 -i :0 -f pulse -i default -filter_complex '[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay' -c:v libx264 -crf 23 -preset veryfast -c:a libmp3lame -q:a 4 overlay.mp4
-			[[ -z "$ext" ]] && source $CONTAINER/$container
+	guide)		[[ -z "$ext" ]] && source $CONTAINER/$container
 			OF=$(genFilename "$HOME/guide-out.$container" $ext )
 			
-			cmd="$cmd_all $ADDERS -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $adders $F \"$OF\""
+			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
 			printf "$cmd" > "$TMP"
 			
 			doLog "Command-Guide: $cmd"
