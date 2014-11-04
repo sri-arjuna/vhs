@@ -26,7 +26,7 @@
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
 #	Changed:	2014.10.24
-	script_version=1.0.5
+	script_version=1.0.6
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -386,7 +386,7 @@ Log:		$LOG
 		"${LIST[0]}")	printf "192 1280";;
 		"${LIST[1]}")	printf "128 384" ;;
 		"${LIST[2]}")	printf "128 512" ;;
-		"${LIST[3]}")	printf "192 640" ;;
+		"${LIST[3]}")	printf "192 768" ;;
 		"${LIST[4]}")	printf "192 1024";;
 		"${LIST[5]}")	printf "256 1664";;
 		"${LIST[6]}")	printf "384 4096";;
