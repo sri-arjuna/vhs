@@ -26,7 +26,7 @@
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
 #	Changed:	2014.10.24
-	script_version=1.0.6
+	script_version=1.0.7
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -148,6 +148,7 @@ Examples:	$ME -C				| Enter the configuration/setup menu
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
+	-2				Enables 2-Pass encoding
 	-a(add)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
@@ -166,6 +167,7 @@ Where options are: (only the first letter)
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
+	-2(-Pass)			Enabled 2 Pass encoding: Video reencoding only (Will fail when combinied with -y (copy)!)
 	-q(uality)	RES		Encodes the video at ID's default resolution, might strech or become boxed
 	-Q(uality)	RES		Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
 	-r(ate)		48000		Values from 48000 to 96000, or similar
@@ -199,8 +201,8 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280	(1min ~ 11.1 mb)
 		* ${BOLD}clip${RESET}	320x240 	a128 v384	(1min ~  3.8 mb)
 		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  4.8 mb, aka VGA)
-		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  6.2 mb)
-		* ${BOLD}hdr${RESET}	1280x720	a192 v1024	(1min ~  9.1 mb, aka HD Ready)
+		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  6.9 mb)
+		* ${BOLD}hdr${RESET}	1280x720	a256 v1024	(1min ~  9.1 mb, aka HD Ready)
 		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 14.4 mb, aka Full HD)
 		* ${BOLD}uhd${RESET} 	3840x2160	a384 v4096	(1min ~ 34.1 mb, aka Ultra HD / 4K)
 CONTAINER (a):	aac ac3 dts flac mp3 ogg wav wma
@@ -386,8 +388,8 @@ Log:		$LOG
 		"${LIST[0]}")	printf "192 1280";;
 		"${LIST[1]}")	printf "128 384" ;;
 		"${LIST[2]}")	printf "128 512" ;;
-		"${LIST[3]}")	printf "192 768" ;;
-		"${LIST[4]}")	printf "192 1024";;
+		"${LIST[3]}")	printf "192 640" ;;
+		"${LIST[4]}")	printf "256 1024";;
 		"${LIST[5]}")	printf "256 1664";;
 		"${LIST[6]}")	printf "384 4096";;
 		esac
@@ -960,8 +962,9 @@ EOF
 #
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
-	while getopts "a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
+	while getopts "2a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
+		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
 			ARG=""
 			out_str=""
@@ -1478,7 +1481,7 @@ EOF
 				txt_mjpg+=" -map 0:$i"
 			done
 		fi
-
+	
 	# Audio	
 		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
@@ -1518,10 +1521,30 @@ EOF
 			fi
 		fi
 	#
-	#	Handle video pass 1
+	#	Handle video pass 1 if 2 enabled
 	#
-		tmp_of="${OF##*/}\""
-		tmp_if="${video##*/}\""
+		tmp_of="${OF##*/}"
+		tmp_if="${video##*/}"
+		# 2-Pass encoding enabled?
+		if [[ $PASS -eq 2 ]]
+		then	# Do first pass if 2 pass
+			STR2="Encoded \"$tmp_if\" pass 2/2 to \"$tmp_of\""
+			STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
+			
+			STR2pass1="Encoded \"$tmp_if\" pass 1/2"
+			STR1pass1="Encoding \"$tmp_if\" pass 1/2 to ffmpeg2pass-0.log.mbtree"
+			
+			cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:0 -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
+			echo "$cmd2pass" > "$TMP"
+			doLog "Command-Video-Pass1: $cmd2pass"
+			doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
+		else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
+			STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
+			
+		fi
+	#
+	#	Handle video pass 2 or only one
+	#
 		# Make these strings match onto a single line
 		tmp_border=$[ ${#TUI_BORDER_LEFT} + ${#TUI_BORDER_RIGHT} + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
 		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
@@ -1538,8 +1561,6 @@ EOF
 		cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 		doLog "Command-Simple: $cmd"
 		msg+=" Converting"
-		STR2="Encoded \"$tmp_if\" to \"$tmp_of"
-		STR1="Encoding \"$tmp_if\" to \"$tmp_of"
 
 	# Verify file does not already exists
 	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
@@ -1568,12 +1589,17 @@ EOF
 			then	# Set default language if mkv encoding was a successfull 2-pass
 				lang2=$(listIDs|grep Audio|grep ^${audio_ids:0:1}|awk '{print $2}')
 				[[ ${#lang2} -gt 3 ]] && \
-					tui-echo "Could not determine proper langauge, probably wasnt labled before" "$FAIL" && \
-					tui-echo "Labeling it as '$lang2', eventhough that might bewrong" || \
-					lang=$lang2
+					tui-echo "Could not determine proper langauge, probably it wasnt labled before" "$FAIL" && \
+					lang2=$(echo $lang2|awk '{print $1}') && \
+					tui-echo "Labeling it as '$lang2', eventhough that might be wrong" && \
+					lang=$lang2 #|| \
+					#lang=$lang2
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
-				doLog "Audio : Set default audio stream ${audio_ids:0:1}"
+				#tui-echo "aid $aid .$audio_ids"
+				#aid="$(vhs -i \"$OF\" |grep Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
+				aid=1
+				doLog "Audio : Set default audio stream $aid"
 				mkvpropedit -q "$OF"	--edit track:a$aid --set flag-default=0 \
 							--edit track:a$aid --set flag-enabled=1 \
 							--edit track:a$aid --set flag-forced=0 \

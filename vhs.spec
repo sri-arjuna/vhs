@@ -1,12 +1,13 @@
 Name:           vhs
-Version:        1.0.5
-Release:        0%{?dist}
+Version:        1.0.7
+Release:        1%{?dist}
 Summary:        Video Handler Script
 
 License:        GPLv3
 URL:            https://github.com/sri-arjuna/vhs
 Source0:        vhs-%{version}.tar.gz
 
+BuildArch:      noarch
 Requires:       tui
 Requires:       ffmpeg
 Requires:       mkvtoolnix
@@ -55,6 +56,14 @@ mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
+* Tue Nov 04 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.7
+- Reducded -Q dvd from v768 to v640
+- Re-sadded 2pass encoding: -2
+- Fixed small typos
+
+* Tue Nov 04 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.6
+- Increased -Q dvd from v640 to v768
+
 * Fri Oct 24 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.5
 - Updated description
 
