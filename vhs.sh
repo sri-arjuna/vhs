@@ -25,8 +25,8 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.10.24
-	script_version=1.0.7
+#	Changed:	2014.11.15
+	script_version=1.0.9
 	TITLE="Video Handler Script"
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
@@ -74,7 +74,7 @@
 	TMP="$TMP_DIR/$ME.tmp"			# Direct tempfile access
 	
 	# Get basic container, set to open standard if none exist
-	[[ -f "$CONFIG" ]] && container=$(tui-value-get "$CONFIG" "container") || container=webm
+	[[ -f "$CONFIG" ]] && container=$(tui-conf-get "$CONFIG" "container") || container=webm
 	# Create temp directory if not existing
 	[[ -d "$TMP_DIR" ]] || mkdir -p "$TMP_DIR"
 	# Create configuration directory if not existing
@@ -88,6 +88,7 @@
 #
 	# BOOL's
 	ADDED_VIDEO=false
+	ADVANCED=false
 	showFFMPEG=false		# -v 	Debuging help, show the real encoder output
 	beVerbose=false			# -V 	Show additional steps done
 	doCopy=false			# -C
@@ -150,6 +151,7 @@ Where options are: (only the first letter)
 	-h(elp) 			This screen
 	-2				Enables 2-Pass encoding
 	-a(add)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
+	-A(dvanced)			Will open an editor before executing the command
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
@@ -845,7 +847,7 @@ EOF
 		tui-title "Setup : $TITLE"
 		
 		# Get a list of ALL variables within the $CONFIG file
-		VARS=$(tui-value-get -l "$CONFIG"|grep -v req)
+		VARS=$(tui-conf-get -l "$CONFIG"|grep -v req)
 		
 		# Make a tempfile without empty or commented lines
 		# And display both, variable and value to the user
@@ -868,7 +870,7 @@ EOF
 			Back)		break	;;
 			UpdateLists)	$var 	;;
 			ReWriteContainers) WriteContainers ;;							
-			*)	val=$(tui-value-get "$CONFIG" "$var")
+			*)	val=$(tui-conf-get "$CONFIG" "$var")
 				newval=""
 				tui-echo "${var^} is set to:" "$val"
 				if tui-yesno "Change the value of $var?"
@@ -903,7 +905,7 @@ EOF
 					if [[ -z "$newval" ]]
 					then	tui-status 1 "$msg"
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
-					else	tui-value-set "$CONFIG" "$var" "$newval"
+					else	tui-conf-set "$CONFIG" "$var" "$newval"
 						tui-status $? "$msg" && \
 						doLog "Setup: $msg" || \
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
@@ -946,7 +948,7 @@ EOF
 		fi	
 		
 		MenuSetup
-		tui-value-set "$CONFIG" "req_inst" "$FIRST_RET"
+		tui-conf-set "$CONFIG" "req_inst" "$FIRST_RET"
 	fi
 	source "$CONFIG"
 	# Print Log entry only if its neither:
@@ -962,7 +964,7 @@ EOF
 #
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
-	while getopts "2a:Bb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
+	while getopts "2a:ABb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
@@ -988,6 +990,9 @@ EOF
 			[[ -z "$out_str" ]] && \
 				ADDERS+=" -i '$OPTARG'" || \
 				ADDERS+=" -i '$OPTARG' $ARG"
+			;;
+		A)	ADVANCED=true
+			log_msg="set ADVANCED=$ADVANCED"
 			;;
 		b)	char="${OPTARG:0:1}"
 			case "$char" in
@@ -1351,7 +1356,7 @@ EOF
 	dvd|screen|webcam) 	# TODO For these 3 i can implement the bitrate suggestions...
 				$beVerbose && tui-echo "Set outputfile to $OF"
 				msg="Beginn:"
-				msgA="Generated command for $MODE-encoding in $TMP.cmd"
+				msgA="Generated command for $MODE-encoding in $TMP"
 				case $MODE in
 				webcam) doWebCam	;;
 				screen) #doScreen
@@ -1363,7 +1368,7 @@ EOF
 					[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
 					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
 					cmd="$cmd_all $cmd_input_all $web $METADATA $extra $METADATA $F \"${OF}\""
-					printf "$cmd" > "$TMP.cmd"
+					printf "$cmd" > "$TMP"
 					doLog "Screenrecording: $cmd"
 					$beVerbose && tui-echo "$msgA"
 					;;
@@ -1371,7 +1376,12 @@ EOF
 				esac
 				tui-status $RET_INFO "Press 'CTRL+C' to stop encoding from $MODE..."
 				doLog "$msgA"
-				doExecute $TMP.cmd "$OF" "Saving to '$OF'"
+				if $ADVANCED
+				then	tui-echo "Please save the file before you continue"
+					tui-edit "$TMP"
+					tui-press "Press [ENTER] when read to encode..."
+				fi
+				doExecute $TMP "$OF" "Saving to '$OF'"
 				exit
 			;;
 	guide)		[[ -z "$ext" ]] && source $CONTAINER/$container
@@ -1383,6 +1393,11 @@ EOF
 			doLog "Command-Guide: $cmd"
 			
 			tui-status $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
+			if $ADVANCED
+			then	tui-echo "Please save the file before you continue"
+				tui-edit "$TMP"
+				tui-press "Press [ENTER] when read to encode..."
+			fi
 			doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
 			
 			exit $?
@@ -1430,6 +1445,12 @@ EOF
 					doLog "Command-Audio: $cmd"
 				# Display progress	
 					tui-title "Saving audio stream: $AID"
+					
+					if $ADVANCED
+					then	tui-echo "Please save the file before you continue"
+						tui-edit "$TMP"
+						tui-press "Press [ENTER] when read to encode..."
+					fi
 					doExecute "$TMP" \
 						"$OF" \
 						"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
@@ -1579,7 +1600,12 @@ EOF
 		#	Execute the command
 		#
 			printf "$cmd" > "$TMP"
-			$showFFMPEG && tui-echo "Executing:" "$cmd"
+			if $ADVANCED
+			then	tui-echo "Please save the file before you continue"
+				tui-edit "$TMP"
+				tui-press "Press [ENTER] when read to encode..."
+			fi
+			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
 			doExecute "$TMP" "$OF" "$STR1" "$STR2"
 			RET=$?
 		#
@@ -1597,13 +1623,16 @@ EOF
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
 				#tui-echo "aid $aid .$audio_ids"
-				#aid="$(vhs -i \"$OF\" |grep Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
-				aid=1
+				aid="$(vhs -i \"$OF\" |grep Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
+				#aid=1
 				doLog "Audio : Set default audio stream $aid"
-				mkvpropedit -q "$OF"	--edit track:a$aid --set flag-default=0 \
+				case $container in
+				mkv)	mkvpropedit -q "$OF"	--edit track:a$aid --set flag-default=0 \
 							--edit track:a$aid --set flag-enabled=1 \
 							--edit track:a$aid --set flag-forced=0 \
 							--edit track:a$aid --set language=$lang
+					;;
+				esac
 				tui-status $? "$msg"
 			fi
 			#Generate log message

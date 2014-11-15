@@ -1,11 +1,11 @@
 Name:           vhs
-Version:        1.0.7
-Release:        1%{?dist}
+Version:        1.0.9
+Release:        0%{?dist}
 Summary:        Video Handler Script
 
 License:        GPLv3
 URL:            https://github.com/sri-arjuna/vhs
-Source0:        vhs-%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch
 Requires:       tui
@@ -56,6 +56,11 @@ mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
+* Sat Nov 15 Simon A. Erat <erat.simon@gmail.com> 1.0.9
+- Fixed tui-value-* errors
+- Added '-A' toggle to edit command before executing
+- new old bug: webm... idk why...
+
 * Tue Nov 04 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.7
 - Reducded -Q dvd from v768 to v640
 - Re-sadded 2pass encoding: -2
