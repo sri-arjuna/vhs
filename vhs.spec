@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        1.0.9
-Release:        0%{?dist}
+Release:        1%{?dist}
 Summary:        Video Handler Script
 
 License:        GPLv3
@@ -56,7 +56,7 @@ mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
-* Sat Nov 15 Simon A. Erat <erat.simon@gmail.com> 1.0.9
+* Sat Nov 15 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.9
 - Fixed tui-value-* errors
 - Added '-A' toggle to edit command before executing
 - new old bug: webm... idk why...
