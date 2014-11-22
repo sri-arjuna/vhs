@@ -1553,12 +1553,13 @@ EOF
 			STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
 			
 			STR2pass1="Encoded \"$tmp_if\" pass 1/2"
-			STR1pass1="Encoding \"$tmp_if\" pass 1/2 to ffmpeg2pass-0.log.mbtree"
+			STR1pass1="Encoding \"$tmp_if\" pass 1/2" # to ffmpeg2pass-0.log.mbtree"
 			
 			cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:0 -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
 			echo "$cmd2pass" > "$TMP"
 			doLog "Command-Video-Pass1: $cmd2pass"
-			doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
+			#doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
+			tui-bgjob "$TMP"  "$STR1pass1" "$STR2pass1" || exit 1
 		else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
 			STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
 			

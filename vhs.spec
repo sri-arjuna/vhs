@@ -1,7 +1,7 @@
 Name:           vhs
 Version:        1.0.9
 Release:        1%{?dist}
-Summary:        Video Handler Script
+Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
 URL:            https://github.com/sri-arjuna/vhs
