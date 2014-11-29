@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        1.0.9
-Release:        1%{?dist}
+Version:        1.1.0
+Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -45,17 +45,23 @@ rm -rf $RPM_BUILD_ROOT
 ##%make_install
 
 mkdir -p %{buildroot}%{_bindir}/ \
-         %{buildroot}%{_datarootdir}/%{name}
+         %{buildroot}%{_datarootdir}/%{name} \
+	     %{buildroot}%{_sysconfdir}/bash_completion.d/
 rm -fr %{name}/.git
 mv %{name}/vhs.sh %{buildroot}%{_bindir}/vhs
 mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
+mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 
 %files
 %doc %{_datarootdir}/%{name}/README.md 
 %doc %{_datarootdir}/%{name}/LICENSE
+%{_sysconfdir}/bash_completion.d/%{name}*
 %{_bindir}/vhs
 
 %changelog
+* Sat Nov 29 2014 Simon A. Erat <erat.simon@gmail.com> 1.1.0
+- Added bash completition
+
 * Sat Nov 15 2014 Simon A. Erat <erat.simon@gmail.com> 1.0.9
 - Fixed tui-value-* errors
 - Added '-A' toggle to edit command before executing
