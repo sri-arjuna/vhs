@@ -1,7 +1,7 @@
 #!/bin/bash
 # ------------------------------------------------------------------------
 #
-# Copyright (c) 2014 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
+# Copyright (c) 2014-2015 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
 # All rights reserved.
 #
 # This program is free software: you can redistribute it and/or modify it
@@ -25,9 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2014.11.29
-	script_version=1.1.0
-	TITLE="Video Handler Script"
+#	Changed:	2015.01.07
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -44,9 +42,9 @@
 #
 #	Check if TUI is installed...
 #
-	S=/etc/profile.d/tui.sh
-	if [[ ! -f $S ]]
-	then 	[[ ! 0 -eq $UID ]] && \
+	S=$(which tui)
+	if [ ! -f "$S" ]
+	then 	[ ! 0 -eq $UID ] && \
 			printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" && \
 			exit 1
 		if ! git clone https://github.com/sri-arjuna/tui.git /tmp/tui.inst
@@ -60,29 +58,42 @@
     	fi
     	source $S ; S=""
 #
+#	Get XDG Default dirs
+#
+	X="$HOME/.config/user-dirs.dirs"
+	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file."
+	[ -z "$XDG_VIDEOS_DIR" ] || XDG_VIDEOS_DIR="$HOME/Videos"
+#
 #	Script Environment
 #
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
+	script_version=1.3
+	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
 	CONTAINER="$CONFIG_DIR/containers"	# Base of the container definition files
-	LOG="$CONFIG_DIR/$ME.log" 		# If a daily log file is prefered, simply insert: -$(date +'%T')
+	PRESETS=$CONFIG_DIR/presets             # Contains a basic table of the presets
+        LOG="$CONFIG_DIR/$ME.log" 		# If a daily log file is prefered, simply insert: -$(date +'%T')
 	LIST_FILE="$CONFIG_DIR/$ME.list"	# Contains lists of codecs, formats
+	[ -z "$TUI_TEMP_DIR" ] && TUI_TEMP_DIR="$HOME/.cache/" && mkdir -p "$HOME/.cache"
 	TMP_DIR="$TUI_TEMP_DIR"			# Base of possible temp files
 	TMP="$TMP_DIR/$ME.tmp"			# Direct tempfile access
 	
 	# Get basic container, set to open standard if none exist
-	[[ -f "$CONFIG" ]] && container=$(tui-conf-get "$CONFIG" "container") || container=webm
+	[ -f "$CONFIG" ] && container=$(tui-conf-get "$CONFIG" "container") || container=webm
 	# Create temp directory if not existing
-	[[ -d "$TMP_DIR" ]] || mkdir -p "$TMP_DIR"
+	[ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR"
 	# Create configuration directory if not existing
-	[[ -d "$CONFIG_DIR" ]] || mkdir -p "$CONFIG_DIR"
+	[ -d "$CONFIG_DIR" ] || mkdir -p "$CONFIG_DIR"
 #
-#	Variables
+#	Requirements
 #
-	REQUIRES="ffmpeg v4l-utils mkvtoolnix" # mencoder"		# This is absolutly required 
+	req_dvd="vobcopy libdvdread"
+	req_webcam="v4l-utils"
+	req_file_editors="mkvtoolnix"
+	REQUIRES="ffmpeg $req_dvd $req_webcam  $req_file_editors"
 #
 #	Defaults for proper option catching, do not change
 #
@@ -121,20 +132,57 @@
 	ffmpeg_silent="ffmpeg -v quiet" # [-V]		Regular or debug verbose
 	ffmpeg_verbose="ffmpeg -v verbose"	# -v		ffmpeg verbose
 	hwaccel="-hwaccel vdpau"	# NOT USED -H		Enable hw acceleration
-	txt_meta_me="'Encoded by VHS ($TITLE $script_version), using $(ffmpeg -version|grep ^ffmpeg|sed s,'version ',,g)'"
+	txt_meta_me="'Encoded by VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
 	txt_mjpg=""
 	FPS_ov=""			# -f NUM -- string check
 	SS_START=""			# -z 1:23[-1:04:45.15] start value, triggered by beeing non-empty
 	SS_END=""			# -z 1:23[-1:04:45.15] calculated end value
 	TIMEFRAME=""			# the codesegment containg the above two variables.
+	# Default overlays
 	guide_complex="'[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'"
 	video_overlay="'[X:v:0]scale=320:-1[a];[0:v:0][a]overlay'"
+
+#
+#	Check for PRESETS, required for proper help display
+#
+	WritePresetFile() { #
+        # Write a basic table of the presets
+        # 
+	cat > "$PRESETS" << EOF
+# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment
+# Label	Resolution 	Vidbit	Audbit	1min	Comment	 #--># This is for your orientation, the above is to display
+scrn	resolve 	1024	192	?	This is only used for screenrecording
+qvga	  320x240	240	128	2.8mb	Quarter of VGA, mobile devices 
+hvga	  480x320	320	128	3.3mb	Half VGA, mobile devices
+nhd	  640x360	512	192	5.2mb	Ninth of HD, mobile devices
+vga	  640x480	640	192	6.1mb	VGA
+a-vga	  640x480	512	192	5.2mb	VGA, optimized for anime cartoons
+wvga	  768x480	768	192	7.6mb	Wide VGA
+dvd	  720x480	720	256	7.2mb	DVD - PAL
+wdvd	  720x576	800	256	7.7mb	DVD-wide - Pal
+fwvga	  854x480	768	256	7.5mb	DVD-wide - NTCS, mobile devices
+hd	 1280x720	1024	384	10.1mb	HD aka HD Ready
+a-hd	 1280x720	768	384	8.5mb	HD, optimized for anime cartoons
+fhd	1920x1080	1792	384	16.7mb	Full HD
+a-fhd	1920x1080	1280	256	12.4mb	Full HD, optimized for anime cartoons
+qhd	2560x1440	3072	448	26.9mb	Quad HD - 4xHD
+uhd	3840x2160	5120	512	43.4mb	4K, Ultra HD TV
+EOF
+return 0
+## SAVE FOR LATER USE ##
+uhd+	5120x2880	6044	768	48.1mb	5K, UHD+
+fuhd	7680x4320	8192	1280	72.2mb	8K, Full UHD TV
+quhd	15360x8640	16384	1280	144.4mb	16k, Quad UHD - 4xUHD
+ouhd	30720x17380	32768	2048	288.8mb	32k, Octo UHD - 8xUHD
+	}
+	#[ -f "$PRESETS" ] || \
+		WritePresetFile
 #
 #	Help text
 #
 	BOLD="$TUI_FONT_BOLD"
 	RESET="$TUI_COLOR_RESET"
-	help_text="
+help_text="
 $ME ($script_version) - ${TITLE^}
 Usage: 		$ME [options] filename/s ...
 
@@ -149,14 +197,14 @@ Examples:	$ME -C				| Enter the configuration/setup menu
 
 Where options are: (only the first letter)
 	-h(elp) 			This screen
-	-2				Enables 2-Pass encoding
-	-a(add)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
+	-2(-pass)			Enabled 2 Pass encoding: Video encoding only (Will fail when combinied with -y (copy)!)
+	-a(dd)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
 	-A(dvanced)			Will open an editor before executing the command
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
 	-c(odec)	[av]NAME	Set codec to NAME for audio or video
 	-C(onfig)			Shows the configuration dialog
-	-d(imension)	RES		Sets to ID-resolution, keeps aspect-ratio (:-1) (will probably fail)
+	-d(imension)	RES		Sets to ID-resolution, but keeps aspect-ratio (:-1) (will probably fail, use AFTER '-Q RES')
 	-D(VD)				Encode from DVD (not working since code rearrangement)
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-f(ps)		FPS		Force the use of the passed FPS
@@ -169,9 +217,8 @@ Where options are: (only the first letter)
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
-	-2(-Pass)			Enabled 2 Pass encoding: Video reencoding only (Will fail when combinied with -y (copy)!)
-	-q(uality)	RES		Encodes the video at ID's default resolution, might strech or become boxed
-	-Q(uality)	RES		Sets to ID-resolution and uses (sea)'s prefered bitrates for that RES
+	-q(uality)	RES		Encodes the video at ID's bitrates from presets
+	-Q(uality)	RES		Sets to ID-resolution and uses the bitrates from presets, video might become sctreched
 	-r(ate)		48000		Values from 48000 to 96000, or similar
 	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
 	-S(creen)			Records the fullscreen desktop
@@ -184,7 +231,7 @@ Where options are: (only the first letter)
 	-x(tract)			Clean up the log file
 	-X(tract)			Clean up system from $ME-configurations
 	-y(copY)			Just copy streams, fake convert
-	-z(sample)  1:23[-1:04:45[.15]]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
+	-z(sample)  1:23[-1:04:45[.15]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
 
 
 Info:
@@ -199,14 +246,68 @@ Values:
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
 RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
-		Use '${BOLD}-q${RESET} RES' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} RES' to use the shown bitrates below.
-		* ${BOLD}screen${RESET} $(xrandr|grep \*|awk '{print $1}') 	a192 v1280	(1min ~ 11.1 mb)
-		* ${BOLD}clip${RESET}	320x240 	a128 v384	(1min ~  3.8 mb)
-		* ${BOLD}vhs${RESET}	640x480 	a128 v512	(1min ~  4.8 mb, aka VGA)
-		* ${BOLD}dvd${RESET}	720x576 	a192 v640	(1min ~  6.9 mb)
-		* ${BOLD}hdr${RESET}	1280x720	a256 v1024	(1min ~  9.1 mb, aka HD Ready)
-		* ${BOLD}fhd${RESET} 	1920x1280	a256 v1664	(1min ~ 14.4 mb, aka Full HD)
-		* ${BOLD}uhd${RESET} 	3840x2160	a384 v4096	(1min ~ 34.1 mb, aka Ultra HD / 4K)
+		Use '${BOLD}-q${RESET} LABEL' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} LABEL' to use the shown bitrates and aspect ratio below.
+$( 
+        printf "\t$TUI_FONT_UNDERSCORE ";$SED s,"#",, "$PRESETS" | $GREP Pix
+	printf "$TUI_RESET"
+	$GREP -v Audbit "$PRESETS" | \
+		while read label res vidbit audbit siz comment
+		do
+			if [ ! $label = scrn ]
+			then	pixels=$[ ${res/x*/} * ${res/*x/} ]
+			#	[ ${#pixels} -gt 9 ] && \
+			#		dot=${pixels:0:( - 8 )} && \
+			#		pixels="${pixels:0:(-9)}.${dot:0:1}bil"
+			#	[ ${#pixels} -gt 6 ] && \
+			#		dot=${pixels:0:( - 5 )} && \
+			#		pixels="${pixels:0:(-6)}.${dot:0:1}mil"
+				#[ $pixels -eq 0 ] && pixels="0     "
+				if [ ${#pixels} -gt 6 ]
+				then	dot_cut=5
+					cut=6
+					ext=mil
+				elif [ ${#pixels} -ge 4 ]
+				then	dot_cut=2
+					cut=3
+					ext=k
+				elif [ ${#pixels} -le 3 ]
+				then	dot_cut=""
+					cut=""
+					ext=""
+				fi
+				[ ! -z "$dot_cut" ] && \
+					dot="${pixels:0:(-$dot_cut )}" && \
+					pixels="${pixels:0:(-$cut)}.${dot:0:1}$ext" || \
+					pixels="${pixels}$ext"
+
+				bitrate=$[ $vidbit + $audbit ]
+				#echo ${#bitrate} $bitrate
+				if [ ${#bitrate} -gt 6 ]
+				then	dot_cut=5
+					cut=6
+					ext=gb
+				elif [ ${#bitrate} -ge 4 ]
+				then	dot_cut=2
+					cut=3
+					ext=mb
+				elif [ ${#bitrate} -le 3 ]
+				then	dot_cut=""
+					cut=""
+					ext=kb
+				fi
+
+				[ HD = "${comment:0:2}" ] && \
+					comment="${BOLD}HD${RESET}${comment:2}"
+				[ ! -z "$dot_cut" ] && \
+					dot="${bitrate:0:( - $dot_cut )}" && \
+					bitrate="${bitrate:0:(-$cut)}.${dot:(${#dot} - 1):1}$ext" || \
+					bitrate="${bitrate}$ext"
+
+				printf "\t* ${BOLD}$label${RESET}\t$res \t$pixels\t$vidbit\t$audbit\t~$bitrate\t$siz\t${UNDERLINE}$comment${RESET}\n"
+			fi
+		done
+)
+
 CONTAINER (a):	aac ac3 dts flac mp3 ogg wav wma
 CONTAINER (v):  avi flv mkv mp4 ogm webm wmv
 VIDEO:		[/path/to/]videofile
@@ -216,17 +317,17 @@ HRZ:		44100 *48000* 72000 *96000* 128000
 TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
 
-
-
 Files:		
 ------------------------------------------------------
 Script:		$0
 Config:		$CONFIG
-Containers:	$CONTAINER
+Containers:	$CONTAINER/*
 Lists:		$LIST_FILE
 Log:		$LOG
+Presets:	$PRESETS
 
 "
+
 #
 #	Functions
 #
@@ -238,64 +339,65 @@ Log:		$LOG
 	StreamInfo() { # VIDEO
 	# Returns the striped down output of  ffmpeg -psnr -i video
 	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
-		ffmpeg  -psnr -i "$1" 1> "$TMP" 2> "$TMP"
-		grep -i stream "$TMP" | grep -v @
+		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
+		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
 	}
 	countVideo() { # [VIDEO]
 	# Returns the number of video streams found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$1" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$1" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
-		eval $cmd|grep -i video|wc -l
+		eval $cmd|$GREP -i video|wc -l
 	}
 	countAudio() { # [VIDEO]
 	# Returns the number of audio streams found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$1" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$1" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
-		eval $cmd|grep -i audio|wc -l
+		eval $cmd|$GREP -i audio|wc -l
 	}
 	countSubtitles() { # [VIDEO]
 	# Returns the number of subtitles found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$1" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$1" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
-		eval $cmd|grep -i subtitle|wc -l
+		eval $cmd|$GREP -i subtitle|wc -l
 	}
 	hasLang() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$2" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$2" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
-		eval $cmd|grep -i audio|grep -q -i "$1"
+		eval $cmd|$GREP -i audio|$GREP -q -i "$1"
 		return $?
 	}
 	hasLangDTS() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO and declares itself as DTS
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$2" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$2" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
-		eval $cmd|grep -i audio|grep -i $1|grep -q DTS
+		eval $cmd|$GREP -i audio|$GREP -i $1|$GREP -q DTS
 		return $?
 	}
 	hasSubtitle() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$2" ]] && \
-			cmd="grep -i stream \"$TMP.info\"" || \
+		[ -z "$2" ] && \
+			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
-		eval $cmd|grep -i subtitle|grep -q -i $1
+		eval $cmd|$GREP -i subtitle|$GREP -q -i $1
 		return $?
 	}
 	listIDs() { # [VIDEO]
 	# Prints a basic table of stream ID CONTENT (and if found) LANG
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		[[ -z "$1" ]] && \
+		[ -z "$1" ] && \
+			[ -f "$TMP.info" ] && \
 			cmd="cat \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
 		IFS=' :()'
@@ -309,38 +411,38 @@ Log:		$LOG
 	listAttachents(){ #
 	# To call after StreamInfo or vhs -i video
 	#
-		for TaID in $(grep Attach $TMP|awk '{print $2}');do # |grep mjpg
+		for TaID in $($GREP Attach $TMP|$AWK '{print $2}');do # |$GREP mjpg
 			printf " ${TaID:3:(-1)} "
 		done
 	}
 	listAudioIDs() { # [VIDEO]
 	# Returns a list of audio stream ids
 	#
-		listIDs "$1" |grep -i audio|awk '{print $1}'
+		listIDs "$1" |$GREP -i audio|$AWK '{print $1}' | $GREP -iv iso
 	}
 	listVideoIDs() { # [VIDEO]
 	# Returns a list of audio stream ids
 	#
-		listIDs "$1" |grep -i video|awk '{print $1}'
+		listIDs "$1" |$GREP -i video|$AWK '{print $1}'
 	}
 	listSubtitleIDs() { # [VIDEO]
 	# Returns a list of subtitle stream ids
 	#
-		listIDs "$1" |grep -i subtitle |awk '{print $1}'
+		listIDs "$1" |$GREP -i subtitle |$AWK '{print $1}'
 	}
 	genFilename() { # Filename_with_ext container
 	# Parses for file extension and compares with new container
 	# If identical, add a number to avoid overwriting sourcefile.
-		[[ $# -lt 2 ]] && tui-echo "Requires 'filename-with.ext' and 'extension/container'." "$FAIL" && return 1
+		[ $# -lt 2 ] && tui-echo "Requires 'filename-with.ext' and 'extension/container'." "$FAIL" && return 1
 		video="$1"
 		container="$2"
 		# TODO find better way to get extension
 		for ext in $(printf "$video"|sed s,"\."," ",g);do printf "" > /dev/zero;done
-		[[ "$ext" = "$video" ]] && ext="$container" && video="$video.$container"
+		[ "$ext" = "$video" ] && ext="$container" && video="$video.$container"
 		
-		if [[ ! "$ext" = "$container" ]]
+		if [ ! "$ext" = "$container" ]
 		then 	outputfile="${video/$ext/$container}"
-			[[ ! -f $outputfile ]] && \
+			[ ! -f "$outputfile" ] && \
 				doLog "Output: \"$outputfile\"" && \
 				printf "$outputfile" && return 0 || \
 				name="${video/$ext/}"
@@ -349,7 +451,7 @@ Log:		$LOG
 		
 		# new file name would be the same
 		N=0
-		while [[ -f "$name$N.$container" ]] ; do ((N++));done
+		while [ -f "$name$N.$container" ] ; do ((N++));done
 		outputfile="$name$N.$container"
 		doLog "Output: Has same extension, incrementing to \"$outputfile\""
 		printf "$outputfile"
@@ -357,50 +459,39 @@ Log:		$LOG
 	getRes() { # [-l] ID
 	# Returns 2 digits (W*H) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd uhd)
-		[[ "-l" = "$1" ]] && \
-			printf "${LIST[*]}" && \
+		[ "-l" = "$1" ] && \
+			$AWK '{print $1}' "$PRESETS" && \
 			return 0
-		[[ -z "$1" ]] && \
-			printf "Must provide a valid ID!" && \
-			exit 1
+		[ -z "$1" ] && \
+			printf "Must provide an ID!" && \
+			return 1
 		case "$1" in
-		"${LIST[0]}")	xrandr|grep \*|awk '{print $1}'	;;
-			#xrandr|grep \*|sed s,x,' ',g|awk '{print $1" "$2}'|sed s,x,\ ,g
-		"${LIST[1]}")	printf "320x240"  ;;
-		"${LIST[2]}")	printf "640x480"  ;;
-		"${LIST[3]}")	printf "720x576"  ;;
-		"${LIST[4]}")	printf "1280x720" ;;
-		"${LIST[5]}")	printf "1920x1080";;
-		"${LIST[6]}")	printf "3840x2160";;
+		screen|scrn)
+			xrandr|$GREP \*|$AWK '{print $1}'
+			;;
+		*)	$GREP ^"$1"[[:space:]] "$PRESETS" | \
+				$AWK '{print $2}'
+			;;
 		esac
 		return 0
 	}
 	getQualy() { # [-l] ID
 	# Returns 2 numbers (audio video) according to ID
 	# use -l to get a list of valid ID's
-		LIST=( screen clip vhs dvd hdr fhd uhd)
-		[[ "-l" = "$1" ]] && \
-			printf "${LIST[*]}" && \
+		[ "-l" = "$1" ] && \
+			$AWK '{print $1}' "$PRESETS" && \
 			return 0
-		[[ -z "$1" ]] && \
-			printf "Must provide a valid ID!" && \
-			exit 1
-		case "$1" in
-		"${LIST[0]}")	printf "192 1280";;
-		"${LIST[1]}")	printf "128 384" ;;
-		"${LIST[2]}")	printf "128 512" ;;
-		"${LIST[3]}")	printf "192 640" ;;
-		"${LIST[4]}")	printf "256 1024";;
-		"${LIST[5]}")	printf "256 1664";;
-		"${LIST[6]}")	printf "384 4096";;
-		esac
+		[ -z "$1" ] && \
+			printf "Must provide an ID!" && \
+			return 1
+		$GREP ^"$1"[[:space:]] "$PRESETS" | \
+			$AWK '{print $4" "$3}'
 		return 0
 	}
 	doExecute() { # SCRIPT [OF STR1 STR2]
 	# Executes the script according to script options
 	#
-		[[ -z "$1" ]] && tui-echo "Must provide at least a script to execute!" && return 1
+		[ -z "$1" ] && tui-echo "Must provide at least a script to execute!" && return 1
 		$beVerbose && tui-echo "showFFMPEG is set to: $showFFMPEG"
 		$beVerbose && tui-title "Executing:" "$(cat $TMP)"
 		if $showFFMPEG
@@ -409,7 +500,9 @@ Log:		$LOG
 			screen|webcam)	msg="Recorded to"	;;
 			esac
 			tui-status $RET_TODO "$msg $2"
-			sh "$1"
+			[ -z "$SHELL" ] && \
+				sh "$1" || \
+				$SHELL "$1"
 			tui-status $? "$msg $2"
 			RET=$?
 		else	tui-bgjob -f "$2" "$1" "$3" "$4"
@@ -426,7 +519,7 @@ Log:		$LOG
 			$beVerbose && tui-echo "Parsing subtitle id: $SI"
 			for l in $lang $lang_alt $langs;do
 				$beVerbose && tui-echo "Parsing subtitle id: $SI / $l"
-				if listIDs|grep $SI|grep $l
+				if listIDs|$GREP $SI|$GREP $l
 				then	# subtitle_maps+=" -map 0:$SI" && \
 					subtitle_ids+=" $SI"
 					$beVerbose && \
@@ -454,7 +547,7 @@ Log:		$LOG
 			;;
 		*)	count=0
 			# If ids are forced, use them instead and return
-			if [[ ! -z "$ID_FORCED" ]]
+			if [ ! -z "$ID_FORCED" ]
 			then	$beVerbose && tui-echo "Forced audio IDs:" "$ID_FORCED"
 				printf "$ID_FORCED" > $TMP
 				return
@@ -474,7 +567,7 @@ Log:		$LOG
 					found=0
 					this=""
 					for i in $(listAudioIDs);do
-						if listIDs|grep ^$i |grep -q $l
+						if listIDs|$GREP ^$i |$GREP -q $l
 						then	this+=" $i" 
 							((found++)) 
 							$beVerbose && tui-echo "Found $l on stream $i"
@@ -488,7 +581,7 @@ Log:		$LOG
 						case $count in
 						1)	audio_ids="$this"	;;
 						2)	# This applies only to $lang_alt
-							if [[ -z $audio_ids ]]
+							if [ -z "$audio_ids" ]
 							then	$beVerbose && tui-echo "Prefered langauge ($lang) not found"
 								audio_ids="$this"
 							else	$beVerbose && \
@@ -502,7 +595,7 @@ Log:		$LOG
 						;;
 					*)	$beVerbose && tui-echo "Parsing for possible default output"
 						for i in $this;do 
-							if grep Audio "$TMP.info"|grep $l|grep -q default
+							if $GREP Audio "$TMP.info"|$GREP $l|$GREP -q default
 							then 	audio_ids+=" $i"
 								$beVerbose && \
 									tui-echo "Found default entry for language $l" && \
@@ -510,10 +603,10 @@ Log:		$LOG
 								break #1
 							else	$beVerbose && tui-echo "ID $i is not default"
 								tui-echo "Please select the stream id you want to use:"
-								select i in $this;do 
-									audio_ids+=" $i"
-									break
-								done
+								
+                                                                i=$(tui-select $this)
+								printf "\n"
+								audio_ids+=" $i"
 							fi
 						done
 					esac
@@ -529,86 +622,181 @@ Log:		$LOG
 	# Writes the generated command to 'FILEforCommand'
 	#
 		tui-title "Encoding $name" # from $MODE"
-		#msg+=" Encoding"
-		# If tempdir exists, good chances files were already copied
-		#  cat f0.VOB f1.VOB f2.VOB | ffmpeg -i - out.mp2
-		#container=mpg
-		#source $CONTAINER/$container
 		dvd_tmp="$HOME/.cache/$name"
 		dvd_reuse=nothing
 		errors=0
 		
 		dvd_base="/run/media/$USER/$name"
-		input_vobs=$(find $dvd_base|grep -i vob)
-		vobs=""
+		
+		# Verify its mounted...
+		if mount | $GREP -q sr0
+		then	# Its already mounted
+			tui-status 4 "DvD already mounted to: $(mount | $GREP sr0|$AWK '{print $3}')"
+		else	tui-printf -rS 2 "Mounting DVD to \"$dvd_base\""
+			RET=1
+			tui-bol-sudo && \
+				sudo mkdir -p $dvd_base && \
+				sudo mount /dev/sr0 $dvd_base -o ro && \
+				RET=0 || \
+				( tui-echo "Please provide root password to mount DVD";su -c "RET=1;mkdir -p $dvd_base;mount /dev/sr0 $dvd_base -o ro" && RET=0 && export RET)
+			tui-status $RET "Mounted DVD to $dvd_base"
+		fi
+		
+                vobs=""
 		vob_list=""
 		total=0
 		yadif="-vf yadif"
-		for v in $input_vobs;do 
-			# only use files that are larger than 700 mb
-			if [[ $(ls -l $v|awk '{print $5}') -gt 700000000 ]]
-			then 	vobs+=" -i ${v##*/}"
-				vob_list+=" ${v##*/}"
-				((total++))
-			fi
-		done
-		
-		# Cop vobs to local or directly from dvd?
-		A="Encode directly from DVD"
-		B="Copy largest files to local"
+	                
+                # Cop vobs to local or directly from dvd?
+		A="Encode directly from DVD (ffmpeg only)"
+		B="Copy largest files to local (with vobcopy)"
+		C="Copy largest files to local (with cp)"
 		tui-echo "Please select a method:"
 		
-		select dvd_copy in "$A" "$B";do
+		
+                dvd_copy=$(tui-select "$B" "$A")
+		printf "\n"
 		case "$dvd_copy" in
 		"$A")	cd "$dvd_base/VIDEO_TS"
 			cmd="$FFMPEG $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $METADATA $F \"${OF}\""
 			;;
-		"$B")	[[ -d "$dvd_tmp" ]] && \
+		"$C")	# Copy files using regular cp
+			# TODO :: Currently just as backup !!!
+			# -------------------------------------
+			[ -d "$dvd_tmp" ] && \
 			 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
 				dvd_reuse=true || \
 				dvd_reuse=false
 			# Create tempdir to copy vob files into
-			if [[ false = $dvd_reuse ]]
+			if [ false = "$dvd_reuse" ]
 			then 	mkdir -p "$dvd_tmp"
 				doLog "DVD: Copy vobs to \"$dvd_tmp\""
 				tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
-				C=1
-				for vob in $vob_list;do
-					lbl="${vob##*/}"
-					MSG1="Copy $lbl ($C / $total)"
-					MSG2="Copied $lbl ($C / $total)"
-					printf "cp -n \"$dvd_base/VIDEO_TS/$vob\" \"$dvd_tmp\"" > "$TMP"
-					tui-bgjob -f "$dvd_tmp/$vob" "$TMP" "$MSG1" "$MSG2"
-					if [[ 0 -eq $? ]] #"Copied $lbl"
-					then 	doLog "DVD: ($C/$total) Successfully copied $lbl"
-					else 	doLog "DVD: ($C/$total) Failed copy $lbl"
-						((errors++))
-					fi
-					((C++))
-				done
-				# Generate ONE BIG VOB file
-				BIG="$dvd_tmp/BIGVOB.vob"
-				cmd="cat \"$dvd_tmp\"/V*[vobVOB] > \"$BIG\""
-				printf "$(eval $cmd)" > "$TMP"
-				tui-printf "Creating tempdata, this may take a while..." "$TUI_WORK"
-				tui-bgjob -f "$BIG"  "$TMP" "Creating tempdata, this may take a while..." "Created tempdata"
-				#doExecute 
+				tui-status -r 2 "Initialize DvD..." #$(readlink /dev/sr0)"
+				doVobCopy "$dvd_tmp"
+				
+				# Clean up
+				tui-status -r 2 "Unmounting DVD"
+				tui-bol-sudo && \
+					( sudo umount $dvd_base 2>/dev/zero ; RET=$? ; export RET ) || \
+					( su -c "umount $dvd_base" ; RET=$? ; export RET )
+				tui-status $RET "Unmounted DVD"
+				if [ 0 -eq $? ]
+				then	eject /dev/cdrom
+                                       tui-status $? "Ejected disc."
+				else	tui-status $? "There was an error"
+				fi
 			fi
-			tui-echo
-			[[ $errors -ge 1 ]] && \
-				tui-yesno "There were $errors errors, would you rather try to encode straight from the disc?" && \
-				cd "$dvd_base/VIDEO_TS" || \
-				cd "$dvd_tmp"
-			#cmd="$FFMPEG $vobs -target film-dvd -q:a 0  -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $F \"${OF}\""
-			#cmd="$FFMPEG $vobs -q:a 0  -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $F \"${OF}\""
-			cmd="$FFMPEG -i $dvd_tmp/BIGVOB.vob -q:a 0  -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $METADATA $F \"${OF}\""
+				BIG="$(ls $dvd_tmp/*.vob)"
+		        echo "$cmd_video_all"
+			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			echo "$cmd" ; exit
+			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
+			
+			;;
+		"$B")	# Copy VOB with vobcopy
+			[ -d "$dvd_tmp" ] && \
+			 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
+				dvd_reuse=true || \
+				dvd_reuse=false
+			# Create tempdir to copy vob files into
+			if [ false = "$dvd_reuse" ]
+			then 	mkdir -p "$dvd_tmp"
+				doLog "DVD: Copy vobs to \"$dvd_tmp\""
+				tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
+			
+				tui-status -r 2 "Initialize DvD..." #$(readlink /dev/sr0)"
+				doVobCopy "$dvd_tmp"
+				exit_vobcopy=$?
+				[ 1 -eq $exit_vobcopy ] && \
+					tui-printf -S 1 "There was an error copying the files..." && \
+					exit 1
+				
+				# Clean up
+				tui-status -r 2 "Unmounting DVD"
+				tui-bol-sudo && \
+					( sudo umount $dvd_base 2>/dev/zero ; RET=$? ; export RET ) || \
+					( su -c "umount $dvd_base" ; RET=$? ; export RET )
+				
+				# A small goodie for sudo users:
+				tui-status $RET "Unmounted DVD" && \
+					tui-bol-sudo && \
+					sudo eject /dev/sr0
+			fi
+			BIG="$(ls $dvd_tmp/*.vob)"
+			#
+			# cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+			#  $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+			echo "$cmd_audio_all"
+			echo "$cmd_video_all"
+			echo "$cmd_run_specific"
+			
+			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			echo "$cmd" ; exit
+			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
 			;;
 		esac
-		break
-		done
+		
 		doLog "DVD: Using \"$dvd_copy\" command"
-		printf "$cmd" > "$TMP.cmd"
+		printf "$cmd" > "$TMP"
 		doLog "DVD-Command: $cmd"
+	}
+	doVobCopy() { # "OUTDIR"
+	# Uses vobcopy to copy the vobs to OUTDIR
+	#
+		[ -z "$1" ] && return 1
+		declare files
+		unset files
+		count=0
+		
+		( cd "$1" ; [ -f *vob ] && tui-yesno "Delete existing vob files?" && rm *vob 2>/dev/zero )
+		
+		#showFFMPEG=true
+		# TODO FIXME, wait for vobcopy update to fix its background incompatibilty - buffer overrun
+		#if $showFFMPEG
+		if true
+		then	vobcopy -l -o "$1"
+		else	# Do the job in the background
+			vTMP="${TMP}.vobcopy"	# File to 'get' all the output
+			[ -f "$vTMP" ] && rm -f "$vTMP"
+			touch "$vTMP"
+
+			# Because i want to inform the user about which file is currently processed,
+			# i cannot use tui-bgjob -- anyway... this procudes a **Float Point Exception**
+			printf "vobcopy -ml -o \"$1\" 1>/dev/zero 2>\"$vTMP\"\n\techo \$? > $TMP.out" > $TMP
+			tui-bgjob "$TMP" "Copying VOB file" "Copied VOB file"
+			
+			PID=$!
+			sleep 0.3
+			
+			while ps | $GREP -q $PID
+			do	# Retrieve the filename and print its filesize to user
+				FILE=$(tail -n 2 "$vTMP"|$GREP Outputting|$AWK '{print $4}')
+				if [ ! -z "$FILE" ] 
+				then	FILE=$(basename "$FILE")
+					msg="Copying: $FILE" ; msg_P="pid:$PID"
+
+					if echo "${files[@]}" | $GREP -q "$FILE" 
+					then	tui-printf "$msg_P" \
+							"$msg ($(ls -lh $1/$FILE*|$AWK '{print $5}'))" \
+							"[  $(tui-indi)   ]"
+					else	this=${#files[@]}
+						prev=$[ $this - 1 ]
+						files[$this]="$FILE"
+						[ $this -gt 0 ] && \
+							tui-status 0 "Copied: ${files[$prev]}"
+						count=$(($count + 1))
+						tui-printf "$msg_P" \
+							"$msg" \
+							"[  $(tui-indi)   ]"
+					fi
+				fi
+				sleep 0.7
+			done
+		fi
+		rm -f "$vTMP"
+		RET=$(cat $TMP.out)
+		return $RET
 	}
 	doWebCam() { #
 	#
@@ -618,34 +806,23 @@ Log:		$LOG
 		# Maybe because i have disabled the laptop's internal webcam in BIOS
 		msg+=" Capturing"
 		srcs=($(ls /dev/video*)) 
-		[[ -z $srcs ]] && tui-echo "No video recording device found!" "$TUI_FAIL" && exit 1
-		if [[ "$(printf $srcs)" = "$(printf $srcs|awk '{print $1}')" ]]
+		[ -z "$srcs" ] && tui-echo "No video recording device found!" "$TUI_FAIL" && exit 1
+		if [ "$(printf $srcs)" = "$(printf $srcs|$AWK '{print $1}')" ]
 		then 	input_video="$srcs"
 		else	tui-echo "Please select the video source to use:"
-			select input_video in $srcs;do break;done
+			
+                        input_video=$(tui-select  in $srcs)
+			printf "\n"
 		fi
 		
-		#tui-status $RET_INFO "Standard is said to be working, sea's should - but might not, please report"
-		[[ -z "$verbose" ]] && verbose="-v quiet"
-		#select webcam_mode in standard sea;do
-		webcam_mode=standard
-			case $webcam_mode in
-			standard)	# Forum users said this line works
-					doLog "Overwrite already generated name, for 'example' code.. "
-					OF="$(genFilename $HOME/webcam-out.$container $container)"
-					#sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
-					web_audio=" -f alsa -i default"
-					cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $web_audio $extra $METADATA $F \"${OF}\""
-					;;
-			sea)		# Non working ??
-					OF="$SCREEN_OF"
-					cmd="$FFMPEG -f v4l2 -r $webcam_fps -s $webcam_res -i $input_video -f $sound -i default -acodec $audio_codec -vcodec $video_codec $extra $METADATA $F \"${OF}\""
-					;;
-			esac
-			doLog "WebCam: Using $webcam_mode command"
-			doLog "Command-Webcam: $cmd"
-		#	break
-		#done
+		[ -z "$verbose" ] && verbose="-v quiet"
+                doLog "Overwrite already generated name, for 'example' code.. "
+                OF="$(genFilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
+                #sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
+                web_audio=" -f alsa -i default"
+                cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $web_audio $extra $METADATA $F \"${OF}\""
+		doLog "WebCam: Using $webcam_mode command"
+                doLog "Command-Webcam: $cmd"
 		printf "$cmd" > "$TMP.cmd"
 		OF="$OF"
 		#doExecute "$OF" "Saving Webcam to '$OF'"
@@ -655,7 +832,7 @@ Log:		$LOG
 	#
 		$beVerbose && tui-title "Write Containers"
 		header="# $ME ($script_version) - Container definition"
-		[[ -d "$CONTAINER" ]] || mkdir -p "$CONTAINER"
+		[ -d "$CONTAINER" ] || mkdir -p "$CONTAINER"
 		cd "$CONTAINER"
 		for entry in aac ac3 avi dts flac flv mpeg mp4 mkv ogg ogv mp3 theora vorbis webm wma wmv wav xvid;do	# clip dvd
 			case $entry in
@@ -704,7 +881,7 @@ audio_codec=$ca
 video_codec=$cv
 codec_extra=$ce
 file_extra=$fe" > $entry
-			if [[ 0 -eq $? ]] 
+			if [ 0 -eq $? ] 
 			then	tui-status $? "Wrote container info ($entry)"
 				doLog "Container: Created '$entry' definitions succeeded" 
 			else	tui-status $?  "Wrote container info ($entry)"
@@ -716,11 +893,11 @@ file_extra=$fe" > $entry
 	UpdateLists() { #
 	# Retrieve values for later use
 	# Run again after installing new codecs or drivers
-		[[ -f "$LIST_FILE" ]] || touch "$LIST_FILE"
+		[ -f "$LIST_FILE" ] || touch "$LIST_FILE"
 		tui-title "Generating a list file"
 		$beVerbose && tui-progress "Retrieve raw data..."
-		[[ -z "$verbose" ]] && verbose="-v quiet"
-		ffmpeg $verbose -codecs | grep \ DE > "$TUI_TEMP_FILE"
+		[ -z "$verbose" ] && verbose="-v quiet"
+		ffmpeg $verbose -codecs | $GREP \ DE > "$TUI_TEMP_FILE"
 		printf "" > "$LIST_FILE"
 		
 		for TASK in DEA DES DEV;do
@@ -730,7 +907,7 @@ file_extra=$fe" > $entry
 			DEV)	txt_prog="Video-Codecs"	; 	var=codecs_video	;;
 			esac
 			tui-progress "Saving $txt_prog"
-			raw=$(grep $TASK "$TUI_TEMP_FILE"|awk '{print $2}'|sed s,"\n"," ",g)
+			raw=$($GREP $TASK "$TUI_TEMP_FILE"|$AWK '{print $2}'|sed s,"\n"," ",g)
 			clean=""
 			for a in $raw;do clean+=" $a";done
 			printf "$var=\"$clean\"\n" >> "$LIST_FILE"
@@ -739,31 +916,31 @@ file_extra=$fe" > $entry
 		
 		tui-progress "Saving Codecs-Format"
 		ffmpeg $verbose -formats > "$TUI_TEMP_FILE"
-		formats_raw=$(grep DE "$TUI_TEMP_FILE"|awk '{print $2}'|sed s,"\n"," ",g)
+		formats_raw=$($GREP DE "$TUI_TEMP_FILE"|$AWK '{print $2}'|sed s,"\n"," ",g)
 		formats=""
 		for f in $formats_raw;do formats+=" $f";done
 		printf "codecs_formats=\"$formats\"\n" >> "$LIST_FILE"
 		doLog "Lists: Updated Codecs-Format"
 
 		
-		if [[ -e /dev/video0 ]]
+		if [ -e /dev/video0 ]
 		then 	#v4l2-ctl cant handle video1 .. ??
 			tui-progress "Saving WebCam-Formats"
 			webcam_formats=""
-			[[ -z $webcam_fps ]] && webcam_fps=5
-			wf="$(v4l2-ctl --list-formats-ext|grep $webcam_fps -B4 |grep Siz|awk '{print $3}'|sort)"
+			[ -z "$webcam_fps" ] && webcam_fps=5
+			wf="$(v4l2-ctl --list-formats-ext|$GREP $webcam_fps -B4 |$GREP Siz|$AWK '{print $3}'|sort)"
 			for w in $wf;do webcam_formats+=" $w";done
 			printf "webcam_formats=\"$webcam_formats\"\n" >> "$LIST_FILE"
 			doLog "Lists: Updated WebCam-Format"
 
 			tui-progress "Saving WebCam-frames"
 			webcam_frames=""
-			wf="$( v4l2-ctl --list-formats-ext|grep -A6 Siz|awk '{print $4}')"
+			wf="$( v4l2-ctl --list-formats-ext|$GREP -A6 Siz|$AWK '{print $4}')"
 			C=0
-			for w in $wf;do webcam_frames+=" ${w/(/}";((C++));[[ $C -ge 6 ]] && break;done
+			for w in $wf;do webcam_frames+=" ${w/(/}";((C++));[ $C -ge 6 ] && break;done
 			printf "webcam_frames=\"$webcam_frames\"\n"|sed s,"\.000","",g >> "$LIST_FILE"
 			doLog "Lists: Updated WebCam-Frames"
-		elif [[ -e /dev/video1 ]]
+		elif [ -e /dev/video1 ]
 		then 	#v4l2-ctl cant handle video1 .. ??
 			tui-status 1 "As far as i tried, i could not make v4l2-ctl handle video1."
 		fi
@@ -778,7 +955,7 @@ file_extra=$fe" > $entry
 		! source "$LIST_FILE" && \
 			 UpdateLists && \
 			 source "$LIST_FILE"
-		if [[ ! -f "$CONFIG" ]] 
+		if [ ! -f "$CONFIG" ] 
 		then 	touch "$CONFIG"
 			doLog "Setup: Write initial configuration file"
 			cat > "$CONFIG" << EOF
@@ -847,16 +1024,16 @@ EOF
 		tui-title "Setup : $TITLE"
 		
 		# Get a list of ALL variables within the $CONFIG file
-		VARS=$(tui-conf-get -l "$CONFIG"|grep -v req)
+		VARS=$(tui-conf-get -l "$CONFIG"|$GREP -v req)
 		
 		# Make a tempfile without empty or commented lines
 		# And display both, variable and value to the user
 		oIFS="$IFS" ; IFS="="
 		touch $TMP.cfg
-		printf "$(grep -v '#' $CONFIG)" > $TMP.cfg
+		printf "$($GREP -v '#' $CONFIG)" > $TMP.cfg
 		while read var val;do
-			[[ ! "#" = "${var:0:1}" ]] && \
-				[[ ! -z $var ]] && \
+			[ ! "#" = "${var:0:1}" ] && \
+				[ ! -z "$var" ] && \
 				tui-echo "$var" "$val"
 		done < $TMP.cfg
 		IFS="$oIFS"
@@ -865,8 +1042,12 @@ EOF
 		tui-echo "Which variable to change?"
 		LIST_BOOL="false true"
 		LIST_LANG="ara bul chi cze dan eng fin fre ger hin hun ice nor pol rum spa srp slo slv swe tur"
-		select var in Back UpdateLists ReWriteContainers $VARS;do
-			case $var in
+		
+                var=$(tui-select  Back UpdateLists ReWriteContainers $VARS)
+		while [ ! "$var" = Back ]
+		do
+		
+                case $var in
 			Back)		break	;;
 			UpdateLists)	$var 	;;
 			ReWriteContainers) WriteContainers ;;							
@@ -874,35 +1055,38 @@ EOF
 				newval=""
 				tui-echo "${var^} is set to:" "$val"
 				if tui-yesno "Change the value of $var?"
-				then	case $var in
+				then	newLine=true
+					case $var in
 					container)	tui-echo "Please select a new one:"
-							select newval in $(cd "$(dirname $CONFIG)/containers";ls);do break;done
+							newval=$(tui-select $(cd "$(dirname $CONFIG)/containers";ls))
 							;;
 					channnels)	tui-echo "Please select a new amount:"
-							select newval in $(seq 1 1 6);do break;done
+							newval=$(tui-select $(seq 1 1 6))
 							;;
 					webcam_res)	tui-echo "Please select the new resolution:"
-							select newval in $webcam_formats;do break;done
+							newval=$(tui-select $webcam_formats)
 							;;
 					webcam_fps)	tui-echo "Please select the new framerate:"
-							select newval in $webcam_frames;do break;done
+							newval=$(tui-select $webcam_frames)
 							;;
 					subtitle)	tui-echo "Please select the new subtitle codec:"
-							select newval in $codecs_subtitle;do break;done
+							newval=$(tui-select $codecs_subtitle)
 							;;
 					lang_force_both|useRate|channel_downgrade)
 							tui-echo "Do you want to enable this?"
-							select newval in $LIST_BOOL;do break;done
+							newval=$(tui-select $LIST_BOOL)
 							;;
 					lang|lang_alt)	tui-echo "Which language to use as $var?"
-							select newval in $LIST_LANG;do break;done
+							newval=$(tui-select $LIST_LANG)
 							;;
 					*)		newval=$(tui-read "Please type new value:")
+							newLine=false
 							;;
 					esac
+					$newLine && printf "\n"
 					msg="Changed \"$var\" from \"$val\" to \"$newval\""
 					# Save the new value to variable in config 
-					if [[ -z "$newval" ]]
+					if [ -z "$newval" ]
 					then	tui-status 1 "$msg"
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
 					else	tui-conf-set "$CONFIG" "$var" "$newval"
@@ -913,6 +1097,8 @@ EOF
 				fi
 			;;
 			esac
+			var=$(tui-select  Back UpdateLists ReWriteContainers $VARS)
+			printf "\n"
 			tui-echo "Press [ENTER] to see the menu:" "$INFO"
 		done
 	}
@@ -920,7 +1106,7 @@ EOF
 #	Environment checks
 #
 	# This is optimized for a one-time setup
-	if [[ ! -f "$CONFIG" ]]
+	if [ ! -f "$CONFIG" ]
 	then 	tui-header "$ME ($script_version)" "$(date +'%F %T')"
 		tui-bol-dir "$CONFIG_DIR"
 		$beVerbose && tui-echo "Entering first time setup." "$SKIP"
@@ -928,11 +1114,12 @@ EOF
 		
 		doLog "Setup: Writing container and list files"
 		WriteContainers
+                WriteTemplateFile
 		UpdateLists
 		
 		# Install missing packages
-		tui-progress -ri movies-req -m $(printf ${REQUIRES}|wc|awk '{print $2}') " "
-		if [[ false = "$req_inst" ]]
+		tui-progress -ri movies-req -m $(printf ${REQUIRES}|wc|$AWK '{print $2}') " "
+		if [ false = "$req_inst" ]
 		then 	# Packages are not yet installed
 			tui-title "Verify all required packages are installed"
 			doLog "Req : Installing missing packages: $REQUIRES"
@@ -953,7 +1140,7 @@ EOF
 	source "$CONFIG"
 	# Print Log entry only if its neither:
 	#	info, help, Log
-	printf '%s\n' "$@" | grep -q -- '-[Lih]' || \
+	printf '%s\n' "$@" | $GREP -q -- '-[Lih]' || \
 		tui-log -e "$LOG" "\r---- New call $$ ----"
 #
 ##
@@ -987,7 +1174,7 @@ EOF
 				;;
 			esac
 			A=$(( A+1 ))
-			[[ -z "$out_str" ]] && \
+			[ -z "$out_str" ] && \
 				ADDERS+=" -i '$OPTARG'" || \
 				ADDERS+=" -i '$OPTARG' $ARG"
 			;;
@@ -1037,21 +1224,15 @@ EOF
 			MenuSetup
 			source "$CONFIG"
 			;;
-		d)	RES=$(getRes $OPTARG|sed s/x.../",-1"/g)
+		d)	RES=$(getRes $OPTARG|sed s/x*/":-1"/g)
 			log_msg="Set video dimension (resolution) to: $RES"
 			;;
 		D)	# TODO very low prio, since code restructure probably dont work
 			MODE=dvd
-			#container=mpeg
-			#source $CONTAINER/$container
-			tempdata=( $(ls /run/media/$USER) )
-			[[ "${#tempdata[@]}" -ge 2 ]] && \
-				tui-echo "Please select which entry is the DVD:" && \
-				select name in "${tempdata[@]}";do break;done || \
-				name="$(printf $tempdata)"
-			OF=$(genFilename "$HOME/dvd-$tempdata.$container" $container )
-			log_msg="Options: Set MODE to ${MODE^}, saving as $OF"
+			log_msg="Options: Set MODE to ${MODE^}"
 			override_container=true
+			tui-status -r 2 "Reading from DVD"
+			name="$(blkid|sed s," ","\n",g|$GREP LABEL|sed 's,LABEL=,,'|sed s,\",,g)"
 			;;
 		e)	override_container=true
 			log_msg="Overwrite \"$container\" to file extension: \"$OPTARG\""
@@ -1075,12 +1256,12 @@ EOF
 		i)	# Creates $TMP.info
 			#shift $(($OPTIND - 1))
 			for A in "${@}";do
-			if [[ -f "$A" ]]
+			if [ -f "$A" ]
 			then	$beVerbose && tui-echo "Video exist, showing info"
 				tui-printf "Retrieving data from ${A##*/}" "$WORK"
-				StreamInfo "$A" > "$TMP.info"
+				StreamInfo "$A" > "$TMP.info.2"
 				tui-title "Input: ${A##*/}"
-				while read line;do tui-echo "$line";done<"$TMP.info"
+				$GREP -v "\--version" "$TMP.info.2" | while read line;do tui-echo "$line";done
 			else	$beVerbose && tui-echo "Input '$A' not found, skipping..." "$SKIP"
 			fi
 			done
@@ -1098,15 +1279,17 @@ EOF
 			tui-title "VHS Task Killer"
 			RAW=""
 			fine=""
-			RAW=$(ps -ha|grep -v grep|grep -e vhs -e ffmpeg |grep  bgj|awk '{print $8}')
-			for R in $RAW;do [[ "" = "$(echo $fine|grep $R)" ]] && fine+=" $R";done
+			RAW=$(ps -ha|$GREP -v $GREP|$GREP -e vhs -e ffmpeg |$GREP  bgj|$AWK '{print $8}')
+			for R in $RAW;do [ "" = "$(echo $fine|$GREP $R)" ] && fine+=" $R";done
 
 			tui-echo "Please select which tasks to end:"
-			select TASK in Abort $fine;do break;done
-			[[ "$TASK" = Abort ]] && tui-echo "Thanks for aborting ;)" && exit
-			tui-printf "Ending task: $TASK" "$TUI_WORK"
+			
+                        TASK=$(tui-select Abort $fine)
+			printf "\n"
+			[ "$TASK" = Abort ] && tui-echo "Thanks for aborting ;)" && exit
+			tui-printf -Sr 2 "Ending task: $TASK" #"$TUI_WORK"
 
-			pids=$(ps -ha|grep "$TASK"|grep -v grep|awk '{print $1}')
+			pids=$(ps -ha|$GREP "$TASK"|$GREP -v $GREP|$AWK '{print $1}')
 			for p in $pids;do kill $p;done
 			tui-status $? "Ended $TASK"
 			exit $?
@@ -1129,7 +1312,7 @@ EOF
 			num=$(printf $OPTARG|tr -d [[:alpha:]])
 			char=$(printf $OPTARG|tr -d [[:digit:]])
 			
-			[[ -z "$num" ]] && \
+			[ -z "$num" ] && \
 				pip_scale=320 || pip_scale=$num
 				
 			pip_h=$[ ( $pip_scale * 9 ) / 16 ]
@@ -1185,17 +1368,24 @@ EOF
 			
 			log_msg+=", orietiation: $char @ $num"
 			;;
-		q)	RES=$(getRes $OPTARG)
-			log_msg="Set video dimension (resolution) to: $RES"
+		q)	Q=$(getQualy "$OPTARG")
+			C=0
+			for n in $Q;do 
+				[ $C -eq 1 ] && BIT_VIDEO=$n && break # Just to be sure
+				[ $C -eq 0 ] && BIT_AUDIO=$n && ((C++))
+			done
+			log_msg="Set Quality to $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
+			
 			;;
 		Q)	RES=$(getRes $OPTARG)
 			Q=$(getQualy "$OPTARG")
+			#ASP=$(getAspect "$OPTARG")
 			C=0
 			for n in $Q;do 
-				[[ $C -eq 1 ]] && BIT_VIDEO=$n
-				[[ $C -eq 0 ]] && BIT_AUDIO=$n && ((C++))
+				[ $C -eq 1 ] && BIT_VIDEO=$n && break # Just to be sure
+				[ $C -eq 0 ] && BIT_AUDIO=$n && ((C++))
 			done
-			log_msg="Set Quality to $OPTARG ($RES) with  $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
+			log_msg="Set Quality to $OPTARG ($RES) with $BIT_AUDIO for audio, and $BIT_VIDEO for video bitrates"
 			;;
 		R)	useRate=true
 			log_msg="Force audio_rate to $audio_rate"
@@ -1225,7 +1415,7 @@ EOF
 			log_msg="Moved 'faststart' flag to front, stream/web optimized"
 			;;
 		W)	MODE=webcam
-			OF=$(genFilename "$HOME/webcam-out.$container" $ext )
+			OF=$(genFilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext )
 			override_container=true
 			log_msg="Options: Set MODE to Webcam, saving as $OF"
 			;;
@@ -1255,7 +1445,7 @@ EOF
 			SS_START="${OPTARG/-*/}"
 			SS_END="${OPTARG/*-/}"
 			
-			if [[ "$SS_START" = "$SS_END" ]]
+			if [ "$SS_START" = "$SS_END" ]
 			then	# They are equal, endtime minute must be increased"
 				t_mins="${SS_END/:*/}"
 				t_secs="${SS_END/*:/}"
@@ -1273,8 +1463,8 @@ EOF
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
-	if [[ ! -z "$ADDERS" && $ADDED_VIDEO ]]
-	then	[[ -z $guide_complex ]] && \
+	if [ ! -z "$ADDERS" ] && [ ! -z "$ADDED_VIDEO" ]
+	then	[ -z "$guide_complex" ] && \
 		tui-echo "Must pass '-p ORIENTATION' when including a videostream" "$TUI_INFO" && \
 		exit 1 
 		#|| \
@@ -1285,27 +1475,44 @@ EOF
 #
 	src="$CONTAINER/$container" ; source "$src"
 	# If (not) set...
-	[[ -z $video_codec ]] && [[ ! -z $audio_codec ]] && MODE=audio		# If there is no video codec, go audio mode
-	#[[ ! -z $video_codec ]] && [[ $PASS -lt 2 ]] && \
+	[ -z "$video_codec" ] && [ ! -z $audio_codec ] && MODE=audio		# If there is no video codec, go audio mode
+	#[ ! -z "$video_codec" ] && [ $PASS -lt 2 ] && \
 	for v in $(listVideoIDs "$1");do	cmd_video_all+=" -map 0:v";done			# Make sure video stream is used always
-	$showFFMPEG && FFMPEG="$ffmpeg_verbose" || FFMPEG="$ffmpeg_silent"	# Initialize the final command
-	[[ -z $FFMPEG ]] && cmd_all="$ffmpeg_silent" || cmd_all="$FFMPEG"	
-	[[ -z $BIT_AUDIO ]] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
-	[[ -z $BIT_VIDEO ]] || cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
-	[[ -z $RES ]] || cmd_video_all+=" -vf scale=$RES"			# Set video resolution
-	[[ -z $OF ]] || cmd_output_all="$OF"					# Set output file 
-	[[ -z $BIT_VIDEO ]] || buffer=" -minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
+	$showFFMPEG && \
+		FFMPEG="$ffmpeg_verbose" || \
+		FFMPEG="$ffmpeg_silent"	# Initialize the final command
+	[ -z "$FFMPEG" ] && \
+		cmd_all="$ffmpeg_silent" || \
+		cmd_all="$FFMPEG"	
+	[ -z "$BIT_AUDIO" ] || \
+		cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
+	[ -z "$BIT_VIDEO" ] || \
+		cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
+	[ ! copy = "$video_codec_ov" ] && \
+		[ ! -z "$RES" ] && \
+		cmd_video_all+=" -vf scale=$RES"			# Set video resolution
+#	[ -z "$ASP" ] || \
+#		cmd_video_all+=" -aspect=$ASP"			# Set video aspect ratio
+	[ -z "$OF" ] || \
+		cmd_output_all="$OF"					# Set output file 
+	[ -z "$BIT_VIDEO" ] || \
+		buffer=" -minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
 	# Bools...
-	$file_extra && F="-f $ext"					# File extra, toggle by container
-	$code_extra && extra+=" -strict -2"					# codec requires strict, toggle by container
-	$channel_downgrade && cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
+	$file_extra && \
+		F="-f $ext"					# File extra, toggle by container
+	$code_extra && \
+		extra+=" -strict -2"					# codec requires strict, toggle by container
+	$channel_downgrade && \
+		cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
 	if $useFPS
-	then	[[ -z $FPS_ov ]] || FPS=$FPS_ov
+	then	[ -z $FPS_ov ] || FPS=$FPS_ov
 		cmd_video_all+=" -r $FPS"
 		doLog "Added '$FPS' to commandlist"
 	fi
-	$useRate && cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
-	$override_sub_codec && subtitle=$sub_codec_ov
+	$useRate && \
+		cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
+	$override_sub_codec && \
+		subtitle=$sub_codec_ov
 	$useSubs && \
 		cmd_subtitle_all=" -c:s $subtitle" || \
 		cmd_subtitle_all=" -sn"
@@ -1314,7 +1521,7 @@ EOF
 		cmd_audio_all+=" -c:a $audio_codec"				# Set audio codec if provided
 	if $override_video_codec						# Set video codec if provided
 	then	cmd_video_all+=" -c:v $video_codec_ov"
-	else	[[ -z $video_codec ]] || cmd_video_all+=" -c:v $video_codec"				
+	else	[ -z $video_codec ] || cmd_video_all+=" -c:v $video_codec"				
 	fi
 
 	if $beVerbose
@@ -1323,14 +1530,14 @@ EOF
 		tui-echo "Audio:"	"$cmd_audio_all"
 		tui-echo "Video:"	"$cmd_video_all"
 		tui-echo "Subtitles:"	"$cmd_subtitle_all"
-		[[ -z $langs ]] || tui-echo "Additional Languages:"	"$langs"
+		[ -z $langs ] || tui-echo "Additional Languages:"	"$langs"
 	fi
 	# Metadata
 	METADATA="$txt_mjpg -metadata description=$txt_meta_me"
 	
 	# Special container treatment
 	case "$container" in
-	"webm")	threads="$(grep proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
+	"webm")	threads="$($GREP proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
 		cmd_audio_all+=" -cpu-used $threads"
 		cmd_video_all+=" -threads $threads  -deadline realtime"
 		msg="$container: Found $threads hypterthreads, leaving 1 for system"
@@ -1360,32 +1567,67 @@ EOF
 				case $MODE in
 				webcam) doWebCam	;;
 				screen) #doScreen
-					OF=$(genFilename "$HOME/screen-out.$container" $container )
+					OF=$(genFilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
 					msg="Options: Set MODE to Screen, saving as $OF"
 					doLog "$msg"
 					$beVerbose && tui-echo "$msg"
 					msg+=" Capturing"
-					[[ -z $DISPLAY ]] && DISPLAY=":0.0"	# Should not happen, setting to default
+					[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
 					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
 					cmd="$cmd_all $cmd_input_all $web $METADATA $extra $METADATA $F \"${OF}\""
+					#printf "$cmd < /dev/stdin" > "$TMP"
 					printf "$cmd" > "$TMP"
 					doLog "Screenrecording: $cmd"
 					$beVerbose && tui-echo "$msgA"
 					;;
-				dvd)	doDVD		;;
+				dvd)	tempdata=( $(ls /run/media/$USER 2>/dev/zero) )
+					[ ${#tempdata[@]} -ge 2 ] && \
+						tui-echo "Please select which entry is the DVD:" && \
+						
+                                                name=$(tui-select "${tempdata[@]}") && \
+						printf "\n"
+					[ -z "$name" ] && \
+						tui-status -r 2 "Scanning for DVD" && \
+						name="$(blkid|$SED s," ","\n",g|$GREP LABEL|$SED 's,LABEL=,,'|$SED s,\",,g)"
+					echo $name
+					echo $SED $AWK $GREP
+					
+					if [ -z "$name" ]
+					then	name=$(tui-read "Please enter a name for the DVD:")
+					else	[ "PARTBasic" = $(echo $name|$AWK '{print $1}') ] && \
+							tui-printf -S 1 "Please insert a DVD and try again!" && \
+							exit 1
+					fi
+					OF=$(genFilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+					doDVD
+					;;
 				esac
-				tui-status $RET_INFO "Press 'CTRL+C' to stop encoding from $MODE..."
+				#tui-status $RET_INFO "Press 'CTRL+C' to stop encoding from $MODE..."
+				
 				doLog "$msgA"
 				if $ADVANCED
 				then	tui-echo "Please save the file before you continue"
 					tui-edit "$TMP"
-					tui-press "Press [ENTER] when read to encode..."
+					tui-press "Press [ENTER] when ready to encode..."
 				fi
 				doExecute $TMP "$OF" "Saving to '$OF'"
-				exit
+				RET=$?
+				
+				if [ $RET -eq 0 ]
+				then	# All good, clean up temp data...
+					if [ -z $TIMEFRAME ]
+					then	# But only if the whole dvd was encoded
+						cd $dvd_base
+						pwd
+						ls
+						tui-status 11 "DELETE THIS" "place code here"
+					fi
+				fi
+				
+				exit $RET
 			;;
-	guide)		[[ -z "$ext" ]] && source $CONTAINER/$container
-			OF=$(genFilename "$HOME/guide-out.$container" $ext )
+	guide)		[ -z "$ext" ] && source $CONTAINER/$container
+			OF=$(genFilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
 			
 			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
 			printf "$cmd" > "$TMP"
@@ -1411,12 +1653,12 @@ EOF
 			tui-echo "Audio files are encoded within pwd:" "$tDir"
 			
 		# If ID is forced, just do this	
-			if [[ ! -z "$ID_FORCED" ]]
+			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
 				tui-echo "However, this ID is forced:" "$ID_FORCED"
 			# Generate command
 				audio_maps="-map 0:$ID_FORCED"
-				[[ -z "$OF_FORCED" ]] && \
+				[ -z "$OF_FORCED" ] && \
 					OF=$(genFilename "${1}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
 					OF=$(genFilename "$OF_FORCED" $ext)
 				tOF=$(basename "$OF")
@@ -1458,7 +1700,7 @@ EOF
 			fi
 			
 			#$beVerbose && 
-			#	tui-echo "Save as $OF_FORCED, using $ID_FORCED"
+			#	tui-echo "Saved as $OF_FORCED, using $ID_FORCED"
 			$showFFMPEG && \
 				FFMPEG=$ffmpeg_verbose || \
 				FFMPEG=$ffmpeg_silent
@@ -1495,6 +1737,13 @@ EOF
 	#	Output per video
 	#
 		$0 -i "$video"						# Calling itself with -info for video
+		# Allthough this applies to all vides, give the user at least the info of the first file
+		if [ 3840 -lt ${RES/[x:]*/} ]
+		then	tui-echo
+			tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
+			tui-yesno "Continue anyway?" || exit 0
+		fi
+		
 		if $useJpg
 		then	tui-echo
 			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
@@ -1507,15 +1756,17 @@ EOF
 		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
-		if [[ ! -z $audio_ids ]]
+		if [ ! -z "$audio_ids" ]
 		then	# all good
 			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
 			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
 		else	# handle empty
 			tui-echo "No audio stream could be recognized"
 			tui-echo "Please select the ids you want to use, choose done to continue."
-			select i in $(seq 1 1 $(countAudio)) done;do 
-				[[ $i = done ]] && break
+			#select i in $(seq 1 1 $(countAudio)) done;do 
+			i=""
+			while [ ! "$i" = "done" ]
+			do	i=$(tui-select $(listAudioIDs) done)
 				audio_ids+=" $i"
 				cmd_audio_maps+=" -map 0:$i"
 				tui-echo "Now using audio ids: $audio_ids"
@@ -1528,14 +1779,14 @@ EOF
 		then	doSubs > /dev/zero
 			$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
 			subtitle_list=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
-			if [[ ! -z $subtitle_list ]]
+			if [ ! -z "$subtitle_list" ]
 			then # all good
 				for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
 			else	# handle empty
 				tui-echo "No subtitle stream could be recognized"
 				tui-echo "Please select the ids you want to use, choose done to continue."
 				select i in $subtitle_ids done;do 
-					[[ $i = done ]] && break
+					[ "$i" = done ] && break
 					subtitle_ids+=" $i"
 					tui-echo "Now using subtitles ids: $subtitle_ids"
 				done
@@ -1547,7 +1798,7 @@ EOF
 		tmp_of="${OF##*/}"
 		tmp_if="${video##*/}"
 		# 2-Pass encoding enabled?
-		if [[ $PASS -eq 2 ]]
+		if [ $PASS -eq 2 ]
 		then	# Do first pass if 2 pass
 			STR2="Encoded \"$tmp_if\" pass 2/2 to \"$tmp_of\""
 			STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
@@ -1571,7 +1822,7 @@ EOF
 		tmp_border=$[ ${#TUI_BORDER_LEFT} + ${#TUI_BORDER_RIGHT} + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
 		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
 		# Currently shortens every file... :(
-		if [[ $string_line -gt $(tput cols) ]]
+		if [ $string_line -gt $(tput cols) ]
 		then	tmp_if="${tmp_if:0:${#tmp_if}/4}...${tmp_if:(-6)}"
 			tmp_of="${tmp_of:0:${#tmp_of}/4}...${tmp_of:(-6)}"
 		fi
@@ -1587,7 +1838,7 @@ EOF
 	# Verify file does not already exists
 	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
 		skip=false
-		if [[ -f "$OF" ]]
+		if [ -f "$OF" ]
 		then 	tui-echo "ATTENTION: Failsafe catcher!"
 			if tui-yesno "Outputfile ($OF) exists, overwrite it?"
 			then 	rm -f "$OF"
@@ -1595,7 +1846,7 @@ EOF
 			fi
 		fi
 	# Skip if it was not removed
-		if [[ false = $skip ]] 
+		if [ false = "$skip" ] 
 		then
 		#
 		#	Execute the command
@@ -1606,25 +1857,26 @@ EOF
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when read to encode..."
 			fi
+			
 			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
 			doExecute "$TMP" "$OF" "$STR1" "$STR2"
 			RET=$?
 		#
 		#	Do some post-encode checks
 		#	
-			if [[ mkv = $container ]] && [[ $RET -eq 0 ]] && [[ $PASS -ge 2 ]]
+			if [ mkv = $container ] && [ $RET -eq 0 ] && [ $PASS -ge 2 ]
 			then	# Set default language if mkv encoding was a successfull 2-pass
-				lang2=$(listIDs|grep Audio|grep ^${audio_ids:0:1}|awk '{print $2}')
-				[[ ${#lang2} -gt 3 ]] && \
+				lang2=$(listIDs|$GREP Audio|$GREP ^${audio_ids:0:1}|$AWK '{print $2}')
+				[ ${#lang2} -gt 3 ] && \
 					tui-echo "Could not determine proper langauge, probably it wasnt labled before" "$FAIL" && \
-					lang2=$(echo $lang2|awk '{print $1}') && \
+					lang2=$(echo $lang2|$AWK '{print $1}') && \
 					tui-echo "Labeling it as '$lang2', eventhough that might be wrong" && \
 					lang=$lang2 #|| \
 					#lang=$lang2
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf "$msg" "$WORK"
 				#tui-echo "aid $aid .$audio_ids"
-				aid="$(vhs -i \"$OF\" |grep Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
+				aid="$(vhs -i \"$OF\" |$GREP Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
 				#aid=1
 				doLog "Audio : Set default audio stream $aid"
 				case $container in
@@ -1637,17 +1889,17 @@ EOF
 				tui-status $? "$msg"
 			fi
 			#Generate log message
-			[[ 0 -eq $RET ]] && \
+			[ 0 -eq $RET ] && \
 				ret_info="successfully (ret: $RET) \"$OF\"" || \
 				ret_info="a faulty (ret: $RET) \"$OF\""
 		#
 		#	Log if encode was successfull or not
 		#
 			doLog "End: Encoded $ret_info "
-			if [[ ! -z $2 ]] 
+			if [ ! -z "$2" ] 
 			then	doLog "--------------------------------"
 				msg="Timeout - $sleep_between between encodings..."
-				[[ ! -z $sleep_between ]] && \
+				[ ! -z "$sleep_between" ] && \
 					doLog "Script : $msg" && \
 					tui-echo && tui-wait $sleep_between "$msg" #&& tui-echo
 				# Show empty log entry line as optical divider
@@ -1655,17 +1907,17 @@ EOF
 			fi
 		else	msg="Skiped: $video"
 			doLog "$msg"
-			tui-status $RET_SKIP "$msg"
+			tui-status 4 "$msg"
 		fi
 	done
 #
 #	Clean exit
 #
-	[[ -z "$oPWD" ]] || cd "$oPWD"
-	[[ ! -z "$dvd_tmp" && -d "$dvd_tmp" ]] && \
+	[ -z "$oPWD" ] || cd "$oPWD"
+	[ ! -z "$dvd_tmp" ] && [ -d "$dvd_tmp" ] && \
 		tui-yesno "There are remaining tempfiles from dvd encoding, remove them now?" && \
 		rm -fr "$dvd_tmp"
-	if [[ -z "$1" ]]
+	if [ -z "$1" ]
 	then 	printf "$help_text"
 		exit $RET_HELP
 	fi

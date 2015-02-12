@@ -15,6 +15,23 @@ _vhs_module()
 	OPTS="-2 -a -A -b -B -c -C -d -D -e -f -F -G -i -I -j -K -l -L -p -q -Q -r -R -S -t -T -v -V -x -X -y -z"
 	DIR="$HOME/.config/vhs/containers"
 	langs="ara bul chi cze dan eng fin fre ger hin hun ice nor pol rum spa srp slo slv swe tur"
+	audio_codecs=""
+	audio_rates="a96 a128 a192 a256 a384 a512 a768 a1024"
+	sub_codecs=""
+	video_codecs=""
+	video_rates="v256 v384 v512 v768 v1024 v1280 v1664 v1792 v2048 v3072 v4096"
+	pip="tl tc tr cl cc cr bl bc br"
+	presets="$(grep -v "#" $HOME/.config/vhs2/presets|awk '{print $1}'|sed s,scrn,,)"
+	
+#
+#	Fill codec lists
+#
+	raw_audio=$(ffmpeg -v quiet -encoders|grep ^\ A|awk '{print $2}'|grep -v =)
+	raw_video=$(ffmpeg -v quiet -encoders|grep ^\ V|awk '{print $2}'|grep -v =)
+	raw_sub=$(ffmpeg -v quiet -encoders|grep ^\ S|awk '{print $2}'|grep -v =)
+	for a in $raw_audio;do audio_codecs+=" a$a";done
+	for v in $raw_video;do video_codecs+=" v$v";done
+	for s in $raw_sub;do sub_codecs+=" s$s";done
 #
 #	Action
 #
@@ -22,9 +39,39 @@ _vhs_module()
 	# But only use this, if 'prev' was one using entries from $DIR
 	# This list is dynamicly (automaticly) updated
 	case $prev in
+	-b)
+		case $cur in
+		a*)		COMPREPLY=( $( compgen -W "$(echo $audio_rates|grep $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		v*)		COMPREPLY=( $( compgen -W "$(echo $video_rates|grep $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		esac
+		;;
+	-c)
+		case $cur in
+		a*)		COMPREPLY=( $( compgen -W "$(echo $audio_codecs|grep $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		v*)		COMPREPLY=( $( compgen -W "$(echo $video_codecs|grep $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		s*)		COMPREPLY=( $( compgen -W "$(echo $sub_codecs|grep $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		esac
+		;;
 	-e)
 		case $cur in
 		[a-zA-Z]*)	COMPREPLY=( $( compgen -W "$(cd $DIR 2>/dev/null && echo $cur*)" -- "$cur" ) ) 
+				return 0
+				;;
+		esac
+		;;
+	-p)
+		case ${cur:0:2} in
+		[tcb][lcr])	COMPREPLY=( $( compgen -W "$(echo ${cur:0:2}240 ${cur:0:2}360 ${cur:0:2}480 ${cur:0:2}512 ${cur:0:2}640 ${cur:0:2}720|grep $cur*)" -- "$cur" ) ) 
 				return 0
 				;;
 		esac
@@ -49,11 +96,11 @@ _vhs_module()
 		-b)	COMPREPLY=( $(compgen -W "a v" -- $cur) )
 			return 0
 			;;
-		-c)	COMPREPLY=( $(compgen -W "a s v" -- $cur) )
+		-c)	COMPREPLY=( $(compgen -W "a v s" -- $cur) )
 			return 0
 			;;
 		-d|-q|-Q)
-			COMPREPLY=( $( compgen -W "screen clip vhs dvd hdr fhd uhd" -- "$cur" ) ) 
+			COMPREPLY=( $( compgen -W "$presets" -- "$cur" ) ) 
 			return 0
 			;;
 		-e)	COMPREPLY=( $( compgen -W "$(cd $DIR 2>/dev/null && echo *)" -- "$cur" ) ) 
