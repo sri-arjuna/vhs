@@ -175,7 +175,7 @@ fuhd	7680x4320	8192	1280	72.2mb	8K, Full UHD TV
 quhd	15360x8640	16384	1280	144.4mb	16k, Quad UHD - 4xUHD
 ouhd	30720x17380	32768	2048	288.8mb	32k, Octo UHD - 8xUHD
 	}
-	#[ -f "$PRESETS" ] || \
+	[ -f "$PRESETS" ] || \
 		WritePresetFile
 #
 #	Help text
