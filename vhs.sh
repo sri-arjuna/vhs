@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.01.07
+#	Changed:	2015.02.14
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -69,7 +69,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3
+	script_version=1.3.1
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -248,64 +248,52 @@ NAME:		See '$LIST_FILE' for lists on diffrent codecs
 RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
 		Use '${BOLD}-q${RESET} LABEL' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} LABEL' to use the shown bitrates and aspect ratio below.
 $( 
-        printf "\t$TUI_FONT_UNDERSCORE ";$SED s,"#",, "$PRESETS" | $GREP Pix
-	printf "$TUI_RESET"
-	$GREP -v Audbit "$PRESETS" | \
-		while read label res vidbit audbit siz comment
-		do
-			if [ ! $label = scrn ]
-			then	pixels=$[ ${res/x*/} * ${res/*x/} ]
-			#	[ ${#pixels} -gt 9 ] && \
-			#		dot=${pixels:0:( - 8 )} && \
-			#		pixels="${pixels:0:(-9)}.${dot:0:1}bil"
-			#	[ ${#pixels} -gt 6 ] && \
-			#		dot=${pixels:0:( - 5 )} && \
-			#		pixels="${pixels:0:(-6)}.${dot:0:1}mil"
-				#[ $pixels -eq 0 ] && pixels="0     "
-				if [ ${#pixels} -gt 6 ]
-				then	dot_cut=5
-					cut=6
-					ext=mil
-				elif [ ${#pixels} -ge 4 ]
-				then	dot_cut=2
-					cut=3
-					ext=k
-				elif [ ${#pixels} -le 3 ]
-				then	dot_cut=""
-					cut=""
-					ext=""
-				fi
-				[ ! -z "$dot_cut" ] && \
-					dot="${pixels:0:(-$dot_cut )}" && \
-					pixels="${pixels:0:(-$cut)}.${dot:0:1}$ext" || \
-					pixels="${pixels}$ext"
-
-				bitrate=$[ $vidbit + $audbit ]
-				#echo ${#bitrate} $bitrate
-				if [ ${#bitrate} -gt 6 ]
-				then	dot_cut=5
-					cut=6
-					ext=gb
-				elif [ ${#bitrate} -ge 4 ]
-				then	dot_cut=2
-					cut=3
-					ext=mb
-				elif [ ${#bitrate} -le 3 ]
-				then	dot_cut=""
-					cut=""
-					ext=kb
-				fi
-
-				[ HD = "${comment:0:2}" ] && \
-					comment="${BOLD}HD${RESET}${comment:2}"
-				[ ! -z "$dot_cut" ] && \
-					dot="${bitrate:0:( - $dot_cut )}" && \
-					bitrate="${bitrate:0:(-$cut)}.${dot:(${#dot} - 1):1}$ext" || \
-					bitrate="${bitrate}$ext"
-
-				printf "\t* ${BOLD}$label${RESET}\t$res \t$pixels\t$vidbit\t$audbit\t~$bitrate\t$siz\t${UNDERLINE}$comment${RESET}\n"
-			fi
-		done
+        printf "\t$TUI_FONT_UNDERSCORE ";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
+	
+	$AWK '/^#/ { next } ; 
+	/^scrn/ { next } ;
+	{ 
+		bext="kb";
+		pext="k";
+		
+	# Bitrates
+		bitrates=$3+$4;
+		len=( length(bitrates) );
+		if(len >= 4) {
+			bext="mb"
+			bitrates/=1024
+		}
+		split(bitrates, B, ".");
+		bitrates=B[1] ;
+		dots=B[2];
+		if (dots == "") { dots="" } else { dots="."dots }
+		
+	# Pixels
+		split($2, A, "x");
+		pixels=A[1] * A[2];
+		len=( length(pixels) );
+		if(len >= 7 ) {
+			pext="mil"
+			cut=len-6
+			#pixels=substr(pixels,1,cut);
+			pixels=pixels / 1000 / 1000
+		} else {
+			if(len >= 4) {
+				pext="k"
+				cut=len-3
+				#pixels=substr(pixels,1,cut);
+				pixels/=1000
+			}
+		}
+		split(pixels, P, ".");
+		pix=P[1] ;
+		pots=P[2];
+		if (pots == "") { pots="" } else { pots="."pots }
+		
+	# Output
+		print "\t* "BOLD$1RESET,$2 "   ",pix substr(pots,1,2) pext,$3,$4,"~" bitrates substr(dots,1,2) bext,$5,$6" "$7" "$8" "$9" "$10" "$11#" "$12" "$13" "$14; " "$15;
+		
+	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
 
 CONTAINER (a):	aac ac3 dts flac mp3 ogg wav wma
