@@ -66,6 +66,9 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 - Updated: Default preset video bitrates increased
 -          This should improve first time experience drasticly
 -          for the visual oriented enduser
+- Updated: Japan is pushing 8k, vhs is prepared
+- Fixed:   Overwrote existing XDG_VIDEOS_DIR variable
+- Added:   Anime and Youtube presets
 
 * Wed Feb 11 2015 Simon A. Erat <erat.simon@gmail.com> 1.3
 - Updated: Presets are now stored in a file

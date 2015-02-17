@@ -62,7 +62,7 @@
 #
 	X="$HOME/.config/user-dirs.dirs"
 	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file."
-	[ -z "$XDG_VIDEOS_DIR" ] || XDG_VIDEOS_DIR="$HOME/Videos"
+	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos"
 #
 #	Script Environment
 #
@@ -93,7 +93,7 @@
 	req_dvd="vobcopy libdvdread"
 	req_webcam="v4l-utils"
 	req_file_editors="mkvtoolnix"
-	REQUIRES="ffmpeg $req_dvd $req_webcam  $req_file_editors"
+	REQUIRES="ffmpeg $req_dvd $req_webcam $req_file_editors"
 #
 #	Defaults for proper option catching, do not change
 #
@@ -139,8 +139,8 @@
 	SS_END=""			# -z 1:23[-1:04:45.15] calculated end value
 	TIMEFRAME=""			# the codesegment containg the above two variables.
 	# Default overlays
-	guide_complex="'[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'"
-	video_overlay="'[X:v:0]scale=320:-1[a];[0:v:0][a]overlay'"
+	guide_complex="'[0:v:0]scale=320:-1[a] ; [1:v:0][a]overlay'"
+	video_overlay="'[X:v:0]scale=320:-1[a] ; [0:v:0][a]overlay'"
 
 #
 #	Check for PRESETS, required for proper help display
@@ -149,36 +149,44 @@
         # Write a basic table of the presets
         # 
 	cat > "$PRESETS" << EOF
-# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment (Up to 7 single elements)
-# Label	Resolution 	Vidbit	Audbit	1min	Comment	 #--># This is for your orientation, the above is to display
-# Get an idea of official bitrates standards, according to google: 
-scrn	resolve 	1024	192	?	This is only used for screenrecording
-a-vga	  640x480	512	192	5.2mb	VGA, optimized for anime cartoons
-a-dvd	  720x480	640	256	6.7mb	DVD - PAL, optimized for anime cartoons
-a-hd	 1280x720	768	384	8.6mb	HD, optimized for anime cartoons
-a-fhd	1920x1080	1280	384	12.5mb	Full HD, optimized for anime cartoons
+# Presets 'RES' configuration, there must be no empty line or output will fail.
+# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment
+# Label	Resolution 	Vidbit	Audbit	1min	Comment	(Up to 7 elements/words)  #--># This is for your orientation, the above is to display
+scrn	resolve 	1024	196	?	This is only used for screenrecording
+a-vga	  640x480	512	196	5.2mb	Anime optimized, VGA
+a-dvd	  720x576	640	256	6.7mb	Anime optimized, DVD-wide - PAL
+a-hd	 1280x720	768	384	8.6mb	Anime optimized, HD
+a-fhd	1920x1080	1280	384	12.5mb	Anime optimized, Full HD
 qvga	  320x240	240	128	2.7mb	Quarter of VGA, mobile devices 
-hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
-nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
+#hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
+#nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
 vga	  640x480	640	256	6.6mb	VGA
-dvd	  720x480	744	384	8.3mb	DVD - PAL
-wdvd	  720x576	768	384	8.5mb	DVD-wide - Pal
+#dvdr	  720x480	744	384	8.3mb	DVD-regular - PAL
+dvd	  720x576	768	384	8.5mb	DVD-wide - Pal
+#fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
 hd	 1280x720	1280	384	12.1mb	HD aka HD Ready
 fhd	1920x1080	2560	448	21.8mb	Full HD
 qhd	2560x1440	3840	448	30.9mb	2k, Quad HD - 4xHD
 uhd	3840x2160	7680	512	59.2mb	4K, Ultra HD TV
+#uhd+	5120x2880	14400	768	??.?mb	5K, UHD+
+#fuhd	7680x4320	32160	1280	??.?mb	8K, Full UHD TV
+#quhd	15360x8640	128720	1280	??.?mb	16k, Quad UHD - 4xUHD
+#ouhd	30720x17380	512000	2048	??.?mb	32k, Octo UHD - 8xUHD, my suggestion
+#
+# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
+# as they are set that high to meet google its standard: 
+#	https://support.google.com/youtube/answer/1722171?hl=en
+#
+#yt-240	  426x240	768	196	??.?mb	YT
+yt-360	  640x360	1000	196	8.7mb	YT, Ninth of HD, mobile devices
+yt-480	  854x480	2500	196	19.6mb	YT, DVD-wide - NTCS, mobile devices
+yt-720	 1280x720	5000	512	39.9mb	YT, HD
+yt-1080	1920x1080	8000	512	61.1mb	YT, Full HD
+yt-1440	2560x1440	10000	512	75.2mb	YT, 2k, Quad HD - 4xHD
+#yt-2160	3840x2160	40000	512	59.2mb	YT, 4K, Ultra HD TV
 EOF
-## EXIT function
-return 0
-## Not really needed:
-fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
-## SAVE FOR LATER USE ##
-uhd+	5120x2880	6044	768	48.1mb	5K, UHD+
-fuhd	7680x4320	8192	1280	72.2mb	8K, Full UHD TV
-quhd	15360x8640	16384	1280	144.4mb	16k, Quad UHD - 4xUHD
-ouhd	30720x17380	32768	2048	288.8mb	32k, Octo UHD - 8xUHD
 	}
-	[ -f "$PRESETS" ] || \
+	#[ -f "$PRESETS" ] || \
 		WritePresetFile
 #
 #	Help text
@@ -250,12 +258,15 @@ NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
 RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
 		Use '${BOLD}-q${RESET} LABEL' if you want to keep the original bitrates, use '${BOLD}-Q${RESET} LABEL' to use the shown bitrates and aspect ratio below.
+		Also, be aware that upcoding a video from a lower resolution to a (much) higher resolution brings nothing but wasted diskspace, but if its close to the next 'proper' resolution aspect ratio, it might be worth a try.
+		See \"$BOLD$PRESETS$RESET\" to see currently muted ones or to add your own presets.
+
 $( 
-        printf "\t$TUI_FONT_UNDERSCORE ";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
+        printf "\t\t$TUI_FONT_UNDERSCORE";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
 	
 		$AWK	'BEGIN  {
 			# Prepare Unit arrays
-				split ("k MB GB", BUNT)
+				split ("k M GB", BUNT)
 				split ("p K M Gp", PUNT)
 				ln10=log(10)	# What is this for?
 				#print ln10	## 2.30259
@@ -291,7 +302,7 @@ $(
 			pixels = FMT(A[1] * A[2], PUNT);
 			
 		# Output
-			print "\t* "BOLD$1RESET,$2 "   ",pixels, $3 ,$4, bitrate ,$5,$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
+			print "\t\t"BOLD$1RESET,$2 "   ",pixels, $3 ,$4, bitrate ,"~"$5,$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
 		
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 	
@@ -342,8 +353,8 @@ $(
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
 
-CONTAINER (a):	aac ac3 dts flac mp3 ogg wav wma
-CONTAINER (v):  avi flv mkv mp4 ogm webm wmv
+CONTAINER (a):	aac ac3 dts flac mp3 ogg vorbis wav wma
+CONTAINER (v):  avi flv mkv mp4 mpeg ogv theora webm wmv xvid
 VIDEO:		[/path/to/]videofile
 LOCATIoN:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
 LNG:		A valid 3 letter abrevihation for diffrent langauges
