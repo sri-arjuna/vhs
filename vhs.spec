@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        1.3
-Release:        2%{?dist}
+Version:        1.3.1
+Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -12,8 +12,9 @@ Requires:       tui
 Requires:       ffmpeg
 Requires:       mkvtoolnix
 Requires:       v4l-utils
+Requires:       vobcopy
 
-# Not yet there, meed to write handler for these,
+# Not yet there, need to write handler for these,
 #   if i'm going to implement (need) all this
 #Requires:       ogmtools
 #Requires:       oggvideotools
@@ -61,6 +62,11 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
+* Tue Feb 17 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.1
+- Updated: Default preset video bitrates increased
+-          This should improve first time experience drasticly
+-          for the visual oriented enduser
+
 * Wed Feb 11 2015 Simon A. Erat <erat.simon@gmail.com> 1.3
 - Updated: Presets are now stored in a file
 - Updated: bash completion for dynamic readout

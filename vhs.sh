@@ -149,26 +149,29 @@
         # Write a basic table of the presets
         # 
 	cat > "$PRESETS" << EOF
-# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment
+# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment (Up to 7 single elements)
 # Label	Resolution 	Vidbit	Audbit	1min	Comment	 #--># This is for your orientation, the above is to display
+# Get an idea of official bitrates standards, according to google: 
 scrn	resolve 	1024	192	?	This is only used for screenrecording
-qvga	  320x240	240	128	2.8mb	Quarter of VGA, mobile devices 
-hvga	  480x320	320	128	3.3mb	Half VGA, mobile devices
-nhd	  640x360	512	192	5.2mb	Ninth of HD, mobile devices
-vga	  640x480	640	192	6.1mb	VGA
 a-vga	  640x480	512	192	5.2mb	VGA, optimized for anime cartoons
-wvga	  768x480	768	192	7.6mb	Wide VGA
-dvd	  720x480	720	256	7.2mb	DVD - PAL
-wdvd	  720x576	800	256	7.7mb	DVD-wide - Pal
-fwvga	  854x480	768	256	7.5mb	DVD-wide - NTCS, mobile devices
-hd	 1280x720	1024	384	10.1mb	HD aka HD Ready
-a-hd	 1280x720	768	384	8.5mb	HD, optimized for anime cartoons
-fhd	1920x1080	1792	384	16.7mb	Full HD
-a-fhd	1920x1080	1280	256	12.4mb	Full HD, optimized for anime cartoons
-qhd	2560x1440	3072	448	26.9mb	Quad HD - 4xHD
-uhd	3840x2160	5120	512	43.4mb	4K, Ultra HD TV
+a-dvd	  720x480	640	256	6.7mb	DVD - PAL, optimized for anime cartoons
+a-hd	 1280x720	768	384	8.6mb	HD, optimized for anime cartoons
+a-fhd	1920x1080	1280	384	12.5mb	Full HD, optimized for anime cartoons
+qvga	  320x240	240	128	2.7mb	Quarter of VGA, mobile devices 
+hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
+nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
+vga	  640x480	640	256	6.6mb	VGA
+dvd	  720x480	744	384	8.3mb	DVD - PAL
+wdvd	  720x576	768	384	8.5mb	DVD-wide - Pal
+hd	 1280x720	1280	384	12.1mb	HD aka HD Ready
+fhd	1920x1080	2560	448	21.8mb	Full HD
+qhd	2560x1440	3840	448	30.9mb	2k, Quad HD - 4xHD
+uhd	3840x2160	7680	512	59.2mb	4K, Ultra HD TV
 EOF
+## EXIT function
 return 0
+## Not really needed:
+fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
 ## SAVE FOR LATER USE ##
 uhd+	5120x2880	6044	768	48.1mb	5K, UHD+
 fuhd	7680x4320	8192	1280	72.2mb	8K, Full UHD TV
@@ -250,6 +253,49 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 $( 
         printf "\t$TUI_FONT_UNDERSCORE ";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
 	
+		$AWK	'BEGIN  {
+			# Prepare Unit arrays
+				split ("k MB GB", BUNT)
+				split ("p K M Gp", PUNT)
+				ln10=log(10)	# What is this for?
+				#print ln10	## 2.30259
+			}
+
+		 # Format input: Number Unit
+		 function FMT(NBR, U)
+			{
+				# Again what for is ln10 used here and XP prepared for? And what is done anwyay?
+				XP=int(log(NBR)/ln10/3)
+				# print XP # = 1 or 0
+				# sprintf is one topic, but what is why done with XP (1 or 0)?
+				return sprintf ("%.2f%s", NBR / 10^(3*XP), U[1+XP])
+				# I assumed the passed variable, represented by U, will be updated outside, but seems wrong
+			}
+		# NR==1 , The above is only executed if its the first "loop"/line, or otherwise do....
+		NR==1 ||
+		# on either leading # comments or the word 'scrn', move onto next loop/line
+		/^#/ ||
+		/^scrn/ { next } 
+
+		{
+		# Bitrates
+			bitrate = FMT($3+$4, BUNT)
+			# How can i check for the current line its UNT value?
+			if("B" == U) { 		# This still prints output, but doesnt do the changes wanted
+			##if("B" == BUNT) {	# This way it prints absolute nothing ??
+					split(bitrate,B,".")
+					bitrate=B[1]
+				}
+		# Pixels
+			split($2, A, "x")
+			pixels = FMT(A[1] * A[2], PUNT);
+			
+		# Output
+			print "\t* "BOLD$1RESET,$2 "   ",pixels, $3 ,$4, bitrate ,$5,$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
+		
+	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
+	
+	exit ## would work in awk :p
 	$AWK '/^#/ { next } ; 
 	/^scrn/ { next } ;
 	{ 
@@ -1357,6 +1403,8 @@ EOF
 			log_msg+=", orietiation: $char @ $num"
 			;;
 		q)	Q=$(getQualy "$OPTARG")
+			RES=$(getRes $OPTARG)
+			RES=${RES/x*/:-1}
 			C=0
 			for n in $Q;do 
 				[ $C -eq 1 ] && BIT_VIDEO=$n && break # Just to be sure
@@ -1726,7 +1774,11 @@ EOF
 	#
 		$0 -i "$video"						# Calling itself with -info for video
 		# Allthough this applies to all vides, give the user at least the info of the first file
-		if [ 3840 -lt ${RES/[x:]*/} ]
+		#echo $RES
+		num="${RES/[x:]*/}"
+		[ -z "$num" ] && num=3840
+		
+		if [ 3840 -lt $num ]
 		then	tui-echo
 			tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
 			tui-yesno "Continue anyway?" || exit 0
