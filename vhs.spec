@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        1.3.1
-Release:        0%{?dist}
+Version:        1.3.2
+Release:        1%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -35,7 +35,7 @@ A Script to handle different multimedia tasks.
 * Include audio-, subtitle streams
 * Include PiP Video
 * Include Logoimage (Top Left fixed)
-* Encode DVD, non-copy-protected only
+* Encode DVD
 
 %prep
 %setup -q -c %{name}-%{version}
@@ -49,9 +49,11 @@ rm -rf $RPM_BUILD_ROOT
 
 mkdir -p %{buildroot}%{_bindir}/ \
          %{buildroot}%{_datarootdir}/%{name} \
-	     %{buildroot}%{_sysconfdir}/bash_completion.d/
+	 %{buildroot}%{_mandir}/man1 \
+	 %{buildroot}%{_sysconfdir}/bash_completion.d/
 rm -fr %{name}/.git
 mv %{name}/vhs.sh %{buildroot}%{_bindir}/vhs
+mv %{name}/vhs.1      %{buildroot}%{_mandir}/man1
 mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
 mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 
@@ -59,9 +61,22 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %doc %{_datarootdir}/%{name}/README.md 
 %doc %{_datarootdir}/%{name}/LICENSE
 %{_sysconfdir}/bash_completion.d/%{name}*
+%{_mandir}/man1/%{name}*.1.gz
 %{_bindir}/vhs
 
 %changelog
+* Sat Mar 07 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.3
+- Updated: Encoded-by information is no longer in the description
+- Updated: To copy (only) subtitle codecs, use: '-c tcopy'
+-          previous it was 'scopy'
+- Fixed:   Issue with reading attachmet ids
+- Updated: The '-j' toggle now includes ALL attachments (Fonts, etc)
+- Added:   Finaly added a manpage.
+
+* Thu Feb 26 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.2
+- Updated: Bash completition reads now the qualtiy from file
+- Updated: Screenrecording now takes quality argument
+
 * Tue Feb 17 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.1
 - Updated: Default preset video bitrates increased
 -          This should improve first time experience drasticly

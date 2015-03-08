@@ -1,0 +1,390 @@
+.ig
+vhs - Video Handler Script
+Copyright (C) März 07 by Simon Arjuna Erat (sea) - erat.simon@gmail.com
+.. ....................................................
+.TH "vhs" 1 "2015-03-07" "Simon Arjuna Erat (sea)" "Video Handler Script, using ffmpeg"
+
+
+
+.SH NAME
+vhs (1.3.3)
+
+
+
+.SH SYNOPSIS
+\fBvhs\fP 
+.OP options
+.RI "[input files ...]"
+.br
+
+
+
+.SH DESCRIPTION
+VHS, the Video Handler Script is a wrapper script for FFMPEG. It aims to ease repeating tasks to one's personal favorite settings.
+.br
+Only the container and language settings apply to each and every call of VHS, all other default values must be enabled/set/changed by the options passed.
+.br
+To configure the default values used by VHS, please pass
+.B vhs -C
+to the use the configuration menu, or edit the file directly. See its place in the 
+.B vhs -h
+output.
+.br
+VHS is ment to simplify these tasks:
+.RS 3
+.B 1.
+Convert to another container / video format
+.br
+.B 2.
+Reduce Video filesize
+.br
+.B 3.
+Screenrecording
+.br
+.B 4.
+Webcam recording
+.br
+.B 5.
+Guide recording (screen with webcam as pip)
+.br
+.B 6.
+Creating Video-DVD backups
+.br
+.B 7.
+Create Videofiles to be played on smartphones
+.br
+.B 8.
+Extract audio/subtitle stream/s
+.br
+.B 9.
+Add audio-/subtitle stream
+.RE
+
+
+
+.SH OPTIONS
+.OP "-2"
+.RS 4
+Use 2-pass encoding for every output video.
+.RE
+
+.OP "-a FILE"
+.RS 4
+Add passed FILE. 
+.br
+Most prefered to add another audio stream or supply subtitles.
+.RE
+
+.OP "-A"
+.RS 4
+Advanced mode. 
+.br
+Opens a text editor to edit the generated command before its execution.
+.RE
+
+.OP "-b [av]NUM"
+.RS 4
+Use either 'a' or 'v' to define if the kilobitrate NUM is used for audio or video.
+.RE
+
+.OP "-B"
+.RS 4
+Use the default bitrates for both audio and video from the default configuration.
+.br
+See: $HOME/.config/vhs/vhs.conf
+.RE
+
+.OP "-c [atv]NAME"
+.RS 4
+Set the codec used for audio, subtitle or video to NAME.
+.RE
+
+.OP "-C"
+.RS 4
+Opens the configuration menu.
+.RE
+
+.OP "-d RES"
+.RS 4
+Dimension.
+.br
+Sets the outputvideo-width according to RES, but keeps aspect ratio: "'RES:-1'"
+.RE
+
+.OP "-D"
+.RS 4
+Encodes a DVD.
+.RE
+
+.OP "-e CONTAINER"
+.RS 4
+Saves the output as CONTAINER.
+.br
+Where CONTAINER can be one of:
+.br
+.I aac  ac3  avi  dts  flac  flv  mkv  mp3  mp4  mpeg  ogg  ogv  theora  vorbis  wav  webm  wma  wmv  xvid
+.RE
+
+.OP "-f FPS"
+.RS 4
+Forces to use "'FPS'" fps.
+.RE
+
+.OP "-F"
+.RS 4
+Force to use the default (25) FPS rate.
+.RE
+
+.OP "-G"
+.RS 4
+Records the full desktop and uses the webcam for PiP (picture in picture).
+.br
+See the PiP option for more details.
+.RE
+
+.OP "-i"
+.RS 4
+For every passed file it prints its name and lists its available streams.
+.RE
+
+.OP "-I ID"
+.RS 4
+Where ID is a valid number of an audio stream of the current inputfile.
+.br
+Pass this for any ID wanted, or use quotes to pass multiple stream IDs at once.
+.RE
+
+.OP "-j"
+.RS 4
+Copy mjpeg (video-icon-image).
+.br
+Also used to copy other attachments such as fonts.
+.RE
+
+.OP "-K"
+.RS 4
+Opens a dialog to select which VHS background job/task shall be killed.
+.br
+Note that all encoding, recording and saving are done in background by default, to limit the visible output.
+.RE
+
+.OP "-l LNG"
+.RS 4
+If you want to include more than the default languages, use this to add/include as many languages you want.
+.br
+You can either add each language by its own, or list them within quotes.
+.RE
+
+.OP "-L"
+.RS 4
+See the logfile.
+.RE
+
+.OP "-p LOCATION[NUM]"
+.RS 4
+Where LOCATION is one of:
+.br
+.I tl, tc, tr, br, bc, bl, cl, cc, cr
+.br
+Optional one could add, without space, the number of the pip width, default is 320.
+.RE
+
+.OP "-q RES"
+.RS 4
+Encodeds the video to RES settings, preserves aspect ratio, but might produces border.
+.br
+Where RES is one of the labels of the presets.
+.br
+Same as:
+.B vhs -Q vga -d vga inputvideo
+.RE
+
+.OP "-Q RES"
+.RS 4
+Encodeds the video to RES settings, might become streched.
+.br
+Where RES is one of the labels of the presets.
+.RE
+
+.OP "-r RATE"
+.RS 4
+Use audio frequency rate RATE.
+.br
+This is usualy one of the three values: 44100, 48000 or 96000.
+.RE
+
+.OP "-R"
+.RS 4
+Use default audio frequency rate.
+.br
+See: $HOME/.config/vhs/vhs.conf
+.RE
+
+.OP "-S"
+.RS 4
+Saving the screen stream, using internal microphon for audio.
+.RE
+
+.OP "-t"
+.RS 4
+Enables the saving of subtitles.
+.br
+Beside your two favorite langauges, only languages provided will be saved.
+.br
+See
+.B -l LNG
+for more details.
+.RE
+
+.OP "-T TIME"
+.RS 4
+Sets the timeout between multiple video encodings.
+.br
+TIME can be any positive integer number, followed by either 's' for second, 'm' for minute or 'h' for hour.
+.br
+As in:
+.B vhs -T 5m *
+.RE
+
+.OP "-v"
+.RS 4
+Verbose mode (classic), shows the default output of ffmpeg.
+.RE
+
+.OP "-V"
+.RS 4
+Verbose mode (tui), shows more detailed information of vhs.
+.RE
+
+.OP "-w"
+.RS 4
+Web-Optimized, moves the video info block to front of the file.
+.RE
+
+.OP "-W"
+.RS 4
+Records a video using your webcam.
+.br
+Set the default resolution of the recording quality in the configuration menu. 
+.B (-C)
+.br
+VHS will read out the properties of your webcam and lets you choose among reckognized modes.
+.RE
+
+.OP "-x"
+.RS 4
+Clean the logfile, overwrite with an empty logfile.
+.RE
+
+.OP "-X"
+.RS 4
+Remove all custom VHS settings and start new.
+.RE
+
+.OP "-y"
+.RS 4
+Simply copies ALL streams from input to output file. Fake encoding.
+.RE
+
+.OP "-z 1:23[-1:04:45[.15]"
+.RS 4
+Encodes 1 minute from given start time, or until provided end-time-mark.
+.RE
+
+
+.SH EXAMPLES
+At all times, without any required arguments, the output file  will be as configured in the config file (default: mkv).
+.br
+You can change to any container you want, for a one-time-use, by passing
+.B "-e webm"
+so it would encode 'this' video to webm.
+.br
+If you change the container/extension to an audio format, it will output an audiofile only.
+.br
+At each call, you'll be presented an invoked call of
+.B vhs -i inputfile
+to show the file its streams.
+
+.IP "vhs filename"
+Will encode 'filename' according to your configured favorite settings
+
+.IP "vhs -e mp3 -I 1 -z 3:41.15-1:16:21.007 InputVideo.webm"
+This will extract the audio stream #1 from InputVideo.webm starting at 3 minutes 41 seconds and 150 milisecs and stops at 1 hour 16 minutes 21 seconds and 7 miliseconds, saving it as mp3.
+
+.IP "vhs -Dq qvga"
+Use this to prepare a DVD for your smartphone.
+
+.IP "vhs -Dtl jpn"
+This will encode the DVD/BR/LD in your drive, including subtitles and add japanese to the list of langauges, both, subtitle and audio.
+.br
+Note that you can configure vhs to use only one, or two langauges by default for all your output files.
+
+.IP "vhs -SQ yt-1080"
+Will record your screen and save the file at youtube bitrates as 1920x1080 video.
+.br
+Note that if your desktop/screen resolution is smaller, you have no benefit but a larger file.
+
+.IP "vhs -Wq yt-720"
+This will require your computer to have a webcam connected or internaly enabled, and will save the output video at youtube presets for HD Ready videos, preserving the aspect ratio of your webcam (eg: 640:-1)
+.br
+If you just want to do your personal video log, it could be reduced to:
+.B "vhs -W"
+
+
+
+.SH FREQUENTLY ASKED QUESTIONS (FAQ)
+.B 1. "When i want to save a video with subtitles it keeps failing."
+.br
+Try to just copy the subtitle codec by passing
+.B -c tcopy
+
+.br
+.B 2. "I have many files to encode, and it keeps asking me to select which language to choose for each file."
+.br
+Assuming the desired language is always on the same stream id, you could use:
+.B vhs -I 1 inputvideo
+.br
+If you want to include multiple audio streams, and want to avoid beeing asked for each video, you could use either one of:
+.br
+*
+.B vhs -I "'3 4'" inputvideo
+.br
+*
+.B vhs -I 3 -I 4 inputvideo
+.br
+
+.B 3. "After saving subtitles with a video, the font looks diffrent."
+.br
+Have you made sure the attachments were used, using the 
+.B -j
+toggle?
+
+
+
+
+.SH SEE ALSO
+.B ffmpeg
+(1),
+.B tui
+(1),
+.B vobcopy
+(1)
+
+
+
+.SH LICENSE
+GNU General Public License (GPL)
+.br
+http://www.gnu.org/licenses/gpl.html
+
+
+
+.SH CONTACT
+erat.simon@gmail.com
+.br
+http://linux-scripter.blogspot.com
+
+
+
+.SH BUG REPORTS
+Please visit "https://github.com/sri-arjuna/vhs/issues" to report bugs or other feedback

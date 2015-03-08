@@ -21,7 +21,7 @@ _vhs_module()
 	video_codecs=""
 	video_rates="v256 v384 v512 v768 v1024 v1280 v1664 v1792 v2048 v3072 v4096"
 	pip="tl tc tr cl cc cr bl bc br"
-	presets="$(grep -v "#" $HOME/.config/vhs2/presets|awk '{print $1}'|sed s,scrn,,)"
+	presets="$(grep -v "#" $HOME/.config/vhs/presets|awk '{print $1}'|sed s,scrn,,)"
 	
 #
 #	Fill codec lists

@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.02.14
+#	Changed:	2015.03.07
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -42,7 +42,7 @@
 #
 #	Check if TUI is installed...
 #
-	S=$(which tui)
+	S=$(which tui) 2>/dev/zero 1>/dev/zero
 	if [ ! -f "$S" ]
 	then 	[ ! 0 -eq $UID ] && \
 			printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" && \
@@ -53,23 +53,26 @@
 			unzip master.zip && rm -f master.zip
 			mv tui-master/* . ; rmdir tui-master
 		fi
-    		sh /tmp/tui.inst/install.sh || \
-    			(printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n";exit 1)
+    		if ! sh /tmp/tui.inst/install.sh
+    		then	printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n"
+			exit 1
+		fi
     	fi
     	source $S ; S=""
 #
 #	Get XDG Default dirs
 #
 	X="$HOME/.config/user-dirs.dirs"
-	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file."
-	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos"
+	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file, using: $HOME/Videos"
+	# Setting default videos dir and create it if none is present
+	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos" && ( [ -d "$XDG_VIDEOS_DIR" ] || mkdir -p "$XDG_VIDEOS_DIR" )
 #
 #	Script Environment
 #
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3.1
+	script_version=1.3.2
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -150,24 +153,25 @@
         # 
 	cat > "$PRESETS" << EOF
 # Presets 'RES' configuration, there must be no empty line or output will fail.
-# Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment
-# Label	Resolution 	Vidbit	Audbit	1min	Comment	(Up to 7 elements/words)  #--># This is for your orientation, the above is to display
-scrn	resolve 	1024	196	?	This is only used for screenrecording
+# Label	Resolution 	Vidbit	Audbit	1min	Comment	(Up to 7 elements/words)
+scrn	resolve 	1024	256	8.9mb	This is only used for screenrecording
 a-vga	  640x480	512	196	5.2mb	Anime optimized, VGA
 a-dvd	  720x576	640	256	6.7mb	Anime optimized, DVD-wide - PAL
-a-hd	 1280x720	768	384	8.6mb	Anime optimized, HD
-a-fhd	1920x1080	1280	384	12.5mb	Anime optimized, Full HD
+a-hd	 1280x720	768	256	7.2mb	Anime optimized, HD
+a-fhd	1920x1080	1280	256	12.5mb	Anime optimized, Full HD
 qvga	  320x240	240	128	2.7mb	Quarter of VGA, mobile devices 
-#hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
-#nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
+hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
+nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
 vga	  640x480	640	256	6.6mb	VGA
-#dvdr	  720x480	744	384	8.3mb	DVD-regular - PAL
+dvdr	  720x480	744	384	8.3mb	DVD-regular - PAL
 dvd	  720x576	768	384	8.5mb	DVD-wide - Pal
-#fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
+fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
 hd	 1280x720	1280	384	12.1mb	HD aka HD Ready
 fhd	1920x1080	2560	448	21.8mb	Full HD
 qhd	2560x1440	3840	448	30.9mb	2k, Quad HD - 4xHD
 uhd	3840x2160	7680	512	59.2mb	4K, Ultra HD TV
+# Below are presets which fail on (freeze!) my machine.
+# Feel free to uncomment the below 4 lines at your own risk.
 #uhd+	5120x2880	14400	768	??.?mb	5K, UHD+
 #fuhd	7680x4320	32160	1280	??.?mb	8K, Full UHD TV
 #quhd	15360x8640	128720	1280	??.?mb	16k, Quad UHD - 4xUHD
@@ -175,18 +179,19 @@ uhd	3840x2160	7680	512	59.2mb	4K, Ultra HD TV
 #
 # It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
 # as they are set that high to meet google its standard: 
-#	https://support.google.com/youtube/answer/1722171?hl=en
+# See:	https://support.google.com/youtube/answer/1722171?hl=en
+# for more details.
 #
-#yt-240	  426x240	768	196	??.?mb	YT
+yt-240	  426x240	768	196	6.8mb	YT, seriously, no reason to choose
 yt-360	  640x360	1000	196	8.7mb	YT, Ninth of HD, mobile devices
 yt-480	  854x480	2500	196	19.6mb	YT, DVD-wide - NTCS, mobile devices
 yt-720	 1280x720	5000	512	39.9mb	YT, HD
 yt-1080	1920x1080	8000	512	61.1mb	YT, Full HD
 yt-1440	2560x1440	10000	512	75.2mb	YT, 2k, Quad HD - 4xHD
-#yt-2160	3840x2160	40000	512	59.2mb	YT, 4K, Ultra HD TV
+yt-2160	3840x2160	40000	512	325.7mb	YT, 4K, Ultra HD TV
 EOF
 	}
-	#[ -f "$PRESETS" ] || \
+	[ -f "$PRESETS" ] || \
 		WritePresetFile
 #
 #	Help text
@@ -213,7 +218,7 @@ Where options are: (only the first letter)
 	-A(dvanced)			Will open an editor before executing the command
 	-b(itrate)	[av]NUM		Set Bitrate to NUM kilobytes, use either 'a' or 'v' to define audio or video bitrate
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
-	-c(odec)	[av]NAME	Set codec to NAME for audio or video
+	-c(odec)	[atv]NAME	Set codec to NAME for audio, (sub-)title or video, can pass '[atv]copy' as well
 	-C(onfig)			Shows the configuration dialog
 	-d(imension)	RES		Sets to ID-resolution, but keeps aspect-ratio (:-1) (will probably fail, use AFTER '-Q RES')
 	-D(VD)				Encode from DVD (not working since code rearrangement)
@@ -221,10 +226,10 @@ Where options are: (only the first letter)
 	-f(ps)		FPS		Force the use of the passed FPS
 	-F(PS)				Use the FPS from the config file (25 by default)
 	-G(uide)			Capures your screen & puts Webcam as PiP (default: top left @ 320), use -p ARGS to change
-	-i(nfo)		filename	Shows a short overview of the video its streams
-	-I(d)		NUM		Force this ID to be used (Audio-extraction, internal use)
-	-j(pg)				Include the 'icon-image' if available
-	-K(ill)				Lets you select tje job to kill among currenlty running VHS jobs.
+	-i(nfo)		filename	Shows a short overview of the video its streams and exits
+	-I(d)		NUM		Force this audio ID to be used (if multiple files dont have the language set)
+	-j(pg)				Thought to just include jpg icons, changed to include all attachments (fonts, etc)
+	-K(ill)				Lets you select the job to kill among currenlty running VHS jobs.
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
@@ -262,7 +267,9 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 		See \"$BOLD$PRESETS$RESET\" to see currently muted ones or to add your own presets.
 
 $( 
-        printf "\t\t$TUI_FONT_UNDERSCORE";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
+        #printf "\t\t$TUI_FONT_UNDERSCORE";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
+	printf "\t\t${TUI_FONT_UNDERSCORE}Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment$RESET\n"
+	
 	
 		$AWK	'BEGIN  {
 			# Prepare Unit arrays
@@ -361,6 +368,7 @@ LNG:		A valid 3 letter abrevihation for diffrent langauges
 HRZ:		44100 *48000* 72000 *96000* 128000
 TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
+For more information or a FAQ, please see ${BOLD}man vhs${RESET}.
 
 Files:		
 ------------------------------------------------------
@@ -456,7 +464,7 @@ Presets:	$PRESETS
 	listAttachents(){ #
 	# To call after StreamInfo or vhs -i video
 	#
-		for TaID in $($GREP Attach $TMP|$AWK '{print $2}');do # |$GREP mjpg
+		for TaID in $($GREP Attach $TMP.info.2|$AWK '{print $2}');do # |$GREP mjpg
 			printf " ${TaID:3:(-1)} "
 		done
 	}
@@ -1250,7 +1258,7 @@ EOF
 				log_msg="Override audio codec ($audio_codec) with ${OPTARG:1}"
 				audio_codec_ov="${OPTARG:1}"
 				;;
-			s)	override_sub_codec=true
+			t)	override_sub_codec=true
 				log_msg="Override subtitle codec ($video_codec) with ${OPTARG:1}"
 				sub_codec_ov="${OPTARG:1}"
 				;;
@@ -1580,7 +1588,7 @@ EOF
 		[ -z $langs ] || tui-echo "Additional Languages:"	"$langs"
 	fi
 	# Metadata
-	METADATA="$txt_mjpg -metadata description=$txt_meta_me"
+	METADATA="$txt_mjpg -metadata encoded_by=$txt_meta_me"
 	
 	# Special container treatment
 	case "$container" in
@@ -1621,7 +1629,8 @@ EOF
 					msg+=" Capturing"
 					[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
 					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-					cmd="$cmd_all $cmd_input_all $web $METADATA $extra $METADATA $F \"${OF}\""
+				##	cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+					cmd="$cmd_all $cmd_input_all $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
 					#printf "$cmd < /dev/stdin" > "$TMP"
 					printf "$cmd" > "$TMP"
 					doLog "Screenrecording: $cmd"
@@ -1654,7 +1663,7 @@ EOF
 				doLog "$msgA"
 				if $ADVANCED
 				then	tui-echo "Please save the file before you continue"
-					tui-edit "$TMP"
+					sh -x tui-edit "$TMP"
 					tui-press "Press [ENTER] when ready to encode..."
 				fi
 				doExecute $TMP "$OF" "Saving to '$OF'"
@@ -1794,7 +1803,9 @@ EOF
 			tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
 			tui-yesno "Continue anyway?" || exit 0
 		fi
-		
+		#echo " .----"
+		#StreamInfo
+		#listAttachents;exit
 		if $useJpg
 		then	tui-echo
 			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
@@ -1882,7 +1893,7 @@ EOF
 		
 		# Command just needs to be generated
 		$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
-		cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+		cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 		doLog "Command-Simple: $cmd"
 		msg+=" Converting"
 
