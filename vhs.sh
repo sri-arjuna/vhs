@@ -1,4 +1,4 @@
-#!/bin/bash
+#!//usr/bin/env bash
 # ------------------------------------------------------------------------
 #
 # Copyright (c) 2014-2015 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3.2
+	script_version=1.3.4
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -121,6 +121,7 @@
 	MODE=video			# -D, -W, -S, -e AUDIO_EXT	audio, dvd, webcam, screen, guide
 	ADDERS=""			# Stream to be added / included
 	cmd_all=""
+	#cmd_data=""			# Actualy, ffmpeg uses the datastream by default.
 	cmd_audio_all=""
 	cmd_audio_maps=""
 	cmd_audio_rate=""
@@ -144,7 +145,6 @@
 	# Default overlays
 	guide_complex="'[0:v:0]scale=320:-1[a] ; [1:v:0][a]overlay'"
 	video_overlay="'[X:v:0]scale=320:-1[a] ; [0:v:0][a]overlay'"
-
 #
 #	Check for PRESETS, required for proper help display
 #
@@ -731,19 +731,20 @@ Presets:	$PRESETS
 				# Clean up
 				tui-status -r 2 "Unmounting DVD"
 				tui-bol-sudo && \
-					( sudo umount $dvd_base 2>/dev/zero ; RET=$? ; export RET ) || \
-					( su -c "umount $dvd_base" ; RET=$? ; export RET )
+					( sudo umount "$dvd_base" 2>/dev/zero ; RET=$? ; export RET  ; sudo rm -fr "$dvd_base" ) || \
+					( su -c "umount $dvd_base && rm -fr $dvd_base" ; RET=$? ; export RET )
 				tui-status $RET "Unmounted DVD"
 				if [ 0 -eq $? ]
 				then	eject /dev/cdrom
-                                       tui-status $? "Ejected disc."
+                                	tui-status $? "Ejected disc."
 				else	tui-status $? "There was an error"
 				fi
 			fi
 				BIG="$(ls $dvd_tmp/*.vob)"
 		        echo "$cmd_video_all"
-			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $TIMEFRAME $METADATA $F \"${OF}\""
-			echo "$cmd" ; exit
+			#cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec                -acodec $audio_codec                $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG                    -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			#echo "$cmd" ; exit
 			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
 			
 			;;
@@ -780,12 +781,52 @@ Presets:	$PRESETS
 			#
 			# cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 			#  $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-			echo "$cmd_audio_all"
-			echo "$cmd_video_all"
-			echo "$cmd_run_specific"
+			#echo "$cmd_audio_all"
+			#echo "$cmd_video_all"
+			#echo "$cmd_run_specific"
+			#cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
 			
-			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec -acodec $audio_codec $yadif $TIMEFRAME $METADATA $F \"${OF}\""
-			echo "$cmd" ; exit
+			
+			
+			#
+			vhs -i "$BIG"
+			
+			#
+			if [ -z "$ID_FORCED" ]
+			then	tui-title "Parsing for audio streams..."
+				doAudio "$BIG"		## Fills the list: audio_ids
+				audio_ids=$(cat "$TMP") 
+				if [ ! -z "$audio_ids" ]
+				then	# all good
+					for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
+					$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
+				else	# handle empty
+					tui-echo "No audio stream could be recognized"
+					tui-echo "Please select the ids you want to use, choose done to continue."
+					#select i in $(seq 1 1 $(countAudio)) done;do 
+					i=""
+					while [ ! "$i" = "done" ]
+					do	i=$(tui-select $(listAudioIDs) done)
+						audio_ids+=" $i"
+						cmd_audio_maps+=" -map 0:$i"
+						tui-echo "Now using audio ids: $audio_ids"
+					done
+				fi
+			else	audio_ids="$ID_FORCED"
+				$beVerbose && tui-echo "Using forced ID's:" "$audio_ids"
+			fi
+			msg="Using for audio streams: $audio_ids"
+			doLog "$msg"		
+			
+			#$cmd_audio_all
+			for aid in $audio_ids;do
+				cmd_audio_all+=" -map 0:$aid"
+			done
+			#echo $cmd_audio_all ; exit
+			
+			
+			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG                    -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			#echo "$cmd" ; exit
 			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
 			;;
 		esac
@@ -809,6 +850,7 @@ Presets:	$PRESETS
 		#if $showFFMPEG
 		if true
 		then	vobcopy -l -o "$1"
+			echo "$?" > "$TMP.out"
 		else	# Do the job in the background
 			vTMP="${TMP}.vobcopy"	# File to 'get' all the output
 			[ -f "$vTMP" ] && rm -f "$vTMP"
@@ -816,6 +858,8 @@ Presets:	$PRESETS
 
 			# Because i want to inform the user about which file is currently processed,
 			# i cannot use tui-bgjob -- anyway... this procudes a **Float Point Exception**
+			cmd="vobcopy -ml -o \"$1\""
+			doLog "$cmd"
 			printf "vobcopy -ml -o \"$1\" 1>/dev/zero 2>\"$vTMP\"\n\techo \$? > $TMP.out" > $TMP
 			tui-bgjob "$TMP" "Copying VOB file" "Copied VOB file"
 			
@@ -1532,7 +1576,7 @@ EOF
 	# If (not) set...
 	[ -z "$video_codec" ] && [ ! -z $audio_codec ] && MODE=audio		# If there is no video codec, go audio mode
 	#[ ! -z "$video_codec" ] && [ $PASS -lt 2 ] && \
-	for v in $(listVideoIDs "$1");do	cmd_video_all+=" -map 0:v";done			# Make sure video stream is used always
+	for v in $(listVideoIDs "$1");do	cmd_video_all+=" -map 0:$v";done			# Make sure video stream is used always
 	$showFFMPEG && \
 		FFMPEG="$ffmpeg_verbose" || \
 		FFMPEG="$ffmpeg_silent"	# Initialize the final command
@@ -1619,6 +1663,7 @@ EOF
 				$beVerbose && tui-echo "Set outputfile to $OF"
 				msg="Beginn:"
 				msgA="Generated command for $MODE-encoding in $TMP"
+				doLog "${msgA/ed/ing}"
 				case $MODE in
 				webcam) doWebCam	;;
 				screen) #doScreen
@@ -1639,14 +1684,12 @@ EOF
 				dvd)	tempdata=( $(ls /run/media/$USER 2>/dev/zero) )
 					[ ${#tempdata[@]} -ge 2 ] && \
 						tui-echo "Please select which entry is the DVD:" && \
-						
-                                                name=$(tui-select "${tempdata[@]}") && \
+						name=$(tui-select "${tempdata[@]}") && \
 						printf "\n"
 					[ -z "$name" ] && \
 						tui-status -r 2 "Scanning for DVD" && \
 						name="$(blkid|$SED s," ","\n",g|$GREP LABEL|$SED 's,LABEL=,,'|$SED s,\",,g)"
-					echo $name
-					echo $SED $AWK $GREP
+					$beVerbose && tui-echo "Name selected:" "$name"
 					
 					if [ -z "$name" ]
 					then	name=$(tui-read "Please enter a name for the DVD:")
@@ -1666,18 +1709,30 @@ EOF
 					sh -x tui-edit "$TMP"
 					tui-press "Press [ENTER] when ready to encode..."
 				fi
-				doExecute $TMP "$OF" "Saving to '$OF'"
+				doExecute $TMP "$OF" "Saving to '$OF'" "Saved to '$OF'"
 				RET=$?
 				
 				if [ $RET -eq 0 ]
 				then	# All good, clean up temp data...
-					if [ -z $TIMEFRAME ]
+					doLog "Successfully encoded $mode"
+					if [ -z "$TIMEFRAME" ]
 					then	# But only if the whole dvd was encoded
-						cd $dvd_base
-						pwd
-						ls
-						tui-status 11 "DELETE THIS" "place code here"
+						#cd "$dvd_tmp"
+						if [ -d "$dvd_tmp" ]
+						then	cd "$dvd_tmp"
+							LC_ALL=C ; export LC_ALL
+							numTotal=$(ls -l|$GREP total|$AWK '{print $2}')
+							
+							if tui-yesno "Removing temporary data? ($numTotal)"
+							then	[ "$PWD" = "$dvd_tmp" ] && \
+									rm -fr *vob
+							fi
+						fi
+					#	pwd
+					#	ls
+					#	tui-status 11 "DELETE THIS" "place code here"
 					fi
+				else	doLog "Failed to encode $mode"
 				fi
 				
 				exit $RET
