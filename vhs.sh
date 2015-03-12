@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.03.07
+#	Changed:	2015.03.11
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -271,7 +271,7 @@ $(
 	printf "\t\t${TUI_FONT_UNDERSCORE}Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment$RESET\n"
 	
 	
-		$AWK	'BEGIN  {
+	$AWK	'BEGIN  {
 			# Prepare Unit arrays
 				split ("k M GB", BUNT)
 				split ("p K M Gp", PUNT)
@@ -310,52 +310,6 @@ $(
 			
 		# Output
 			print "\t\t"BOLD$1RESET,$2 "   ",pixels, $3 ,$4, bitrate ,"~"$5,$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
-		
-	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
-	
-	exit ## would work in awk :p
-	$AWK '/^#/ { next } ; 
-	/^scrn/ { next } ;
-	{ 
-		bext="kb";
-		pext="k";
-		
-	# Bitrates
-		bitrates=$3+$4;
-		len=( length(bitrates) );
-		if(len >= 4) {
-			bext="mb"
-			bitrates/=1024
-		}
-		split(bitrates, B, ".");
-		bitrates=B[1] ;
-		dots=B[2];
-		if (dots == "") { dots="" } else { dots="."dots }
-		
-	# Pixels
-		split($2, A, "x");
-		pixels=A[1] * A[2];
-		len=( length(pixels) );
-		if(len >= 7 ) {
-			pext="mil"
-			cut=len-6
-			#pixels=substr(pixels,1,cut);
-			pixels=pixels / 1000 / 1000
-		} else {
-			if(len >= 4) {
-				pext="k"
-				cut=len-3
-				#pixels=substr(pixels,1,cut);
-				pixels/=1000
-			}
-		}
-		split(pixels, P, ".");
-		pix=P[1] ;
-		pots=P[2];
-		if (pots == "") { pots="" } else { pots="."pots }
-		
-	# Output
-		print "\t* "BOLD$1RESET,$2 "   ",pix substr(pots,1,2) pext,$3,$4,"~" bitrates substr(dots,1,2) bext,$5,$6" "$7" "$8" "$9" "$10" "$11#" "$12" "$13" "$14; " "$15;
 		
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
@@ -713,41 +667,6 @@ Presets:	$PRESETS
 		"$A")	cd "$dvd_base/VIDEO_TS"
 			cmd="$FFMPEG $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $METADATA $F \"${OF}\""
 			;;
-		"$C")	# Copy files using regular cp
-			# TODO :: Currently just as backup !!!
-			# -------------------------------------
-			[ -d "$dvd_tmp" ] && \
-			 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
-				dvd_reuse=true || \
-				dvd_reuse=false
-			# Create tempdir to copy vob files into
-			if [ false = "$dvd_reuse" ]
-			then 	mkdir -p "$dvd_tmp"
-				doLog "DVD: Copy vobs to \"$dvd_tmp\""
-				tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
-				tui-status -r 2 "Initialize DvD..." #$(readlink /dev/sr0)"
-				doVobCopy "$dvd_tmp"
-				
-				# Clean up
-				tui-status -r 2 "Unmounting DVD"
-				tui-bol-sudo && \
-					( sudo umount "$dvd_base" 2>/dev/zero ; RET=$? ; export RET  ; sudo rm -fr "$dvd_base" ) || \
-					( su -c "umount $dvd_base && rm -fr $dvd_base" ; RET=$? ; export RET )
-				tui-status $RET "Unmounted DVD"
-				if [ 0 -eq $? ]
-				then	eject /dev/cdrom
-                                	tui-status $? "Ejected disc."
-				else	tui-status $? "There was an error"
-				fi
-			fi
-				BIG="$(ls $dvd_tmp/*.vob)"
-		        echo "$cmd_video_all"
-			#cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec                -acodec $audio_codec                $yadif $TIMEFRAME $METADATA $F \"${OF}\""
-			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG                    -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
-			#echo "$cmd" ; exit
-			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
-			
-			;;
 		"$B")	# Copy VOB with vobcopy
 			[ -d "$dvd_tmp" ] && \
 			 	tui-yesno "$dvd_tmp already exists, reuse it?" && \
@@ -769,29 +688,21 @@ Presets:	$PRESETS
 				# Clean up
 				tui-status -r 2 "Unmounting DVD"
 				tui-bol-sudo && \
-					( sudo umount $dvd_base 2>/dev/zero ; RET=$? ; export RET ) || \
-					( su -c "umount $dvd_base" ; RET=$? ; export RET )
-				
-				# A small goodie for sudo users:
-				tui-status $RET "Unmounted DVD" && \
-					tui-bol-sudo && \
-					sudo eject /dev/sr0
+					( sudo umount "$dvd_base" 2>/dev/zero ; RET=$? ; export RET  ; sudo rm -fr "$dvd_base" ) || \
+					( su -c "umount $dvd_base && rm -fr $dvd_base" ; RET=$? ; export RET )
+				tui-status $RET "Unmounted DVD"
+				if [ 0 -eq $? ]
+				then	eject /dev/cdrom
+                                	tui-status $? "Ejected disc."
+				else	tui-status $? "There was an error"
+				fi
 			fi
 			BIG="$(ls $dvd_tmp/*.vob)"
-			#
-			# cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-			#  $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-			#echo "$cmd_audio_all"
-			#echo "$cmd_video_all"
-			#echo "$cmd_run_specific"
-			#cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG -map 0:a -map 0:v -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
 			
-			
-			
-			#
+			# Show info on video
 			vhs -i "$BIG"
 			
-			#
+			# Check for audio streams
 			if [ -z "$ID_FORCED" ]
 			then	tui-title "Parsing for audio streams..."
 				doAudio "$BIG"		## Fills the list: audio_ids
@@ -807,8 +718,8 @@ Presets:	$PRESETS
 					i=""
 					while [ ! "$i" = "done" ]
 					do	i=$(tui-select $(listAudioIDs) done)
-						audio_ids+=" $i"
-						cmd_audio_maps+=" -map 0:$i"
+						[ "$i" = "done" ] || audio_ids+=" $i"
+						#cmd_audio_maps+=" -map 0:$i"
 						tui-echo "Now using audio ids: $audio_ids"
 					done
 				fi
@@ -818,16 +729,13 @@ Presets:	$PRESETS
 			msg="Using for audio streams: $audio_ids"
 			doLog "$msg"		
 			
-			#$cmd_audio_all
+			# Apply found streams to command
 			for aid in $audio_ids;do
 				cmd_audio_all+=" -map 0:$aid"
 			done
-			#echo $cmd_audio_all ; exit
 			
-			
+			# Finalize the command
 			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG                    -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
-			#echo "$cmd" ; exit
-			#cmd="vhs BIGVOB.vob;mv *$container $HOME/dvd-$name.$container"
 			;;
 		esac
 		
@@ -843,55 +751,84 @@ Presets:	$PRESETS
 		unset files
 		count=0
 		
-		( cd "$1" ; [ -f *vob ] && tui-yesno "Delete existing vob files?" && rm *vob 2>/dev/zero )
+		if cd "$1"
+		then	[ ! "" = *vob ] && \
+				tui-yesno "Delete existing vob files?" && \
+				rm *vob 2>/dev/zero
+			cd "$OLDPWD"
+		fi
 		
 		#showFFMPEG=true
 		# TODO FIXME, wait for vobcopy update to fix its background incompatibilty - buffer overrun
-		#if $showFFMPEG
-		if true
-		then	vobcopy -l -o "$1"
-			echo "$?" > "$TMP.out"
+		#if true
+		if $showFFMPEG
+		then	#vobcopy -l -o "$1"
+			vobQ=""
 		else	# Do the job in the background
-			vTMP="${TMP}.vobcopy"	# File to 'get' all the output
-			[ -f "$vTMP" ] && rm -f "$vTMP"
-			touch "$vTMP"
-
-			# Because i want to inform the user about which file is currently processed,
-			# i cannot use tui-bgjob -- anyway... this procudes a **Float Point Exception**
-			cmd="vobcopy -ml -o \"$1\""
-			doLog "$cmd"
-			printf "vobcopy -ml -o \"$1\" 1>/dev/zero 2>\"$vTMP\"\n\techo \$? > $TMP.out" > $TMP
-			tui-bgjob "$TMP" "Copying VOB file" "Copied VOB file"
-			
-			PID=$!
-			sleep 0.3
-			
-			while ps | $GREP -q $PID
-			do	# Retrieve the filename and print its filesize to user
-				FILE=$(tail -n 2 "$vTMP"|$GREP Outputting|$AWK '{print $4}')
-				if [ ! -z "$FILE" ] 
-				then	FILE=$(basename "$FILE")
-					msg="Copying: $FILE" ; msg_P="pid:$PID"
-
-					if echo "${files[@]}" | $GREP -q "$FILE" 
-					then	tui-printf "$msg_P" \
-							"$msg ($(ls -lh $1/$FILE*|$AWK '{print $5}'))" \
-							"[  $(tui-indi)   ]"
-					else	this=${#files[@]}
-						prev=$[ $this - 1 ]
-						files[$this]="$FILE"
-						[ $this -gt 0 ] && \
-							tui-status 0 "Copied: ${files[$prev]}"
-						count=$(($count + 1))
-						tui-printf "$msg_P" \
-							"$msg" \
-							"[  $(tui-indi)   ]"
-					fi
-				fi
-				sleep 0.7
-			done
+			vobQ="q"
 		fi
-		rm -f "$vTMP"
+		
+		# Default or 'custom' options for vobcopy?
+		if tui-yesno "Use default vobcopy settings?"
+		then	tui-echo "Using default scanmode:" "Title with most chapters"
+			cmd="vobcopy -qfl -o \"$1\""
+		else	tui-echo "What vobcopy mode shall be attempted?"
+			copyMode=$(tui-select "Playtime" "TitleNr") ##"Mirror")
+			case "$copyMode" in
+			Playtime)
+					tui-echo "Using other scanmode:" "Title with longest playtime"
+					cmd="vobcopy -${vobQ}M -o \"$1\""
+					;;
+			TitleNr)	tui-title "Set a title number:"
+					tui-echo "Using other scanmode:" "Copy a specific title"
+					[ -f vobcopy.bla ] && rm vobcopy.bla
+					title="" ; titles="" ; vobcopy -${vobQ}Ix
+
+					$AWK	'BEGIN  { print "Title Chapters" }
+							NR==1 ||
+							# on either leading comments or or NOT starting with [Info], move onto next loop/line
+							/^#/ ||
+							/^![Info]/ {next}
+							{
+							# Output
+							if($2 == "Title") {
+								if($6 == "chapters.") {
+									print $3 "\t" $5
+								}
+							}
+						}' vobcopy.bla > "$TMP"
+
+					# Print the titles and let the user select
+					tui-echo "Which title to use:"
+					$GREP ^[0-9] "$TMP" | while read TITLE CHAP;do
+						tui-echo "Title $TITLE has $CHAP chapters."
+						titles+=" $TITLE"
+					done
+					titles=$($GREP ^[0-9] "$TMP"|$AWK '{print $1}')
+					[ -z "$titles" ] && \
+						tui-printf -rS 1 "FATAL - No titles found!" && \
+						exit 1
+					title=$(tui-select $titles)
+					tui-echo
+
+					cmd="vobcopy -${vobQ}n $title -o \"$1\""
+					;;
+			esac
+		fi
+		[ -f "vobcopy.bla" ] && rm vobcopy.bla
+		doLog "DVD: Generated vobcopy command"
+		doLog "Command: $cmd"
+		
+		# Copy the data
+		if $showFFMPEG
+		then	# Be verbose
+			eval "$cmd"
+			echo "$?" > "$TMP.out"
+		else	# Do the job in the background -- TODO fine tuning
+			eval "$cmd"
+			echo "$?" > "$TMP.out"
+		fi
+		[ -f "vobcopy.bla" ] && rm vobcopy.bla
 		RET=$(cat $TMP.out)
 		return $RET
 	}
@@ -1402,8 +1339,7 @@ EOF
 		O)	log_msg="Forced Output File -> $OPTARG"
 			OF_FORCED="$OPTARG"
 			;;
-		p)	# TODO
-			# Picture in Picure alignments
+		p)	# Picture in Picure alignments
 			log_msg="Picture in Picure alignment"
 			# default :: '[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'
 			num=$(printf $OPTARG|tr -d [[:alpha:]])
@@ -1478,7 +1414,6 @@ EOF
 			;;
 		Q)	RES=$(getRes $OPTARG)
 			Q=$(getQualy "$OPTARG")
-			#ASP=$(getAspect "$OPTARG")
 			C=0
 			for n in $Q;do 
 				[ $C -eq 1 ] && BIT_VIDEO=$n && break # Just to be sure
@@ -1566,8 +1501,6 @@ EOF
 	then	[ -z "$guide_complex" ] && \
 		tui-echo "Must pass '-p ORIENTATION' when including a videostream" "$TUI_INFO" && \
 		exit 1 
-		#|| \
-		#ADDERS="$(eval $ADDERS)"
 	fi
 #
 #	Little preparations before we start showing the interface
@@ -1576,7 +1509,7 @@ EOF
 	# If (not) set...
 	[ -z "$video_codec" ] && [ ! -z $audio_codec ] && MODE=audio		# If there is no video codec, go audio mode
 	#[ ! -z "$video_codec" ] && [ $PASS -lt 2 ] && \
-	for v in $(listVideoIDs "$1");do	cmd_video_all+=" -map 0:$v";done			# Make sure video stream is used always
+	for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
 	$showFFMPEG && \
 		FFMPEG="$ffmpeg_verbose" || \
 		FFMPEG="$ffmpeg_silent"	# Initialize the final command
@@ -1589,18 +1522,18 @@ EOF
 		cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
 	[ ! copy = "$video_codec_ov" ] && \
 		[ ! -z "$RES" ] && \
-		cmd_video_all+=" -vf scale=$RES"			# Set video resolution
+		cmd_video_all+=" -vf scale=$RES"		# Set video resolution
 #	[ -z "$ASP" ] || \
 #		cmd_video_all+=" -aspect=$ASP"			# Set video aspect ratio
 	[ -z "$OF" ] || \
-		cmd_output_all="$OF"					# Set output file 
+		cmd_output_all="$OF"				# Set output file 
 	[ -z "$BIT_VIDEO" ] || \
 		buffer=" -minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
 	# Bools...
 	$file_extra && \
 		F="-f $ext"					# File extra, toggle by container
 	$code_extra && \
-		extra+=" -strict -2"					# codec requires strict, toggle by container
+		extra+=" -strict -2"				# codec requires strict, toggle by container
 	$channel_downgrade && \
 		cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
 	if $useFPS
@@ -1609,7 +1542,7 @@ EOF
 		doLog "Added '$FPS' to commandlist"
 	fi
 	$useRate && \
-		cmd_audio_all+=" -ar $audio_rate"				# Use default hertz rate
+		cmd_audio_all+=" -ar $audio_rate"		# Use default hertz rate
 	$override_sub_codec && \
 		subtitle=$sub_codec_ov
 	$useSubs && \
@@ -1617,8 +1550,8 @@ EOF
 		cmd_subtitle_all=" -sn"
 	$override_audio_codec && \
 		cmd_audio_all+=" -c:a $audio_codec_ov" || \
-		cmd_audio_all+=" -c:a $audio_codec"				# Set audio codec if provided
-	if $override_video_codec						# Set video codec if provided
+		cmd_audio_all+=" -c:a $audio_codec"		# Set audio codec if provided
+	if $override_video_codec				# Set video codec if provided
 	then	cmd_video_all+=" -c:v $video_codec_ov"
 	else	[ -z $video_codec ] || cmd_video_all+=" -c:v $video_codec"				
 	fi
@@ -1659,83 +1592,78 @@ EOF
 	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
 	case $MODE in
-	dvd|screen|webcam) 	# TODO For these 3 i can implement the bitrate suggestions...
-				$beVerbose && tui-echo "Set outputfile to $OF"
-				msg="Beginn:"
-				msgA="Generated command for $MODE-encoding in $TMP"
-				doLog "${msgA/ed/ing}"
-				case $MODE in
-				webcam) doWebCam	;;
-				screen) #doScreen
-					OF=$(genFilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
-					msg="Options: Set MODE to Screen, saving as $OF"
-					doLog "$msg"
-					$beVerbose && tui-echo "$msg"
-					msg+=" Capturing"
-					[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
-					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-				##	cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-					cmd="$cmd_all $cmd_input_all $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
-					#printf "$cmd < /dev/stdin" > "$TMP"
-					printf "$cmd" > "$TMP"
-					doLog "Screenrecording: $cmd"
-					$beVerbose && tui-echo "$msgA"
-					;;
-				dvd)	tempdata=( $(ls /run/media/$USER 2>/dev/zero) )
-					[ ${#tempdata[@]} -ge 2 ] && \
-						tui-echo "Please select which entry is the DVD:" && \
-						name=$(tui-select "${tempdata[@]}") && \
-						printf "\n"
-					[ -z "$name" ] && \
-						tui-status -r 2 "Scanning for DVD" && \
-						name="$(blkid|$SED s," ","\n",g|$GREP LABEL|$SED 's,LABEL=,,'|$SED s,\",,g)"
-					$beVerbose && tui-echo "Name selected:" "$name"
-					
-					if [ -z "$name" ]
-					then	name=$(tui-read "Please enter a name for the DVD:")
-					else	[ "PARTBasic" = $(echo $name|$AWK '{print $1}') ] && \
-							tui-printf -S 1 "Please insert a DVD and try again!" && \
-							exit 1
-					fi
-					OF=$(genFilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
-					doDVD
-					;;
-				esac
-				#tui-status $RET_INFO "Press 'CTRL+C' to stop encoding from $MODE..."
-				
-				doLog "$msgA"
-				if $ADVANCED
-				then	tui-echo "Please save the file before you continue"
-					sh -x tui-edit "$TMP"
-					tui-press "Press [ENTER] when ready to encode..."
+	dvd|screen|webcam)
+			# TODO For these 3 i can implement the bitrate suggestions...
+			$beVerbose && tui-echo "Set outputfile to $OF"
+			msg="Beginn:"
+			msgA="Generated command for $MODE-encoding in $TMP"
+			doLog "${msgA/ed/ing}"
+			case $MODE in
+			webcam) doWebCam	;;
+			screen) #doScreen
+				OF=$(genFilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
+				msg="Options: Set MODE to Screen, saving as $OF"
+				doLog "$msg"
+				$beVerbose && tui-echo "$msg"
+				msg+=" Capturing"
+				[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
+				cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
+			##	cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+				cmd="$cmd_all $cmd_input_all $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
+				#printf "$cmd < /dev/stdin" > "$TMP"
+				printf "$cmd" > "$TMP"
+				doLog "Screenrecording: $cmd"
+				$beVerbose && tui-echo "$msgA"
+				;;
+			dvd)	tempdata=( $(ls /run/media/$USER 2>/dev/zero) )
+				[ ${#tempdata[@]} -ge 2 ] && \
+					tui-echo "Please select which entry is the DVD:" && \
+					name=$(tui-select "${tempdata[@]}") && \
+					printf "\n"
+				[ -z "$name" ] && \
+					tui-status -r 2 "Scanning for DVD" && \
+					name="$(blkid|$SED s," ","\n",g|$GREP LABEL|$SED 's,LABEL=,,'|$SED s,\",,g)"
+				$beVerbose && tui-echo "Name selected:" "$name"
+
+				if [ -z "$name" ]
+				then	name=$(tui-read "Please enter a name for the DVD:")
+				else	[ "PARTBasic" = $(echo $name|$AWK '{print $1}') ] && \
+						tui-printf -S 1 "Please insert a DVD and try again!" && \
+						exit 1
 				fi
-				doExecute $TMP "$OF" "Saving to '$OF'" "Saved to '$OF'"
-				RET=$?
-				
-				if [ $RET -eq 0 ]
-				then	# All good, clean up temp data...
-					doLog "Successfully encoded $mode"
-					if [ -z "$TIMEFRAME" ]
-					then	# But only if the whole dvd was encoded
-						#cd "$dvd_tmp"
-						if [ -d "$dvd_tmp" ]
-						then	cd "$dvd_tmp"
-							LC_ALL=C ; export LC_ALL
-							numTotal=$(ls -l|$GREP total|$AWK '{print $2}')
-							
-							if tui-yesno "Removing temporary data? ($numTotal)"
-							then	[ "$PWD" = "$dvd_tmp" ] && \
-									rm -fr *vob
-							fi
+				OF=$(genFilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+				doDVD
+				;;
+			esac
+
+			doLog "$msgA"
+			if $ADVANCED
+			then	tui-echo "Please save the file before you continue"
+				tui-edit "$TMP"
+				tui-press "Press [ENTER] when ready to encode..."
+			fi
+			doExecute $TMP "$OF" "Saving to '$OF'" "Saved to '$OF'"
+			RET=$?
+
+			if [ $RET -eq 0 ]
+			then	# All good, clean up temp data...
+				doLog "Successfully encoded $mode"
+				if [ -z "$TIMEFRAME" ]
+				then	# But only if the whole dvd was encoded
+					if [ -d "$dvd_tmp" ]
+					then	cd "$dvd_tmp"
+						LC_ALL=C ; export LC_ALL
+						numTotal=$(ls -lh|$GREP total|$AWK '{print $2}')
+
+						if tui-yesno "Removing temporary data? ($numTotal)"
+						then	[ "$PWD" = "$dvd_tmp" ] && \
+								rm -fr *vob
 						fi
-					#	pwd
-					#	ls
-					#	tui-status 11 "DELETE THIS" "place code here"
 					fi
-				else	doLog "Failed to encode $mode"
 				fi
-				
-				exit $RET
+			else	doLog "Failed to encode $mode"
+			fi
+			exit $RET
 			;;
 	guide)		[ -z "$ext" ] && source $CONTAINER/$container
 			OF=$(genFilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
@@ -1849,7 +1777,6 @@ EOF
 	#
 		$0 -i "$video"						# Calling itself with -info for video
 		# Allthough this applies to all vides, give the user at least the info of the first file
-		#echo $RES
 		num="${RES/[x:]*/}"
 		[ -z "$num" ] && num=3840
 		
@@ -1858,9 +1785,7 @@ EOF
 			tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
 			tui-yesno "Continue anyway?" || exit 0
 		fi
-		#echo " .----"
-		#StreamInfo
-		#listAttachents;exit
+		
 		if $useJpg
 		then	tui-echo
 			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
@@ -1887,6 +1812,7 @@ EOF
 				audio_ids+=" $i"
 				cmd_audio_maps+=" -map 0:$i"
 				tui-echo "Now using audio ids: $audio_ids"
+				tui-echo
 			done
 		fi
 		msg="Using for audio streams: $audio_ids"
