@@ -679,8 +679,10 @@ Presets:	$PRESETS
 				tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
 			
 				tui-status -r 2 "Initialize DvD..." #$(readlink /dev/sr0)"
+				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doVobCopy "$dvd_tmp"
 				exit_vobcopy=$?
+				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				[ 1 -eq $exit_vobcopy ] && \
 					tui-printf -S 1 "There was an error copying the files..." && \
 					exit 1
@@ -751,10 +753,15 @@ Presets:	$PRESETS
 		unset files
 		count=0
 		
+		#set -x
 		if cd "$1"
-		then	[ ! "" = *vob ] && \
-				tui-yesno "Delete existing vob files?" && \
-				rm *vob 2>/dev/zero
+		then	if [ ! "" = "$( ls |$GREP -i vob)" ] && tui-yesno "Delete existing vob files?"
+			then	#echo $PWD ; set -x
+				rm -f *vob 	#2>/dev/zero
+				rm -f *partial 	#2>/dev/zero
+				rm -f vobcopy.bla
+				#exit
+			fi
 			cd "$OLDPWD"
 		fi
 		
@@ -771,7 +778,7 @@ Presets:	$PRESETS
 		# Default or 'custom' options for vobcopy?
 		if tui-yesno "Use default vobcopy settings?"
 		then	tui-echo "Using default scanmode:" "Title with most chapters"
-			cmd="vobcopy -qfl -o \"$1\""
+			cmd="vobcopy -${vobQ}l -o \"$1\""
 		else	tui-echo "What vobcopy mode shall be attempted?"
 			copyMode=$(tui-select "Playtime" "TitleNr") ##"Mirror")
 			case "$copyMode" in
@@ -797,20 +804,25 @@ Presets:	$PRESETS
 								}
 							}
 						}' vobcopy.bla > "$TMP"
-
+						
 					# Print the titles and let the user select
 					tui-echo "Which title to use:"
-					$GREP ^[0-9] "$TMP" | while read TITLE CHAP;do
-						tui-echo "Title $TITLE has $CHAP chapters."
-						titles+=" $TITLE"
-					done
-					titles=$($GREP ^[0-9] "$TMP"|$AWK '{print $1}')
-					[ -z "$titles" ] && \
-						tui-printf -rS 1 "FATAL - No titles found!" && \
+					declare -a titles
+					while read TITLE CHAP;do
+						echo $TITLE | $GREP -q ^[0-9] && \
+							titles[$TITLE]="Title $TITLE with $CHAP chapters" #&& \
+					done<$TMP
+					
+					
+					
+					#titles=$($GREP ^[0-9] "$TMP"|$AWK '{print $1}')
+					[ "" = "$(echo ${titles[*]})" ] && \
+						tui-printf -S 1 "FATAL - No titles found!" && \
 						exit 1
-					title=$(tui-select $titles)
+					title=$(tui-select "${titles[@]}")
+					title=$(echo ${title} | $AWK '{print $2}')
+					$beVerbose && tui-echo "Selected Title: $title"
 					tui-echo
-
 					cmd="vobcopy -${vobQ}n $title -o \"$1\""
 					;;
 			esac
@@ -1021,8 +1033,8 @@ sound=alsa
 
 # See ffmpeg output (vhs -i FILE // ffmpeg -psnr -i FILE) for your language abrevihation
 # if 'lang' is not found it will take 'lang_alt' if available
-lang=ger
-lang_alt=eng
+lang=eng
+lang_alt=ger
 lang_force_both=true
 
 # If DTS is found, to how many channels shall it 'downgrade'?
@@ -1632,7 +1644,9 @@ EOF
 						exit 1
 				fi
 				OF=$(genFilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doDVD
+				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				;;
 			esac
 
@@ -1644,7 +1658,10 @@ EOF
 			fi
 			doExecute $TMP "$OF" "Saving to '$OF'" "Saved to '$OF'"
 			RET=$?
-
+			[ $MODE = dvd ] && \
+				[ -f "$dvd_tmp/vobcopy.bla" ] && \
+				rm "$dvd_tmp/vobcopy.bla"
+			
 			if [ $RET -eq 0 ]
 			then	# All good, clean up temp data...
 				doLog "Successfully encoded $mode"
