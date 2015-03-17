@@ -1,4 +1,4 @@
-#!//usr/bin/env bash
+#!/usr/bin/env bash
 # ------------------------------------------------------------------------
 #
 # Copyright (c) 2014-2015 by Simon Arjuna Erat (sea)  <erat.simon@gmail.com>
@@ -153,42 +153,47 @@
         # 
 	cat > "$PRESETS" << EOF
 # Presets 'RES' configuration, there must be no empty line or output will fail.
-# Label	Resolution 	Vidbit	Audbit	1min	Comment	(Up to 7 elements/words)
-scrn	resolve 	1024	256	8.9mb	This is only used for screenrecording
-a-vga	  640x480	512	196	5.2mb	Anime optimized, VGA
-a-dvd	  720x576	640	256	6.7mb	Anime optimized, DVD-wide - PAL
-a-hd	 1280x720	768	256	7.2mb	Anime optimized, HD
-a-fhd	1920x1080	1280	256	12.5mb	Anime optimized, Full HD
-qvga	  320x240	240	128	2.7mb	Quarter of VGA, mobile devices 
-hvga	  480x320	320	192	3.8mb	Half VGA, mobile devices
-nhd	  640x360	512	256	5.6mb	Ninth of HD, mobile devices
-vga	  640x480	640	256	6.6mb	VGA
-dvdr	  720x480	744	384	8.3mb	DVD-regular - PAL
-dvd	  720x576	768	384	8.5mb	DVD-wide - Pal
-fwvga	  854x480	768	384	7.5mb	DVD-wide - NTCS, mobile devices
-hd	 1280x720	1280	384	12.1mb	HD aka HD Ready
-fhd	1920x1080	2560	448	21.8mb	Full HD
-qhd	2560x1440	3840	448	30.9mb	2k, Quad HD - 4xHD
-uhd	3840x2160	7680	512	59.2mb	4K, Ultra HD TV
+# Label	Resolution 	Vidbit	Audbit	Comment	(Up to 7 elements/words)
+scrn	resolve 	1024	256	This is only used for screenrecording
+a-vga	  640x480	512	196	Anime optimized, VGA
+a-dvd	  720x576	640	256	Anime optimized, DVD-wide - PAL
+a-hd	 1280x720	768	256	Anime optimized, HD
+a-fhd	1920x1080	1280	256	Anime optimized, Full HD
+qvga	  320x240	240	128	Quarter of VGA, mobile devices 
+hvga	  480x320	320	192	Half VGA, mobile devices
+#ntsc	  440×486	320	192	TV - NTSC 4:3
+#pal	  520×576	480	192	TV - PAL 4:3
+nhd	  640x360	512	256	Ninth of HD, mobile devices
+vga	  640x480	640	256	VGA
+dvdn	  720x480	744	384	DVD NTSC
+dvd	  720x576	768	384	DVD-wide - Pal
+fwvga	  854x480	768	384	DVD-wide - NTCS, mobile devices
+hd	 1280x720	1280	384	HD aka HD Ready
+fhd	1920x1080	1920	384	Full HD
+qhd	2560x1440	3840	448	2k, Quad HD - 4xHD
+uhd	3840x2160	7680	512	4K, Ultra HD TV
 # Below are presets which fail on (freeze!) my machine.
 # Feel free to uncomment the below 4 lines at your own risk.
-#uhd+	5120x2880	14400	768	??.?mb	5K, UHD+
-#fuhd	7680x4320	32160	1280	??.?mb	8K, Full UHD TV
-#quhd	15360x8640	128720	1280	??.?mb	16k, Quad UHD - 4xUHD
-#ouhd	30720x17380	512000	2048	??.?mb	32k, Octo UHD - 8xUHD, my suggestion
+#uhd+	5120x2880	14400	768	5K, UHD+
+#fuhd	7680x4320	32160	1280	8K, Full UHD TV
+#quhd	15360x8640	128720	1280	16k, Quad UHD - 4xUHD
+#ouhd	30720x17380	512000	2048	32k, Octo UHD - 8xUHD, my suggestion
 #
 # It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
-# as they are set that high to meet google its standard: 
+#  as they are set that high to meet google its standard.
+# Saying, whatever video quality you pass to youtube, it will be re-encoded with these values.
+# So it is best to provide a source as high as that (selected resolution, 
+#  'upscale' does increase filesize only)
 # See:	https://support.google.com/youtube/answer/1722171?hl=en
-# for more details.
+#  for more details.
 #
-yt-240	  426x240	768	196	6.8mb	YT, seriously, no reason to choose
-yt-360	  640x360	1000	196	8.7mb	YT, Ninth of HD, mobile devices
-yt-480	  854x480	2500	196	19.6mb	YT, DVD-wide - NTCS, mobile devices
-yt-720	 1280x720	5000	512	39.9mb	YT, HD
-yt-1080	1920x1080	8000	512	61.1mb	YT, Full HD
-yt-1440	2560x1440	10000	512	75.2mb	YT, 2k, Quad HD - 4xHD
-yt-2160	3840x2160	40000	512	325.7mb	YT, 4K, Ultra HD TV
+yt-240	  426x240	768	196	YT, seriously, no reason to choose
+yt-360	  640x360	1000	196	YT, Ninth of HD, mobile devices
+yt-480	  854x480	2500	196	YT, DVD-wide - NTCS, mobile devices
+yt-720	 1280x720	5000	512	YT, HD
+yt-1080	1920x1080	8000	512	YT, Full HD
+yt-1440	2560x1440	10000	512	YT, 2k, Quad HD - 4xHD
+yt-2160	3840x2160	40000	512	YT, 4K, Ultra HD TV
 EOF
 	}
 	[ -f "$PRESETS" ] || \
@@ -267,20 +272,18 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 		See \"$BOLD$PRESETS$RESET\" to see currently muted ones or to add your own presets.
 
 $( 
-        #printf "\t\t$TUI_FONT_UNDERSCORE";$SED s,"#",, "$PRESETS" | $GREP Pix ; printf "$RESET"
-	printf "\t\t${TUI_FONT_UNDERSCORE}Label	Resolution 	Pixels	Vidbit	Audbit	Bitrate	1min	Comment$RESET\n"
-	
+	printf "\t${TUI_FONT_UNDERSCORE}Label	Resolution	Pixels	Vidbit	Audbit	Bitrate	1min	Comment$RESET\n"
 	
 	$AWK	'BEGIN  {
 			# Prepare Unit arrays
 				split ("k M GB", BUNT)
 				split ("p K M Gp", PUNT)
+				split ("mb gb tb pb", MUNT)
 				ln10=log(10)	# What is this for?
 				#print ln10	## 2.30259
 			}
-
-		 # Format input: Number Unit
-		 function FMT(NBR, U)
+		# Format input: Number Unit
+		function FMT(NBR, U)
 			{
 				# Again what for is ln10 used here and XP prepared for? And what is done anwyay?
 				XP=int(log(NBR)/ln10/3)
@@ -289,27 +292,32 @@ $(
 				return sprintf ("%.2f%s", NBR / 10^(3*XP), U[1+XP])
 				# I assumed the passed variable, represented by U, will be updated outside, but seems wrong
 			}
+		function FRMT(NBR, U)
+			{
+				XP=int(log(NBR)/ln10/3)
+				return sprintf ("%.1f%s", NBR / 10^(3*XP), U[1+XP])# I assumed the passed variable, represented by U, will be updated outside, but seems wrong
+			}
 		# NR==1 , The above is only executed if its the first "loop"/line, or otherwise do....
 		NR==1 ||
 		# on either leading # comments or the word 'scrn', move onto next loop/line
 		/^#/ ||
-		/^scrn/ { next } 
-
+		/^scrn/ { next }
 		{
 		# Bitrates
 			bitrate = FMT($3+$4, BUNT)
+			byterate = (($3+$4)/8*60)
+			megabytes = FRMT(byterate/1024,MUNT)
 			# How can i check for the current line its UNT value?
-			if("B" == U) { 		# This still prints output, but doesnt do the changes wanted
-			##if("B" == BUNT) {	# This way it prints absolute nothing ??
+			if("B" == U) {  		# This still prints output, but doesnt do the changes wanted
 					split(bitrate,B,".")
 					bitrate=B[1]
 				}
 		# Pixels
 			split($2, A, "x")
 			pixels = FMT(A[1] * A[2], PUNT);
-			
 		# Output
-			print "\t\t"BOLD$1RESET,$2 "   ",pixels, $3 ,$4, bitrate ,"~"$5,$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
+			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
+			#print "\t"BOLD$1RESET,$2 " ",pixels, $3 "/ " $4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
 		
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
@@ -893,39 +901,44 @@ Presets:	$PRESETS
 				ext=$entry	# Extension used for the video file
 				;;
 			#									## These bitrates are NOT used... !!
-			flv)	ca=aac		; cv=flv	; ce=false	; fe=false	; ba=128	; bv=384	; ext=$entry	;;
-			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ba=192	; bv=768	; ext=$entry 	;;
-			mpeg)	ca=libmp3lame 	; cv=mpeg2video	; ce=false	; fe=false	; ba=128	; bv=768	; ext=$entry	;;
-			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ba=256	; bv=1280	; ext=$entry	;;
-			ogv)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ba=192	; bv=1024	; ext=ogv	;;
-			theora)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ba=192	; bv=1024	; ext=ogv	;;
-			webm)	ca=libvorbis 	; cv=libvpx	; ce=true	; fe=true	; ba=256	; bv=1280	; ext=$entry	;;
-			wmv)	ca=wmav2  	; cv=wmv2	; ce=false	; fe=false	; ba=256	; bv=768	; ext=$entry	;;
-			xvid)	ca=libmp3lame  	; cv=libxvid	; ce=false	; fe=true	; ba=256	; bv=768	; ext=avi	;;
+			flv)	ca=aac		; cv=flv	; ce=false	; fe=false	; ext=$entry	;;
+			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ext=$entry 	;;
+			mpeg)	ca=libmp3lame 	; cv=mpeg2video	; ce=false	; fe=false	; ext=$entry	;;
+			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ext=$entry	;;
+			ogv)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ext=ogv	;;
+			theora)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ext=ogv	;;
+			webm)	ca=libvorbis 	; cv=libvpx	; ce=true	; fe=true	; ext=$entry	;;
+			wmv)	ca=wmav2  	; cv=wmv2	; ce=false	; fe=false	; ext=$entry	;;
+			xvid)	ca=libmp3lame  	; cv=libxvid	; ce=false	; fe=true	; ext=avi	;;
 		# Audio Codecs
-			aac)	ca=aac 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry	;;
-			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ba=256	; bv=		; ext=$entry 	;;
-			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
-			flac)	ca=flac		; cv=		; ce=false 	; fe=false	; ba=512	; bv=		; ext=$entry	;;
-			mp3)	ca=libmp3lame	; cv=		; ce=false	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
-			ogg)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=$entry	;;
-			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ba=256 	; bv=		; ext=ogg	;;
-			wma)	ca=wmav2  	; cv=		; ce=false	; fe=true	; ba=256	; bv=		; ext=$entry	;;
-			wav)	ca=pcm_s16le	; cv=		; ce=false	; fe=false	; ba=384	; bv=		; ext=$entry	;;
+			aac)	ca=aac 		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
+			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ext=$entry 	;;
+			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
+			flac)	ca=flac		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
+			mp3)	ca=libmp3lame	; cv=		; ce=false	; fe=false	; ext=$entry	;;
+			ogg)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ext=$entry	;;
+			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ext=ogg	;;
+			wma)	ca=wmav2  	; cv=		; ce=false	; fe=true	; ext=$entry	;;
+			wav)	ca=pcm_s16le	; cv=		; ce=false	; fe=false	; ext=$entry	;;
 		# Experimental
-		#	clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ba=128	; bv=384	; ext=mp4	;;
-		#	dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
+		#	clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ext=mp4	;;
+		#	dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ext=mpeg	;;
 		#	webcam)	# TODO
-		#		ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ba=128	; bv=512	; ext=mpeg	;;
-			# blob)	ca=	; cv=	; ce=false	; fe=false	; ba=	; bv=	; ext=$entry	;;
+		#		ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ext=mpeg	;;
+			# blob)	ca=	; cv=	; ce=false	; fe=false	; ext=$entry	;;
 			esac
 			touch $entry
 			tui-printf "Write container info ($entry)" "$WORK"
 			printf "$header
+# Default extension used
 ext=$ext
+# Audio codec to be used for this container
 audio_codec=$ca
+# Video codec to be used for this container
 video_codec=$cv
+# Does the codec need to be strict?
 codec_extra=$ce
+# Enable 'force file' (-f)?
 file_extra=$fe" > $entry
 			if [ 0 -eq $? ] 
 			then	tui-status $? "Wrote container info ($entry)"
@@ -935,6 +948,15 @@ file_extra=$fe" > $entry
 			fi
 			$beVerbose && printf "\n"
 		done
+	}
+	WriteContainer() { #
+	#
+	#
+		CONT="$CONFIG_DIR/container"
+		touch "$CONT"
+		cat > "$CONT" << EOF
+		
+EOF
 	}
 	UpdateLists() { #
 	# Retrieve values for later use
@@ -1160,7 +1182,7 @@ EOF
 		
 		doLog "Setup: Writing container and list files"
 		WriteContainers
-                WriteTemplateFile
+                #WriteTemplateFile
 		UpdateLists
 		
 		# Install missing packages
