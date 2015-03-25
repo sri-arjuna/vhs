@@ -351,11 +351,37 @@ Presets:	$PRESETS
 	# See 'tui-log -h' for more info
 		tui-log -t "$LOG" "$1"
 	}
+	fs_expected() { #
+	# Returns the expected filesize in bytes
+	#
+		pr_str() {
+			ff=$(cat $TMP.info)
+			d="${ff#*bitrate: }"
+			echo "${d%%,*}" | $AWK '{print $1}' | head -n 1
+		}
+		[ -z "$BIT_AUDIO" ] && BIT_AUDIO=0
+		[ -z "$BIT_VIDEO" ] && BIT_VIDEO=0
+		RATE=$(( $BIT_AUDIO + $BIT_VIDEO ))
+		if [ 0 -eq $RATE ]
+		then	t_BYTERATE=$(( $(pr_str) * 1024 / 8 ))
+		else	t_BYTERATE=$(( $RATE / 8 ))
+		fi
+		t_TIMES=$( PlayTime | $SED s,":"," ",g)
+		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( (24*$1*60 + 60*$2 + $3) * BYTES )}' BYTES=$t_BYTERATE
+		return $?
+	}
 	StreamInfo() { # VIDEO
 	# Returns the striped down output of  ffmpeg -psnr -i video
 	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
 		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
 		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
+	}
+	PlayTime() { #
+	# Returns the play time duration of a media file
+	#
+		ff=$(cat $TMP.info)
+		d="${ff#*Duration: }"
+		echo "${d%%,*}"
 	}
 	countVideo() { # [VIDEO]
 	# Returns the number of video streams found in VIDEO
@@ -516,7 +542,7 @@ Presets:	$PRESETS
 			esac
 			tui-status $RET_TODO "$msg $2"
 			[ -z "$SHELL" ] && \
-				sh "$1" || \
+				bash "$1" || \
 				$SHELL "$1"
 			tui-status $? "$msg $2"
 			RET=$?
@@ -871,7 +897,7 @@ Presets:	$PRESETS
 		
 		[ -z "$verbose" ] && verbose="-v quiet"
                 doLog "Overwrite already generated name, for 'example' code.. "
-                OF="$(genFilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
+                OF="$(tui-str-tui-str-genfilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
                 #sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
                 web_audio=" -f alsa -i default"
                 cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $web_audio $extra $METADATA $F \"${OF}\""
@@ -1483,7 +1509,7 @@ EOF
 			log_msg="Moved 'faststart' flag to front, stream/web optimized"
 			;;
 		W)	MODE=webcam
-			OF=$(genFilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext )
+			OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext )
 			override_container=true
 			log_msg="Options: Set MODE to Webcam, saving as $OF"
 			;;
@@ -1635,7 +1661,7 @@ EOF
 			case $MODE in
 			webcam) doWebCam	;;
 			screen) #doScreen
-				OF=$(genFilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
+				OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
 				msg="Options: Set MODE to Screen, saving as $OF"
 				doLog "$msg"
 				$beVerbose && tui-echo "$msg"
@@ -1665,7 +1691,7 @@ EOF
 						tui-printf -S 1 "Please insert a DVD and try again!" && \
 						exit 1
 				fi
-				OF=$(genFilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+				OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doDVD
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
@@ -1705,7 +1731,7 @@ EOF
 			exit $RET
 			;;
 	guide)		[ -z "$ext" ] && source $CONTAINER/$container
-			OF=$(genFilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
+			OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
 			
 			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
 			printf "$cmd" > "$TMP"
@@ -1724,23 +1750,28 @@ EOF
 			;;
 	audio)		doAudio "$video"					## Fills the list: audio_ids
 			audio_ids=$(cat "$TMP") 
-			tui-echo "Found audio ids:" "$audio_ids"
+			#tui-title "on line: $LINENO" ; PlayTime ; tui-title "on line: $LINENO"
+			$beVerbose && tui-echo "Found audio ids:" "$audio_ids"
+			$showFFMPEG && \
+				FFMPEG=$ffmpeg_verbose || \
+				FFMPEG=$ffmpeg_silent
+			
 		# Shared vars	
 			tDir=$(dirname "$(pwd)/$1")
 			tIF=$(basename "$1")
-			tui-echo "Audio files are encoded within pwd:" "$tDir"
+			$beVerbose && tui-echo "Audio files are encoded within pwd:" "$tDir"
 			
 		# If ID is forced, just do this	
 			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
-				tui-echo "However, this ID is forced:" "$ID_FORCED"
+				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
 			# Generate command
 				audio_maps="-map 0:$ID_FORCED"
 				[ -z "$OF_FORCED" ] && \
-					OF=$(genFilename "${1}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
-					OF=$(genFilename "$OF_FORCED" $ext)
+					OF=$(tui-str-genfilename "${1}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
+					OF=$(tui-str-genfilename "$OF_FORCED" $ext)
 				tOF=$(basename "$OF")
-				tui-echo "Outputfile will be:" "$tOF"
+				$beVerbose && tui-echo "Outputfile will be:" "$tOF"
 				cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
 				doLog "Command-Audio: $cmd"
@@ -1752,7 +1783,7 @@ EOF
 				
 				for AID in $audio_ids;do
 				# Generate command
-					OF=$(genFilename "${1}" $ext)
+					OF=$(tui-str-genfilename "${1}" $ext)
 					OF=${OF/.$ext/.id$AID.$ext}
 					tOF=$(basename "$OF")
 					audio_maps=""
@@ -1779,9 +1810,6 @@ EOF
 			
 			#$beVerbose && 
 			#	tui-echo "Saved as $OF_FORCED, using $ID_FORCED"
-			$showFFMPEG && \
-				FFMPEG=$ffmpeg_verbose || \
-				FFMPEG=$ffmpeg_silent
 			
 			exit $?
 			;;
@@ -1800,7 +1828,7 @@ EOF
 	for video in "${@}";do 
 		doLog "----- $video -----"
 		$beVerbose && tui-title "Video: $video"
-		OF=$(genFilename "${video}" "$ext")		# Output File
+		OF=$(tui-str-genfilename "${video}" "$ext")		# Output File
 		audio_ids=						# Used ids for audio streams
 		audio_maps=""						# String generated using the audio maps
 		subtitle_ids=""
@@ -1815,6 +1843,17 @@ EOF
 	#	Output per video
 	#
 		$0 -i "$video"						# Calling itself with -info for video
+		#tui-title "Duration: $(PlayTime) --> $(fs_expected)"
+		if ! EXPECTED=$(fs_expected)
+		then	#$0 -vz 0:0-0:1 "$video"
+			tui-status -r 2 "Calculating bitrate for 15 secs..."
+			ffmpeg -i "$video" -ss 0:0 -to 0:15 -map 0 "$OF" 1>"$TUI_TEMP_FILE" 2>"$TUI_TEMP_FILE"
+			$0 -i "$OF"
+			declare -a br
+			br=$(grep -i bitrate "$TUI_TEMP_FILE")
+			EXPECTED=$(( "${br[${#br[@]}-1]}" * 1000 / 8 ))
+			rm "$OF"
+		fi
 		# Allthough this applies to all vides, give the user at least the info of the first file
 		num="${RES/[x:]*/}"
 		[ -z "$num" ] && num=3840
@@ -1828,6 +1867,7 @@ EOF
 		if $useJpg
 		then	tui-echo
 			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
+			tui-echo
 			for i in $(listAttachents);do
 				txt_mjpg+=" -map 0:$i"
 			done
@@ -1941,7 +1981,10 @@ EOF
 			fi
 			
 			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
-			doExecute "$TMP" "$OF" "$STR1" "$STR2"
+			$beVerbose && \
+				tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
+				tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
+			tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
 			RET=$?
 		#
 		#	Do some post-encode checks

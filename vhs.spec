@@ -65,6 +65,9 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
+* Wed Mar 25 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.4
+- Updated: Encoding videos show now a progress bar
+
 * Tue Mar 10 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.4
 - Updated: DVD: Encoding no longer stops after vobcopy, ty Robert.
 - Fixed:   DVD: Audio selection menu, tried to include stream 'done'
