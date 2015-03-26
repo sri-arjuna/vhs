@@ -246,7 +246,7 @@ Where options are: (only the first letter)
 	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
 	-S(creen)			Records the fullscreen desktop
 	-t(itles)			Use default and provided langauges as subtitles, where available
-	-T(imeout)	2m		Set the timeout between videos to TIME (append either 'm' or 'h' as other units)
+	-T(imeout)	2m		Set the timeout between videos to TIME (append either 's', 'm' or 'h' as other units)
 	-v(erbose)			Displays encode data from ffmpeg
 	-V(erbose)			Show additional info on the fly
 	-w(eb-optimized)		Moves the videos info to start of file (web compatibility)
@@ -281,27 +281,20 @@ $(
 				split ("k M GB", BUNT)
 				split ("p K M Gp", PUNT)
 				split ("mb gb tb pb", MUNT)
-				ln10=log(10)	# What is this for?
-				#print ln10	## 2.30259
+				ln10=log(10)
 			}
 		# Format input: Number Unit
 		function FMT(NBR, U)
 			{
-				# Again what for is ln10 used here and XP prepared for? And what is done anwyay?
 				XP=int(log(NBR)/ln10/3)
-				# print XP # = 1 or 0
-				# sprintf is one topic, but what is why done with XP (1 or 0)?
 				return sprintf ("%.2f%s", NBR / 10^(3*XP), U[1+XP])
-				# I assumed the passed variable, represented by U, will be updated outside, but seems wrong
 			}
 		function FRMT(NBR, U)
 			{
 				XP=int(log(NBR)/ln10/3)
-				return sprintf ("%.1f%s", NBR / 10^(3*XP), U[1+XP])# I assumed the passed variable, represented by U, will be updated outside, but seems wrong
+				return sprintf ("%.1f%s", NBR / 10^(3*XP), U[1+XP])
 			}
-		# NR==1 , The above is only executed if its the first "loop"/line, or otherwise do....
 		NR==1 ||
-		# on either leading # comments or the word 'scrn', move onto next loop/line
 		/^#/ ||
 		/^scrn/ { next }
 		{
@@ -309,8 +302,7 @@ $(
 			bitrate = FMT($3+$4, BUNT)
 			byterate = (($3+$4)/8*60)
 			megabytes = FRMT(byterate/1024,MUNT)
-			# How can i check for the current line its UNT value?
-			if("B" == U) {  		# This still prints output, but doesnt do the changes wanted
+			if("B" == U) {
 					split(bitrate,B,".")
 					bitrate=B[1]
 				}
@@ -318,16 +310,14 @@ $(
 			split($2, A, "x")
 			pixels = FMT(A[1] * A[2], PUNT);
 		# Output
-			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
-			#print "\t"BOLD$1RESET,$2 " ",pixels, $3 "/ " $4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12#" "$13" "$14; " "$15;
-		
+			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
 
 CONTAINER (a):	aac ac3 dts flac mp3 ogg vorbis wav wma
 CONTAINER (v):  avi flv mkv mp4 mpeg ogv theora webm wmv xvid
 VIDEO:		[/path/to/]videofile
-LOCATIoN:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
+LOCATION:	tl, tc, tr, br, bc, bl, cl, cc, cr :: as in :: top left, bottom right, center center
 LNG:		A valid 3 letter abrevihation for diffrent langauges
 HRZ:		44100 *48000* 72000 *96000* 128000
 TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
@@ -368,6 +358,7 @@ Presets:	$PRESETS
 		then	t_BYTERATE=$(( $(pr_str) * 1024 / 8 ))
 		else	t_BYTERATE=$(( $RATE / 8 ))
 		fi
+		[ ! "" = "$(echo $t_BYTERATE|tr -d [[:digit:]])" ] && echo 0 && return 1
 		t_TIMES=$( PlayTime | $SED s,":"," ",g)
 		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( (24*$1*60 + 60*$2 + $3) * BYTES )}' BYTES=$t_BYTERATE
 		return $?
@@ -1172,7 +1163,7 @@ EOF
 							newval=$(tui-select $codecs_subtitle)
 							;;
 					lang_force_both|useRate|channel_downgrade)
-							tui-echo "Do you want to enable this?"
+							tui-echo "Do you want to toggle this?"
 							newval=$(tui-select $LIST_BOOL)
 							;;
 					lang|lang_alt)	tui-echo "Which language to use as $var?"
@@ -1326,8 +1317,7 @@ EOF
 		d)	RES=$(getRes $OPTARG|sed s/x*/":-1"/g)
 			log_msg="Set video dimension (resolution) to: $RES"
 			;;
-		D)	# TODO very low prio, since code restructure probably dont work
-			MODE=dvd
+		D)	MODE=dvd
 			log_msg="Options: Set MODE to ${MODE^}"
 			override_container=true
 			tui-status -r 2 "Reading from DVD"
@@ -1347,7 +1337,6 @@ EOF
 			doLog "Force using FPS from config file ($FPS)"
 			;;
 		G)	MODE=guide
-		#	guide_complex="'[0:v:0] scale=320:-1 [a] ; [1:v:0][a]overlay'"
 			log_msg="Options: Set MODE to ${MODE^}, saving as $OF"
 			;;
 		h)	doLog "Show Help"
@@ -1355,7 +1344,6 @@ EOF
 			exit $RET_HELP
 			;;
 		i)	# Creates $TMP.info
-			#shift $(($OPTIND - 1))
 			for A in "${@}";do
 			if [ -f "$A" ]
 			then	$beVerbose && tui-echo "Video exist, showing info"
@@ -1388,7 +1376,7 @@ EOF
                         TASK=$(tui-select Abort $fine)
 			printf "\n"
 			[ "$TASK" = Abort ] && tui-echo "Thanks for aborting ;)" && exit
-			tui-printf -Sr 2 "Ending task: $TASK" #"$TUI_WORK"
+			tui-printf -Sr 2 "Ending task: $TASK"
 
 			pids=$(ps -ha|$GREP "$TASK"|$GREP -v $GREP|$AWK '{print $1}')
 			for p in $pids;do kill $p;done
@@ -1676,9 +1664,7 @@ EOF
 				msg+=" Capturing"
 				[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
 				cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-			##	cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
-				#printf "$cmd < /dev/stdin" > "$TMP"
 				printf "$cmd" > "$TMP"
 				doLog "Screenrecording: $cmd"
 				$beVerbose && tui-echo "$msgA"
@@ -1816,9 +1802,6 @@ EOF
 				done
 			fi
 			
-			#$beVerbose && 
-			#	tui-echo "Saved as $OF_FORCED, using $ID_FORCED"
-			
 			exit $?
 			;;
 	# video)		echo just continue	;;
@@ -1852,16 +1835,8 @@ EOF
 	#
 		$0 -i "$video"						# Calling itself with -info for video
 		#tui-title "Duration: $(PlayTime) --> $(fs_expected)"
-		if ! EXPECTED=$(fs_expected)
-		then	#$0 -vz 0:0-0:1 "$video"
-			tui-status -r 2 "Calculating bitrate for 15 secs..."
-			ffmpeg -i "$video" -ss 0:0 -to 0:15 -map 0 "$OF" 1>"$TUI_TEMP_FILE" 2>"$TUI_TEMP_FILE"
-			$0 -i "$OF"
-			declare -a br
-			br=$(grep -i bitrate "$TUI_TEMP_FILE")
-			EXPECTED=$(( "${br[${#br[@]}-1]}" * 1000 / 8 ))
-			rm "$OF"
-		fi
+		EXPECTED=$(fs_expected)
+		
 		# Allthough this applies to all vides, give the user at least the info of the first file
 		num="${RES/[x:]*/}"
 		[ -z "$num" ] && num=3840
@@ -1995,8 +1970,13 @@ EOF
 			$beVerbose && \
 				tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
 				tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
-			tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
-			RET=$?
+			if [ 0 -eq $EXPECTED ]
+			then	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
+				RET=$?
+			else	tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
+				RET=$?
+			fi
+			
 		#
 		#	Do some post-encode checks
 		#	
