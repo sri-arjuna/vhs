@@ -142,6 +142,7 @@
 	SS_START=""			# -z 1:23[-1:04:45.15] start value, triggered by beeing non-empty
 	SS_END=""			# -z 1:23[-1:04:45.15] calculated end value
 	TIMEFRAME=""			# the codesegment containg the above two variables.
+	EXTRA_CMD=""
 	# Default overlays
 	guide_complex="'[0:v:0]scale=320:-1[a] ; [1:v:0][a]overlay'"
 	video_overlay="'[X:v:0]scale=320:-1[a] ; [0:v:0][a]overlay'"
@@ -228,6 +229,7 @@ Where options are: (only the first letter)
 	-d(imension)	RES		Sets to ID-resolution, but keeps aspect-ratio (:-1) (will probably fail, use AFTER '-Q RES')
 	-D(VD)				Encode from DVD (not working since code rearrangement)
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
+	-E(tra)		'STRING'	STRING can be any option to ffmpeg you want, understand that it is inserted right after the first input file!
 	-f(ps)		FPS		Force the use of the passed FPS
 	-F(PS)				Use the FPS from the config file (25 by default)
 	-G(uide)			Capures your screen & puts Webcam as PiP (default: top left @ 320), use -p ARGS to change
@@ -701,7 +703,7 @@ Presets:	$PRESETS
 		printf "\n"
 		case "$dvd_copy" in
 		"$A")	cd "$dvd_base/VIDEO_TS"
-			cmd="$FFMPEG $vobs -acodec $audio_codec -vcodec $video_codec $extra $yadif $METADATA $F \"${OF}\""
+			cmd="$FFMPEG $vobs $EXTRA_CMD -acodec $audio_codec -vcodec $video_codec $extra $yadif $METADATA $F \"${OF}\""
 			;;
 		"$B")	# Copy VOB with vobcopy
 			[ -d "$dvd_tmp" ] && \
@@ -773,7 +775,7 @@ Presets:	$PRESETS
 			done
 			
 			# Finalize the command
-			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG                    -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
+			cmd="$FFMPEG -probesize 50M -analyzeduration 100M -i $BIG $EXTRA_CMD -q:a 0 -q:v 0 $web $extra $bits -vcodec $video_codec $cmd_video_all -acodec $audio_codec $cmd_audio_all $yadif $TIMEFRAME $METADATA $F \"${OF}\""
 			;;
 		esac
 		
@@ -902,7 +904,7 @@ Presets:	$PRESETS
                 OF="$(tui-str-tui-str-genfilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
                 #sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
                 web_audio=" -f alsa -i default"
-                cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $web_audio $extra $METADATA $F \"${OF}\""
+                cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $EXTRA_CMD $web_audio $extra $METADATA $F \"${OF}\""
 		doLog "WebCam: Using $webcam_mode command"
                 doLog "Command-Webcam: $cmd"
 		printf "$cmd" > "$TMP.cmd"
@@ -1248,7 +1250,7 @@ EOF
 #
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
-	while getopts "2a:ABb:c:Cd:De:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
+	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
@@ -1334,6 +1336,8 @@ EOF
 		e)	override_container=true
 			log_msg="Overwrite \"$container\" to file extension: \"$OPTARG\""
 			container="$OPTARG"
+			;;
+		E)	EXTRA_CMD="$OPTARG"
 			;;
 		f)	useFPS=true
 			FPS_ov="$OPTARG"
@@ -1488,6 +1492,7 @@ EOF
 			log_msg="Force audio_rate to $audio_rate"
 			;;
 		r)	audio_rate="$OPTARG"
+			useRate=true
 			log_msg="Force audio_rate to $audio_rate"
 			;;
 		S)	MODE=screen
@@ -1672,7 +1677,7 @@ EOF
 				[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
 				cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
 			##	cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-				cmd="$cmd_all $cmd_input_all $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
 				#printf "$cmd < /dev/stdin" > "$TMP"
 				printf "$cmd" > "$TMP"
 				doLog "Screenrecording: $cmd"
@@ -1736,7 +1741,7 @@ EOF
 	guide)		[ -z "$ext" ] && source $CONTAINER/$container
 			OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
 			
-			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
+			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 $EXTRA_CMD -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
 			printf "$cmd" > "$TMP"
 			
 			doLog "Command-Guide: $cmd"
@@ -1775,7 +1780,7 @@ EOF
 					OF=$(tui-str-genfilename "$OF_FORCED" $ext)
 				tOF=$(basename "$OF")
 				$beVerbose && tui-echo "Outputfile will be:" "$tOF"
-				cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
+				cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
 				doLog "Command-Audio: $cmd"
 			# Execute
@@ -1794,7 +1799,7 @@ EOF
 						audio_maps+=" -map 0:$i"
 					done
 
-					cmd="$FFMPEG -i \"$1\" $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
+					cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
 					printf "$cmd" > "$TMP"
 					doLog "Command-Audio: $cmd"
 				# Display progress	
@@ -1959,7 +1964,7 @@ EOF
 		
 		# Command just needs to be generated
 		$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
-		cmd="$cmd_all $cmd_input_all $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+		cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 		doLog "Command-Simple: $cmd"
 		msg+=" Converting"
 
