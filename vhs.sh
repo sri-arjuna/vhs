@@ -577,10 +577,12 @@ Presets:	$PRESETS
 		countAudio=$(countAudio)
 		$beVerbose && tui-echo "Found $countAudio audio stream/s in total"
 		case $countAudio in
-		0)	msg="No audio streams found, aborting!"
-			tui-status 1 "$msg"
-			doLog "$msg"
-			exit $RET_FAIL
+		0)	if $exit_on_missing_audio
+			then	msg="No audio streams found, aborting!"
+				tui-status 1 "$msg"
+				doLog "$msg"
+				exit $RET_FAIL
+			fi
 			;;
 		1)	tui-echo "Using only audio stream found..." "$DONE"
 			audio_ids=$(listAudioIDs)
@@ -754,7 +756,7 @@ Presets:	$PRESETS
 					i=""
 					while [ ! "$i" = "done" ]
 					do	i=$(tui-select $(listAudioIDs) done)
-						[ "$i" = "done" ] || audio_ids+=" $i"
+						[ "$i" = "done" ] || audio_ids+=" ${i/done/}"
 						#cmd_audio_maps+=" -map 0:$i"
 						tui-echo "Now using audio ids: $audio_ids"
 					done
@@ -1094,6 +1096,7 @@ channel_downgrade=true
 # Suggested audio rates (hz) are around 44000 to 96000
 audio_rate=48000
 useRate=false
+exit_on_missing_audio=true
 
 # Subtitle
 subtitle=ssa
@@ -1882,17 +1885,20 @@ EOF
 			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
 			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
 		else	# handle empty
-			tui-echo "No audio stream could be recognized"
-			tui-echo "Please select the ids you want to use, choose done to continue."
+			tui-echo "No audio stream could be found or recognized"
 			#select i in $(seq 1 1 $(countAudio)) done;do 
 			i=""
-			while [ ! "$i" = "done" ]
-			do	i=$(tui-select $(listAudioIDs) done)
-				audio_ids+=" $i"
-				cmd_audio_maps+=" -map 0:$i"
-				tui-echo "Now using audio ids: $audio_ids"
-				tui-echo
-			done
+			if [ ! "" = "$(listAudioIDs)" ]
+			then	tui-echo "Please select the audio ids you want to use, choose done to continue."
+				while [ ! "$i" = "done" ]
+				do	i=$(tui-select $(listAudioIDs) done)
+					[ ! done = "$i" ] && \
+						audio_ids+=" $i" && \
+						cmd_audio_maps+=" -map 0:$i"
+					tui-echo "Now using audio ids: $audio_ids"
+					tui-echo
+				done
+			fi
 		fi
 		msg="Using for audio streams: $audio_ids"
 		doLog "$msg"
