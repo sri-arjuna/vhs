@@ -53,7 +53,7 @@
 			unzip master.zip && rm -f master.zip
 			mv tui-master/* . ; rmdir tui-master
 		fi
-    		if ! sh /tmp/tui.inst/install.sh
+    		if ! PREFIX=/usr bash /tmp/tui.inst/install.sh
     		then	printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n"
 			exit 1
 		fi
