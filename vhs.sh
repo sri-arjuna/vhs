@@ -1801,7 +1801,7 @@ EOF
 		declare -i C=0
 		declare ORG_VID="$1"
 		OLD_EXT="${1##*./}"
-		NEW_ORG=$(tui-str-genfilename "$ORG_VID" $EXT)
+		NEW_ORG=$(tui-str-genfilename "$ORG_VID" $ext)
 		TMP_JOIN=$(tui-str-genfilename "joined_files.mpg")
 		
 		tui-title "Appending/Joining $# Videos"
