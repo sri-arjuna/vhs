@@ -1816,7 +1816,7 @@ EOF
 			if $showFFMPEG
 			then	eval $cmd
 			else	echo "$cmd" > "$TMP"
-				tui-bgjob -f "${JOIN_VIDS[$N]}" -s "$item" "$TMP" "Creating tempfile #$C..." "Created tempfile #$C."
+				tui-bgjob -f "${JOIN_VIDS[$N]}" -s "$item" "$TMP" "Creating tempfile: $this #$C..." "Created tempfile: $this #$C."
 				doLog "Join-Temp: Created #$C: $this with exit code $?"
 			fi
 		done
@@ -2044,8 +2044,9 @@ EOF
 				fi
 			fi
 			
+			set -x
 			# Remove tempfiles from 2pass 
-			if [ $PASS -eq 2 ]
+			if [ $PASS -gt 1 ]
 			then	for f in ffmpeg2pass-*.log*
 				do	rm $f
 					tui-status $? "Removed $f"
