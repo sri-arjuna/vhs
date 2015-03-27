@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.03.11
+#	Changed:	2015.03.27
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -72,11 +72,12 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3.4
+	script_version=1.3.5
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
 	CONTAINER="$CONFIG_DIR/containers"	# Base of the container definition files
+	CONTAINER="$CONFIG_DIR/container"
 	PRESETS=$CONFIG_DIR/presets             # Contains a basic table of the presets
         LOG="$CONFIG_DIR/$ME.log" 		# If a daily log file is prefered, simply insert: -$(date +'%T')
 	LIST_FILE="$CONFIG_DIR/$ME.list"	# Contains lists of codecs, formats
@@ -106,9 +107,10 @@
 	showFFMPEG=false		# -v 	Debuging help, show the real encoder output
 	beVerbose=false			# -V 	Show additional steps done
 	doCopy=false			# -C
+	doJoin=false			# -J
 	doExternal=false		# -E
 	override_audio_codec=false	# -c a	/ -C
-	override_sub_codec=false	# -c s	/ -C
+	override_sub_codec=false	# -c t	/ -C
 	override_video_codec=false	# -c v	/ -C
 	override_container=false	# -e ext
 	useFPS=false			# -f / -F
@@ -131,12 +133,13 @@
 	cmd_video_all=""
 	langs=""			# -l LNG 	will be added here
 	PASS=1				# -p 		toggle multipass video encoding, also 1=disabled
-	RES=""				# -d		dimension will set video resolution if provided
+	RES=""				# -q|Q		dimension will set video resolution if provided
 	OF=""				#		Empty: Output File
+	VOL=""				# -d VOL
 	ffmpeg_silent="ffmpeg -v quiet" # [-V]		Regular or debug verbose
 	ffmpeg_verbose="ffmpeg -v verbose"	# -v		ffmpeg verbose
 	hwaccel="-hwaccel vdpau"	# NOT USED -H		Enable hw acceleration
-	txt_meta_me="'Encoded by VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
+	txt_meta_me="'VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
 	txt_mjpg=""
 	FPS_ov=""			# -f NUM -- string check
 	SS_START=""			# -z 1:23[-1:04:45.15] start value, triggered by beeing non-empty
@@ -146,59 +149,103 @@
 	# Default overlays
 	guide_complex="'[0:v:0]scale=320:-1[a] ; [1:v:0][a]overlay'"
 	video_overlay="'[X:v:0]scale=320:-1[a] ; [0:v:0][a]overlay'"
+	# Advanced usage
+	[ -z "$showHeader" ] && showHeader=true
+	
 #
 #	Check for PRESETS, required for proper help display
 #
 	WritePresetFile() { #
         # Write a basic table of the presets
         # 
-	cat > "$PRESETS" << EOF
-# Presets 'RES' configuration, there must be no empty line or output will fail.
-# Label	Resolution 	Vidbit	Audbit	Comment	(Up to 7 elements/words)
-scrn	resolve 	1024	256	This is only used for screenrecording
-a-vga	  640x480	512	196	Anime optimized, VGA
-a-dvd	  720x576	640	256	Anime optimized, DVD-wide - PAL
-a-hd	 1280x720	768	256	Anime optimized, HD
-a-fhd	1920x1080	1280	256	Anime optimized, Full HD
-qvga	  320x240	240	128	Quarter of VGA, mobile devices 
-hvga	  480x320	320	192	Half VGA, mobile devices
-#ntsc	  440×486	320	192	TV - NTSC 4:3
-#pal	  520×576	480	192	TV - PAL 4:3
-nhd	  640x360	512	256	Ninth of HD, mobile devices
-vga	  640x480	640	256	VGA
-dvdn	  720x480	744	384	DVD NTSC
-dvd	  720x576	768	384	DVD-wide - Pal
-fwvga	  854x480	768	384	DVD-wide - NTCS, mobile devices
-hd	 1280x720	1280	384	HD aka HD Ready
-fhd	1920x1080	1920	384	Full HD
-qhd	2560x1440	3840	448	2k, Quad HD - 4xHD
-uhd	3840x2160	7680	512	4K, Ultra HD TV
-# Below are presets which fail on (freeze!) my machine.
-# Feel free to uncomment the below 4 lines at your own risk.
-#uhd+	5120x2880	14400	768	5K, UHD+
-#fuhd	7680x4320	32160	1280	8K, Full UHD TV
-#quhd	15360x8640	128720	1280	16k, Quad UHD - 4xUHD
-#ouhd	30720x17380	512000	2048	32k, Octo UHD - 8xUHD, my suggestion
-#
-# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
-#  as they are set that high to meet google its standard.
-# Saying, whatever video quality you pass to youtube, it will be re-encoded with these values.
-# So it is best to provide a source as high as that (selected resolution, 
-#  'upscale' does increase filesize only)
-# See:	https://support.google.com/youtube/answer/1722171?hl=en
-#  for more details.
-#
-yt-240	  426x240	768	196	YT, seriously, no reason to choose
-yt-360	  640x360	1000	196	YT, Ninth of HD, mobile devices
-yt-480	  854x480	2500	196	YT, DVD-wide - NTCS, mobile devices
-yt-720	 1280x720	5000	512	YT, HD
-yt-1080	1920x1080	8000	512	YT, Full HD
-yt-1440	2560x1440	10000	512	YT, 2k, Quad HD - 4xHD
-yt-2160	3840x2160	40000	512	YT, 4K, Ultra HD TV
-EOF
+		touch "$PRESETS"
+		cat > "$PRESETS" <<-EOF
+		# Presets 'RES' configuration, there must be no empty line or output will fail.
+		# Label	Resolution 	Vidbit	Audbit	Comment	(Up to 7 elements/words)
+		scrn	resolve 	1024	256	This is only used for screenrecording
+		a-vga	  640x480	512	196	Anime optimized, VGA
+		a-dvd	  720x576	640	256	Anime optimized, DVD-wide - PAL
+		a-hd	 1280x720	768	256	Anime optimized, HD
+		a-fhd	1920x1080	1280	256	Anime optimized, Full HD
+		qvga	  320x240	240	128	Quarter of VGA, mobile devices 
+		hvga	  480x320	320	192	Half VGA, mobile devices
+		#ntsc	  440×486	320	192	TV - NTSC 4:3
+		#pal	  520×576	480	192	TV - PAL 4:3
+		nhd	  640x360	512	256	Ninth of HD, mobile devices
+		vga	  640x480	640	256	VGA
+		dvdn	  720x480	744	384	DVD NTSC
+		dvd	  720x576	768	384	DVD-wide - Pal
+		fwvga	  854x480	768	384	DVD-wide - NTCS, mobile devices
+		hd	 1280x720	1280	384	HD aka HD Ready
+		fhd	1920x1080	1920	384	Full HD
+		qhd	2560x1440	3840	448	2k, Quad HD - 4xHD
+		uhd	3840x2160	7680	512	4K, Ultra HD TV
+		# Below are presets which fail on (freeze!) my machine.
+		# Feel free to uncomment the below 4 lines at your own risk.
+		#uhd+	5120x2880	14400	768	5K, UHD+
+		#fuhd	7680x4320	32160	1280	8K, Full UHD TV
+		#quhd	15360x8640	128720	1280	16k, Quad UHD - 4xUHD
+		#ouhd	30720x17380	512000	2048	32k, Octo UHD - 8xUHD, my suggestion
+		#
+		# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
+		#  as they are set that high to meet google its standard.
+		# Saying, whatever video quality you pass to youtube, it will be re-encoded with these values.
+		# So it is best to provide a source as high as that (selected resolution, 
+		#  'upscale' does increase filesize only)
+		# See:	https://support.google.com/youtube/answer/1722171?hl=en
+		#  for more details.
+		#
+		yt-240	  426x240	768	196	YT, seriously, no reason to choose
+		yt-360	  640x360	1000	196	YT, Ninth of HD, mobile devices
+		yt-480	  854x480	2500	196	YT, DVD-wide - NTCS, mobile devices
+		yt-720	 1280x720	5000	512	YT, HD
+		yt-1080	1920x1080	8000	512	YT, Full HD
+		yt-1440	2560x1440	10000	512	YT, 2k, Quad HD - 4xHD
+		yt-2160	3840x2160	40000	512	YT, 4K, Ultra HD TV
+		EOF
+		tui-status $? "Wrote presets in:" "$PRESETS"
 	}
-	[ -f "$PRESETS" ] || \
-		WritePresetFile
+	WriteContainerFile() { #
+	#
+	#
+		touch "$CONTAINER"
+		cat > "$CONTAINER" <<-EOF
+		# VHS ($script_version) container file
+		# Use '-' for an empty codec
+		# STRICT true = -strict 2
+		# FILE true = -f EXT
+		#
+		# LABEL	EXT	STRICT FILE	AUDIO		VIDEO
+		# - Audio -
+		aac	aac	false	false	aac		-
+		ac3	ac3	false	false	ac3		-
+		dts	dts	false	false	dts		-
+		flac	flac	false	false	flac		-
+		mp3	mp3	false	false	libmp3lame	-
+		ogg	ogg	false	false	libvorbis	-
+		wma	wma	false	true	wmav2		-
+		wav	wav	false	false	pcm_s16le	-
+		# - Video with Audio -
+		avi	avi	false	true	libmp3lame	msvideo1		
+		flv	flv	false	false	aac		flv
+		mp4	mp4	true	true	aac		libx264
+		mpeg	mpeg	false	false	mp2fixed	mpeg2video
+		mkv	mkv	false	false	ac3		libx264
+		ogv	ogv	true	false	libvorbis	libtheora
+		webm	webm	true	true	libvorbis	libvpx
+		wmv	wmv	false	false	wmav2		wmv2
+		xvid	divx	false	true	libmp3lame	libxvid
+		divx	divx	false	true	libmp3lame	libxvid
+		#
+		# Place here your custom/new containers
+		#
+		# LABEL	EXT	STRICT FILE	AUDIO		VIDEO
+		
+		EOF
+		tui-status $? "Wrote containers in:" "$CONTAINER"
+	}
+	[ -f "$PRESETS" ] 	|| WritePresetFile
+	[ -f "$CONTAINER" ] 	|| WriteContainerFile
 #
 #	Help text
 #
@@ -226,7 +273,7 @@ Where options are: (only the first letter)
 	-B(itrates)			Use bitrates (a|v) from configuration ($CONFIG)
 	-c(odec)	[atv]NAME	Set codec to NAME for audio, (sub-)title or video, can pass '[atv]copy' as well
 	-C(onfig)			Shows the configuration dialog
-	-d(imension)	RES		Sets to ID-resolution, but keeps aspect-ratio (:-1) (will probably fail, use AFTER '-Q RES')
+	-d(b)		VOL		Change the volume, eg: +0.5 or -1.3
 	-D(VD)				Encode from DVD (not working since code rearrangement)
 	-e(xtension)	CONTAINER	Use this container (ogg,webm,avi,mkv,mp4)
 	-E(tra)		'STRING'	STRING can be any option to ffmpeg you want, understand that it is inserted right after the first input file!
@@ -236,6 +283,7 @@ Where options are: (only the first letter)
 	-i(nfo)		filename	Shows a short overview of the video its streams and exits
 	-I(d)		NUM		Force this audio ID to be used (if multiple files dont have the language set)
 	-j(pg)				Thought to just include jpg icons, changed to include all attachments (fonts, etc)
+	-J(oin)				Appends the videos in passed order.
 	-K(ill)				Lets you select the job to kill among currenlty running VHS jobs.
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
@@ -343,6 +391,32 @@ Presets:	$PRESETS
 	# See 'tui-log -h' for more info
 		tui-log -t "$LOG" "$1"
 	}
+	FileSize() { # FILE
+	# Returns the filesize in bytes
+	#
+		$LS -l "$1" | $AWK '{print $5}'
+	}
+	LoadContainer() { # CONTAINER
+	# Loads a given container into environment
+	#
+		[ -z "$1" ] && echo "LoadContainer: Requires a CONTAINER" && return 1
+		LINE=$($GREP -v ^"#" "$CONTAINER"|$GREP "$1")
+		[ -z "$LINE" ] && return 1
+		echo "$LINE" | while read lbl E c f a v
+			do	cat > "$TUI_TEMP_FILE" <<-EOF
+				ext=$E
+				codec_extra=$c
+				file_extra=$f
+				audio_codec="${a/-/}"
+				video_codec="${v/-/}"
+				EOF
+				#echo "Loop: $EXT / $E - $audio_codec / $a - $codec_extra / $c"
+				break
+			done
+		source "$TUI_TEMP_FILE"
+		export ext codec_extra file_extra audio_codec video_codec
+		echo "" >  "$TUI_TEMP_FILE"
+	}
 	fs_expected() { #
 	# Returns the expected filesize in bytes
 	#
@@ -360,7 +434,7 @@ Presets:	$PRESETS
 		fi
 		[ ! "" = "$(echo $t_BYTERATE|tr -d [[:digit:]])" ] && echo 0 && return 1
 		t_TIMES=$( PlayTime | $SED s,":"," ",g)
-		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( (24*$1*60 + 60*$2 + $3) * BYTES )}' BYTES=$t_BYTERATE
+		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( ($1*60*60 + $2*60 + $3) * BYTES )}' BYTES=$t_BYTERATE
 		return $?
 	}
 	StreamInfo() { # VIDEO
@@ -463,32 +537,6 @@ Presets:	$PRESETS
 	# Returns a list of subtitle stream ids
 	#
 		listIDs "$1" |$GREP -i subtitle |$AWK '{print $1}'
-	}
-	genFilename() { # Filename_with_ext container
-	# Parses for file extension and compares with new container
-	# If identical, add a number to avoid overwriting sourcefile.
-		[ $# -lt 2 ] && tui-echo "Requires 'filename-with.ext' and 'extension/container'." "$FAIL" && return 1
-		video="$1"
-		container="$2"
-		# TODO find better way to get extension
-		for ext in $(printf "$video"|sed s,"\."," ",g);do printf "" > /dev/zero;done
-		[ "$ext" = "$video" ] && ext="$container" && video="$video.$container"
-		
-		if [ ! "$ext" = "$container" ]
-		then 	outputfile="${video/$ext/$container}"
-			[ ! -f "$outputfile" ] && \
-				doLog "Output: \"$outputfile\"" && \
-				printf "$outputfile" && return 0 || \
-				name="${video/$ext/}"
-		else	name="${video/$container/}"
-		fi
-		
-		# new file name would be the same
-		N=0
-		while [ -f "$name$N.$container" ] ; do ((N++));done
-		outputfile="$name$N.$container"
-		doLog "Output: Has same extension, incrementing to \"$outputfile\""
-		printf "$outputfile"
 	}
 	getRes() { # [-l] ID
 	# Returns 2 digits (W*H) according to ID
@@ -902,83 +950,6 @@ Presets:	$PRESETS
 		OF="$OF"
 		#doExecute "$OF" "Saving Webcam to '$OF'"
 	}
-	WriteContainers() { # 
-	# Writes several container files and their default / suggested values
-	#
-		$beVerbose && tui-title "Write Containers"
-		header="# $ME ($script_version) - Container definition"
-		[ -d "$CONTAINER" ] || mkdir -p "$CONTAINER"
-		cd "$CONTAINER"
-		for entry in aac ac3 avi dts flac flv mpeg mp4 mkv ogg ogv mp3 theora vorbis webm wma wmv wav xvid;do	# clip dvd
-			case $entry in
-		# Containers
-			avi)	# TODO, this is just assumed / memory
-				ca=libmp3lame 	# Codec Audio
-				cv=msvideo1	# Codec Video
-				ce=false	# Codec extra (-strict 2)
-				fe=true		# File extra (audio codec dependant '-f ext')
-				ba=128		# Bitrate Audio
-				bv=384		# Bitrate Video
-				ext=$entry	# Extension used for the video file
-				;;
-			#									## These bitrates are NOT used... !!
-			flv)	ca=aac		; cv=flv	; ce=false	; fe=false	; ext=$entry	;;
-			mp4)	ca=aac		; cv=libx264	; ce=true	; fe=true	; ext=$entry 	;;
-			mpeg)	ca=libmp3lame 	; cv=mpeg2video	; ce=false	; fe=false	; ext=$entry	;;
-			mkv)	ca=ac3		; cv=libx264	; ce=false	; fe=false	; ext=$entry	;;
-			ogv)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ext=ogv	;;
-			theora)	ca=libvorbis 	; cv=libtheora	; ce=true	; fe=false	; ext=ogv	;;
-			webm)	ca=libvorbis 	; cv=libvpx	; ce=true	; fe=true	; ext=$entry	;;
-			wmv)	ca=wmav2  	; cv=wmv2	; ce=false	; fe=false	; ext=$entry	;;
-			xvid)	ca=libmp3lame  	; cv=libxvid	; ce=false	; fe=true	; ext=avi	;;
-		# Audio Codecs
-			aac)	ca=aac 		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
-			ac3)	ca=ac3 		; cv=		; ce=false 	; fe=false	; ext=$entry 	;;
-			dts)	ca=dts 		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
-			flac)	ca=flac		; cv=		; ce=false 	; fe=false	; ext=$entry	;;
-			mp3)	ca=libmp3lame	; cv=		; ce=false	; fe=false	; ext=$entry	;;
-			ogg)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ext=$entry	;;
-			vorbis)	ca=libvorbis 	; cv=		; ce=false 	; fe=false	; ext=ogg	;;
-			wma)	ca=wmav2  	; cv=		; ce=false	; fe=true	; ext=$entry	;;
-			wav)	ca=pcm_s16le	; cv=		; ce=false	; fe=false	; ext=$entry	;;
-		# Experimental
-		#	clip)	ca=aac 		; cv=libx264	; ce=true	; fe=true	; ext=mp4	;;
-		#	dvd)	ca=mpeg2video 	; cv=mp3	; ce=		; fe=		; ext=mpeg	;;
-		#	webcam)	# TODO
-		#		ca=mpeg2video ;	cv=mp3		; ce= 		; fe=		; ext=mpeg	;;
-			# blob)	ca=	; cv=	; ce=false	; fe=false	; ext=$entry	;;
-			esac
-			touch $entry
-			tui-printf "Write container info ($entry)" "$WORK"
-			printf "$header
-# Default extension used
-ext=$ext
-# Audio codec to be used for this container
-audio_codec=$ca
-# Video codec to be used for this container
-video_codec=$cv
-# Does the codec need to be strict?
-codec_extra=$ce
-# Enable 'force file' (-f)?
-file_extra=$fe" > $entry
-			if [ 0 -eq $? ] 
-			then	tui-status $? "Wrote container info ($entry)"
-				doLog "Container: Created '$entry' definitions succeeded" 
-			else	tui-status $?  "Wrote container info ($entry)"
-				doLog "Container: Created '$entry' definitions failed"
-			fi
-			$beVerbose && printf "\n"
-		done
-	}
-	WriteContainer() { #
-	#
-	#
-		CONT="$CONFIG_DIR/container"
-		touch "$CONT"
-		cat > "$CONT" << EOF
-		
-EOF
-	}
 	UpdateLists() { #
 	# Retrieve values for later use
 	# Run again after installing new codecs or drivers
@@ -1076,6 +1047,7 @@ sound=alsa
 
 # See ffmpeg output (vhs -i FILE // ffmpeg -psnr -i FILE) for your language abrevihation
 # if 'lang' is not found it will take 'lang_alt' if available
+# Alternativly, you could set the lang_alt to the numeric code of your langauge, if (once) you know it.
 lang=eng
 lang_alt=ger
 lang_force_both=true
@@ -1241,7 +1213,7 @@ EOF
 #
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
-	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
+	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
 	do 	case $opt in
 		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
@@ -1314,8 +1286,17 @@ EOF
 			MenuSetup
 			source "$CONFIG"
 			;;
-		d)	RES=$(getRes $OPTARG|sed s/x*/":-1"/g)
-			log_msg="Set video dimension (resolution) to: $RES"
+		d)	# -af volume=-3dB
+			#doVolume=true
+			case "${OPTARG:0:1}" in
+			"-"|"+")
+				VOL="-af volume=${OPTARG}dB"
+				;;
+			*)
+				VOL="-af volume=${OPTARG}"
+				;;
+			esac
+			
 			;;
 		D)	MODE=dvd
 			log_msg="Options: Set MODE to ${MODE^}"
@@ -1363,6 +1344,8 @@ EOF
 			;;
 		j)	useJpg=true
 			log_msg="Use attached images"
+			;;
+		J)	doJoin=true
 			;;
 		K)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
 			tui-title "VHS Task Killer"
@@ -1513,6 +1496,7 @@ EOF
 			tui-printf "Clearing logfile" "$TUI_WORK"
 			printf "" > "$LOG"
 			tui-status $? "Cleaned logfile"
+			showHeader=false
 			#exit $?
 			;;
 		X)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
@@ -1553,6 +1537,7 @@ EOF
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
+	ARGS=("${@}")
 	if [ ! -z "$ADDERS" ] && [ ! -z "$ADDED_VIDEO" ]
 	then	[ -z "$guide_complex" ] && \
 		tui-echo "Must pass '-p ORIENTATION' when including a videostream" "$TUI_INFO" && \
@@ -1561,10 +1546,10 @@ EOF
 #
 #	Little preparations before we start showing the interface
 #
-	src="$CONTAINER/$container" ; source "$src"
+	LoadContainer $container
+	#src="$CONTAINER/$container" ; source "$src"
 	# If (not) set...
 	[ -z "$video_codec" ] && [ ! -z $audio_codec ] && MODE=audio		# If there is no video codec, go audio mode
-	#[ ! -z "$video_codec" ] && [ $PASS -lt 2 ] && \
 	for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
 	$showFFMPEG && \
 		FFMPEG="$ffmpeg_verbose" || \
@@ -1574,13 +1559,13 @@ EOF
 		cmd_all="$FFMPEG"	
 	[ -z "$BIT_AUDIO" ] || \
 		cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
+	[ -z "$VOL" ] || \
+		cmd_audio_all+=" $VOL"
 	[ -z "$BIT_VIDEO" ] || \
 		cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
 	[ ! copy = "$video_codec_ov" ] && \
 		[ ! -z "$RES" ] && \
 		cmd_video_all+=" -vf scale=$RES"		# Set video resolution
-#	[ -z "$ASP" ] || \
-#		cmd_video_all+=" -aspect=$ASP"			# Set video aspect ratio
 	[ -z "$OF" ] || \
 		cmd_output_all="$OF"				# Set output file 
 	[ -z "$BIT_VIDEO" ] || \
@@ -1611,7 +1596,7 @@ EOF
 	then	cmd_video_all+=" -c:v $video_codec_ov"
 	else	[ -z $video_codec ] || cmd_video_all+=" -c:v $video_codec"				
 	fi
-
+	
 	if $beVerbose
 	then	tui-echo "MODE:"	"$MODE"
 		tui-echo "FFMPEG:"	"$cmd_all"
@@ -1645,7 +1630,7 @@ EOF
 #
 #	Display & Action
 #
-	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
 	case $MODE in
 	dvd|screen|webcam)
@@ -1657,7 +1642,7 @@ EOF
 			case $MODE in
 			webcam) doWebCam	;;
 			screen) #doScreen
-				OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
+				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
 				msg="Options: Set MODE to Screen, saving as $OF"
 				doLog "$msg"
 				$beVerbose && tui-echo "$msg"
@@ -1685,7 +1670,7 @@ EOF
 						tui-printf -S 1 "Please insert a DVD and try again!" && \
 						exit 1
 				fi
-				OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doDVD
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
@@ -1804,8 +1789,72 @@ EOF
 			
 			exit $?
 			;;
-	# video)		echo just continue	;;
+	#video)		echo just continue > /dev/zero	;;
+	*)	[ -z "$1" ] && \
+			tui-printf -S 1 "Mode $MODE requires input files!" && \
+			exit 1
+		;;
 	esac
+# Join files	
+	if $doJoin
+	then	declare -a JOIN_VIDS
+		declare -i C=0
+		declare ORG_VID="$1"
+		OLD_EXT="${1##*./}"
+		NEW_ORG=$(tui-str-genfilename "$ORG_VID" $EXT)
+		TMP_JOIN=$(tui-str-genfilename "joined_files.mpg")
+		
+		tui-title "Appending/Joining $# Videos"
+		tui-echo "Step 1: Creating temp files"
+		for item in "${@}"
+		do	this=$(tui-str-genfilename "$item" mpg)
+			JOIN_VIDS[$C]="$this"
+			N=$C
+			C=$(( $C + 1 ))
+			cmd="$FFMPEG -i \"$item\" -qscale:v 1 \"$this\""
+			$beVerbose && tui-echo "Executing:" "$cmd"
+			if $showFFMPEG
+			then	eval $cmd
+			else	echo "$cmd" > "$TMP"
+				tui-bgjob -f "${JOIN_VIDS[$N]}" -s "$item" "$TMP" "Creating tempfile #$C..." "Created tempfile #$C."
+				doLog "Join-Temp: Created #$C: $this with exit code $?"
+			fi
+		done
+		
+		tui-echo
+		tui-echo "Step 2: Merging"
+		string=""
+		for V in "${JOIN_VIDS[@]}";do
+			[ -f "$V" ] && string+="$V|"
+		done
+		string="${string:0:(-1)}"
+		
+		cmd="$FFMPEG -i concat:\"$string\" -c copy \"$TMP_JOIN\""
+		doLog "Join-Merge: $cmd"
+		$beVerbose && tui-echo "Executing:" "$cmd"
+		if $showFFMPEG
+		then	eval $cmd
+		else	echo "$cmd" > "$TMP"
+			tui-bgjob -f "$TMP_JOIN" "$TMP" "Merging tempfiles..." "Merged tempfiles."
+		fi
+		
+		# Remove unrequired files
+		#ls -l --color=auto
+		for V in "${JOIN_VIDS[@]}";do
+			rm "$V"
+			tui-status $? "Deleted $V"
+		done
+		
+		tui-echo
+		tui-echo "Step 3: Finalize"
+		
+		new=$(tui-str-genfilename "$TMP_JOIN" $ext)
+		doLog "Join-Final: Now starting to encode to custom settings."
+		unset ARGS[@]
+		ARGS[0]="$TMP_JOIN"
+		EXTRA_CMD="-qscale:v 2"
+		doLog "Join-Final: Adding \"$EXTRA_CMD\" to command."
+	fi
 #
 #
 ##
@@ -1816,7 +1865,20 @@ EOF
 #
 #	Show menu or go for the loop of files
 #
-	for video in "${@}";do 
+	wait_now=false
+	for video in "${ARGS[@]}";do 
+		# Only wait for 2nd loop and later
+		if $wait_now
+		then	doLog "--------------------------------"
+			msg="Timeout - $sleep_between between encodings..."
+			[ ! -z "$sleep_between" ] && \
+				doLog "Script : $msg" && \
+				tui-echo && tui-wait $sleep_between "$msg" #&& tui-echo
+			# Show empty log entry line as optical divider
+			doLog ""
+		fi
+		
+		# Start initial log per video to parse
 		doLog "----- $video -----"
 		$beVerbose && tui-title "Video: $video"
 		OF=$(tui-str-genfilename "${video}" "$ext")		# Output File
@@ -1954,7 +2016,7 @@ EOF
 			fi
 		fi
 	# Skip if it was not removed
-		if [ false = "$skip" ] 
+		if ! $skip
 		then
 		#
 		#	Execute the command
@@ -1963,20 +2025,46 @@ EOF
 			if $ADVANCED
 			then	tui-echo "Please save the file before you continue"
 				tui-edit "$TMP"
-				tui-press "Press [ENTER] when read to encode..."
+				tui-press "Press [ENTER] when ready to encode..."
 			fi
 			
 			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
-			$beVerbose && \
-				tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
-				tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
-			if [ 0 -eq $EXPECTED ]
-			then	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
+			
+			if $showFFMPEG
+			then	bash "$TMP"
 				RET=$?
-			else	tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
-				RET=$?
+			else	$beVerbose && \
+					tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
+					tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
+				if [ 0 -eq $EXPECTED ]
+				then	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
+					RET=$?
+				else	tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
+					RET=$?
+				fi
 			fi
 			
+			# Remove tempfiles from 2pass 
+			if [ $PASS -eq 2 ]
+			then	for f in ffmpeg2pass-*.log*
+				do	rm $f
+					tui-status $? "Removed $f"
+				done
+			fi
+			# Remove tempfile from joining...
+			if $doJoin
+			then	
+				if [ -f "$new" ]
+				then	tui-mv "$new" "$NEW_ORG"
+					tui-status $? "Your final file is: $NEW_ORG" && \
+						rm "$TMP_JOIN" #&& rm "$new"
+					RET=$?
+					#exit $?
+				else	tui-status $? "Could not find expected $new"
+					tui-status $? "Exiting now, leaving tempfiles behind..."
+					exit $?
+				fi
+			fi
 		#
 		#	Do some post-encode checks
 		#	
@@ -1990,12 +2078,12 @@ EOF
 					lang=$lang2 #|| \
 					#lang=$lang2
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
-				tui-printf "$msg" "$WORK"
+				tui-printf -rS 2 "$msg"
 				#tui-echo "aid $aid .$audio_ids"
 				aid="$(vhs -i \"$OF\" |$GREP Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
 				#aid=1
 				doLog "Audio : Set default audio stream $aid"
-				case $container in
+				case "$container" in
 				mkv)	mkvpropedit -q "$OF"	--edit track:a$aid --set flag-default=0 \
 							--edit track:a$aid --set flag-enabled=1 \
 							--edit track:a$aid --set flag-forced=0 \
@@ -2012,15 +2100,7 @@ EOF
 		#	Log if encode was successfull or not
 		#
 			doLog "End: Encoded $ret_info "
-			if [ ! -z "$2" ] 
-			then	doLog "--------------------------------"
-				msg="Timeout - $sleep_between between encodings..."
-				[ ! -z "$sleep_between" ] && \
-					doLog "Script : $msg" && \
-					tui-echo && tui-wait $sleep_between "$msg" #&& tui-echo
-				# Show empty log entry line as optical divider
-				doLog ""
-			fi
+			wait_now=true
 		else	msg="Skiped: $video"
 			doLog "$msg"
 			tui-status 4 "$msg"

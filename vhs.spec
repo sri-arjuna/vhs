@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        1.3.4
-Release:        8%{?dist}
+Version:        1.3.5
+Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -65,6 +65,13 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
+* Fri Mar 27 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.5
+- Updated: corrected filesize calculation
+- Updated: during verbose ffmpeg progress bar is no longer shown
+- Updated: Now can change volume
+- Updated: Now can merge/join/append video files.
+- Updated: Now uses a single file to handle all containers
+
 * Wed Mar 25 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.4
 - Updated: Encoding videos show now a progress bar
 
