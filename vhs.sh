@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3.6
+	script_version=2.0
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -1726,9 +1726,9 @@ EOF
 	#	;;
 	#esac
 	if $doPlay
-	then	$doSelect && \
+	then	$doSelect && [ -z "$URL" ] && \
 			tui-echo "Please select an url you want to replay:" && \
-			URL=$(tui-select $($GREP -v ^"#" "$URLS" | $AWK '{print $1}' ))
+			URL=$(tui-select $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
 		[ -z "$URL" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL'!" && exit 1
 		#echo "ffplay -v quiet -i \"$URL\" -nodisp" > "$TMP"
 		#showdisp="-nodisp"

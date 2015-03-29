@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        1.3.5
-Release:        4%{?dist}
+Version:        2.0.0
+Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -65,6 +65,12 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
+- Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0.0
+- Added:   Stream Play
+- Added:   Stream Serve, Webcam, Screen, Guide, Video
+- Added:   History re-select for Stream Play/Serve individualy
+- Updated: Now can encode multiple files to audio
+
 * Fri Mar 27 2015 Simon A. Erat <erat.simon@gmail.com> 1.3.5
 - Updated: corrected filesize calculation
 - Updated: during verbose ffmpeg progress bar is no longer shown
