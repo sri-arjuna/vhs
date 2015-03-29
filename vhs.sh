@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.0
+	script_version=2.0.1
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -1682,19 +1682,20 @@ EOF
 			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_PLAY)
 			fi	
 			log_msg="Stream play:"
-		else	tui-title "Stream : Up"
+		else	tui-title "Stream $MODE : Up"
 			if $doSelect
 			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
 			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_UP)
 			fi	
-			log_msg="Stream  Server:"
+			log_msg="Stream Server:"
 		fi
 		log_msg+=" $URL"
 		OF="$URL"
 		F="-f mpegts"
 		[ -z "$URL" ] && exit 1
 	else	# File extra, toggle by container
-		F="-f $ext"					
+		#LoadContainer
+		$file_extra && F="-f $ext"					
 	fi
 	doLog "$log_msg"
 	# Generate general target
@@ -1941,6 +1942,9 @@ EOF
 #	Show menu or go for the loop of files
 #
 	wait_now=false
+	#set -x
+	#MODE=video
+	#set +x
 	for video in "${ARGS[@]}";do 
 		# Only wait for 2nd loop and later
 		if $wait_now
@@ -1973,15 +1977,15 @@ EOF
 	#	Output per video
 	#
 		$0 -i "$video"						# Calling itself with -info for video
-		if ! $GREP video "$TMP.info"
+		if ! $GREP -i video -q "$TMP.info" # || ! $GREP video "$TMP"
 		then	tui-echo "No Video found!"
 			MODE=audio
-			cmd_video_all=""
-			container=$(tui-conf-get $CONFIG container_audio)
 			
+			container=$(tui-conf-get $CONFIG container_audio)
 			LoadContainer $container
 			doLog "Loading: $container"
 			
+			cmd_video_all=""
 			cmd_audio_all=" -c:a $audio_codec"		# Set audio codec if provided
 			[ -z "$BIT_AUDIO" ] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
 			$channel_downgrade &&  cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
@@ -2017,11 +2021,9 @@ EOF
 		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
-
-#		set -x
+		
 		if [ "$MODE" = audio ]
 		then	# Handle just audio files, and loop
-			tui-header
 			for AID in $audio_ids;do
 			# Generate command
 				OF=$(tui-str-genfilename "${video}" $ext)
@@ -2042,51 +2044,48 @@ EOF
 
 				doExecute "$TMP" \
 					"$OF" \
-					"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
+					"Encoding \"$tIF\" to \"$OF\"" "Encoded audio to \"$tOF\""
 			done
 			continue
-			tui-header
-			
 		else 	# Regular video handling
 			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
 				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
 			# Generate command
-				audio_maps="-map 0:$ID_FORCED"
-				[ -z "$OF_FORCED" ] && \
-					OF=$(tui-str-genfilename "${video}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
-					OF=$(tui-str-genfilename "$OF_FORCED" $ext)
-				tOF=$(basename "$OF")
-				$beVerbose && tui-echo "Outputfile will be:" "$tOF"
-				cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
+				for AID in $ID_FORCED;do
+					audio_maps+=" -map 0:$AID"
+				done
+				$beVerbose && tui-echo "Outputfile will be:" "$OF"
+				cmd="$FFMPEG -i \"$1\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
-				doLog "Command-Audio: $cmd"
+				if $ADVANCED
+				then	tui-echo "Please save the file before you continue"
+					tui-edit "$TMP"
+					tui-press "Press [ENTER] when read to encode..."
+				fi
+				doLog "Command-Audio: $(cat $TMP)"
 			# Execute
-				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
+				doExecute "$TMP" "$OF" "Encoding \"${IF##*/}\" to ${OF##*/}" "Encoded audio to \"$OF\""
 				exit $?
 			else	# Parse all available audio streams
+				doLog "Audio: Found $audio_ids audio streams"
 				for AID in $audio_ids;do
 				# Generate command
-					OF=$(tui-str-genfilename "${video}" $ext)
-					tOF=$(basename "$OF")
-					audio_maps=""
 					[ $countAudio -eq 1 ] && \
-						audio_maps=" -map 0:a" || \
+						audio_maps="-map 0:$AID" || \
 						audio_maps+=" -map 0:$AID"
-
-					
 				done
 			fi
+			cmd_audio_all+=" $audio_maps"
 		fi
 ## Copied end
 		msg="Using for audio streams: $audio_ids"
 		doLog "$msg"
-		
 	# Subtitles
 		tmp_of="${OF##*/}"
 		tmp_if="${video##*/}"
 		if [ ! -z "${video_codec/-/}" ]
-		then
+		then	doLog "Video: Parse sub"
 			if $useSubs
 			then	doSubs > /dev/zero
 				$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
@@ -2116,7 +2115,7 @@ EOF
 				STR2pass1="Encoded \"$tmp_if\" pass 1/2"
 				STR1pass1="Encoding \"$tmp_if\" pass 1/2" # to ffmpeg2pass-0.log.mbtree"
 
-				cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:0 -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
+				cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:v -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
 				echo "$cmd2pass" > "$TMP"
 				doLog "Command-Video-Pass1: $cmd2pass"
 				#doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
@@ -2132,7 +2131,6 @@ EOF
 	#	Handle video pass 2 or only one
 	#
 		# Make these strings match onto a single line
-		
 		tmp_border=$[ ${#TUI_BORDER_LEFT} + ${#TUI_BORDER_RIGHT} + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
 		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
 		# Currently shortens every file... :(
@@ -2162,10 +2160,10 @@ EOF
 			if $doStream
 			then	#echo todo
 				## ffmpeg -i "$input" -f mpegts udp://$ip:$port
-				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f mpegts $URL"
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f mpegts $URL"
 				#cmd="$FFMPEG -i \"$video\" -f mpegts $URL"
 				
-			else	cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+			else	cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 			fi
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
