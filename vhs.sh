@@ -229,6 +229,7 @@
 		ac3	ac3	false	false	ac3		-
 		dts	dts	false	false	dts		-
 		flac	flac	false	false	flac		-
+		m4a	m4a	false	false	aac		-
 		mp3	mp3	false	false	libmp3lame	-
 		ogg	ogg	false	false	libvorbis	-
 		wma	wma	false	true	wmav2		-
@@ -637,8 +638,8 @@ Presets:	$PRESETS
 				exit $RET_FAIL
 			fi
 			;;
-		1)	tui-echo "Using only audio stream found..." "$DONE"
-			audio_ids=$(listAudioIDs)
+		1)	audio_ids=$(listAudioIDs)
+			tui-echo "Using only audio stream found ($audio_ids)..." "$DONE"
 			printf $audio_ids > $TMP
 			;;
 		*)	count=0
@@ -675,7 +676,7 @@ Presets:	$PRESETS
 					case $found in
 					1)	# $count represents the order of languages: lang lang_alt 'list of added langs'
 						case $count in
-						1)	audio_ids="$this"	;;
+						1)	[ $countAudio -eq 1 ] || audio_ids="$this"	;;
 						2)	# This applies only to $lang_alt
 							if [ -z "$audio_ids" ]
 							then	$beVerbose && tui-echo "Prefered langauge ($lang) not found"
@@ -1247,7 +1248,8 @@ EOF
 	image_overlay=""	# Clean variable for 'default' value
 	#showHeader=false
 	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:SstT:q:Q:Uu:vVwWxXyz:" opt
-	do 	case $opt in
+	do 	log_msg=""
+		case $opt in
 		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
 			ARG=""
@@ -1542,7 +1544,7 @@ EOF
 			#OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext)
 			log_msg="Options: Set MODE to Webcam" #, saving as $OF"
 			;;
-		x)	#tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+		x)	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 			tui-printf "Clearing logfile" "$TUI_WORK"
 			printf "" > "$LOG"
 			tui-status $? "Cleaned logfile"
@@ -1632,6 +1634,11 @@ EOF
 		[ -z "${audio_codec/-/}" ] && \
 			tui-printf -S 1 "Without video, an audio codec is required!" && \
 			exit 1
+		#set -x
+		container=$(tui-conf-get $CONFIG container_audio)
+		LoadContainer $container
+		doLog "Loading: $container"
+		#echo "--> $ext <--" > /dev/stderr ; exit 99
 	fi
 	
 	doLog "MODE: $MODE"
@@ -1666,7 +1673,6 @@ EOF
 	[ -z "$langs" ] || doLog "Additional Languages: $langs"
 	
 	F=""
-	#set -x
 	if $doStream
 	then	file_extra=true
 		if $doPlay
@@ -1705,7 +1711,6 @@ EOF
 		doLog "$msg"
 		$beVerbose && tui-echo "$msg"
 		;;
-	
 #	*)	cmd_video_all+=" $buffer"	;;
 	esac
 #
@@ -1718,54 +1723,30 @@ EOF
 #
 #	Display & Action
 #
-	#case $count_P in
-	#2)	tui-title "Play URL from history"
-	#	tui-echo "Please select an url you want to replay:"
-	#	URL=$(tui-select $($GREP -v ^"#" "$URLS" | $AWK '{print $1}' ))
-	#	;;
-	#3)	tui-edit "$URLS.play"
-	#	exit 0
-	#	;;
-	#esac
 	if $doPlay
 	then	$doSelect && [ -z "$URL" ] && \
 			tui-echo "Please select an url you want to replay:" && \
 			URL=$(tui-select $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
 		[ -z "$URL" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL'!" && exit 1
-		#echo "ffplay -v quiet -i \"$URL\" -nodisp" > "$TMP"
-		#showdisp="-nodisp"
 		$showFFMPEG && \
 			showdisp="" && \
 			doLog "Stream: Play, expecting video stream..." || \
 			showdisp="-nodisp"
 		echo "ffplay -v quiet -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
-	#	trgt="$XDG_VIDEOS_DIR/stream-$(date +%F_%T)-$(echo ${URL/":"/_}|$SED s,"/","_",g).ts"
-		#touch "$trgt"
-		
-		#if $beVerbose
-		#then	#echo saving the day
-		#	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
-		#el
-		#if $showFFMPEG
-		#then
-			doLog "Stream: Play-Command: $(cat $TMP)"
-			tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
-			RET=$?
-		#else	echo play here?
-		#	bash "$TMP" ; RET=$?
-		#fi
-		
+		doLog "Stream: Play-Command: $(cat $TMP)"
+		tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
+		RET=$?
 		exit $RET
 	fi
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
-	case $MODE in
+	case "$MODE" in
 	dvd|screen|webcam)
 			# TODO For these 3 i can implement the bitrate suggestions...
 			$beVerbose && tui-echo "Set outputfile to $OF"
 			msg="Beginn:"
 			msgA="Generated command for $MODE-encoding in $TMP"
 			doLog "${msgA/ed/ing}"
-			case $MODE in
+			case "$MODE" in
 			webcam) doWebCam	;;
 			screen) #doScreen
 				[ -z "$OF" ] && OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $ext )
@@ -1856,72 +1837,8 @@ EOF
 				doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
 			
 			exit $?
-	#		;;
-	#audio)
-			doAudio "$video"					## Fills the list: audio_ids
-			audio_ids=$(cat "$TMP") 
-			#tui-title "on line: $LINENO" ; PlayTime ; tui-title "on line: $LINENO"
-			$beVerbose && tui-echo "Found audio ids:" "$audio_ids"
-			$showFFMPEG && \
-				FFMPEG=$ffmpeg_verbose || \
-				FFMPEG=$ffmpeg_silent
-			
-		# Shared vars	
-			tDir=$(dirname "$(pwd)/$1")
-			tIF=$(basename "$1")
-			$beVerbose && tui-echo "Audio files are encoded within pwd:" "$tDir"
-			
-		# If ID is forced, just do this	
-			if [ ! -z "$ID_FORCED" ]
-			then	# Just this one ID
-				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
-			# Generate command
-				audio_maps="-map 0:$ID_FORCED"
-				[ -z "$OF_FORCED" ] && \
-					OF=$(tui-str-genfilename "${1}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
-					OF=$(tui-str-genfilename "$OF_FORCED" $ext)
-				tOF=$(basename "$OF")
-				$beVerbose && tui-echo "Outputfile will be:" "$tOF"
-				cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
-				printf "$cmd" > "$TMP"
-				doLog "Command-Audio: $cmd"
-			# Execute
-				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
-				exit $?
-			else	# Parse all available audio streams
-				
-				
-				for AID in $audio_ids;do
-				# Generate command
-					OF=$(tui-str-genfilename "${1}" $ext)
-					OF=${OF/.$ext/.id$AID.$ext}
-					tOF=$(basename "$OF")
-					audio_maps=""
-					for i in $FORCED_IDS;do
-						audio_maps+=" -map 0:$i"
-					done
-
-					cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
-					
-				# Display progress	
-					tui-title "Saving audio stream: $AID"
-					printf "$cmd" > "$TMP"
-					if $ADVANCED
-					then	tui-echo "Please save the file before you continue"
-						tui-edit "$TMP"
-						tui-press "Press [ENTER] when read to encode..."
-					fi
-					doLog "Command-Audio: $cmd"
-					
-					doExecute "$TMP" \
-						"$OF" \
-						"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
-				done
-			fi
-			
-			exit $?
-			;;
-	#video)		echo just continue > /dev/zero	;;
+		;;
+#video)		echo just continue > /dev/zero	;;
 	*)	[ -z "$1" ] && \
 			tui-printf -S 1 "Mode $MODE requires input files!" && \
 			exit 1
@@ -1991,7 +1908,7 @@ EOF
 		ps -hau | $GREP -v $GREP | $GREP -q ffserver || ffserver -f $FFSERVER_CONF &
 		case "$MODE" in
 		dvd|screen|webcam)	# Requirement met
-			echo todo
+			echo failure
 			exit $?
 			;;
 		video)	if [ -z "$1" ]
@@ -2050,7 +1967,25 @@ EOF
 	#	Output per video
 	#
 		$0 -i "$video"						# Calling itself with -info for video
-		#tui-title "Duration: $(PlayTime) --> $(fs_expected)"
+		if ! $GREP video "$TMP.info"
+		then	tui-echo "No Video found!"
+			MODE=audio
+			cmd_video_all=""
+			container=$(tui-conf-get $CONFIG container_audio)
+			
+			LoadContainer $container
+			doLog "Loading: $container"
+			
+			cmd_audio_all=" -c:a $audio_codec"		# Set audio codec if provided
+			[ -z "$BIT_AUDIO" ] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
+			$channel_downgrade &&  cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
+			if $useRate 
+			then	[ $container = flv ] && \
+					cmd_audio_all+=" -r 44100" || \
+					cmd_audio_all+=" -ar $audio_rate"		# Use default hertz rate
+			fi
+		fi
+		
 		EXPECTED=$(fs_expected)
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
@@ -2076,29 +2011,37 @@ EOF
 		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
-## ORGINAL WORKING
-#		if [ ! -z "$audio_ids" ]
-#		then	# all good
-#			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
-#			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
-#		else	# handle empty
-#			tui-echo "No audio stream could be found or recognized"
-#			#select i in $(seq 1 1 $(countAudio)) done;do 
-#			i=""
-#			if [ ! "" = "$(listAudioIDs)" ]
-#			then	tui-echo "Please select the audio ids you want to use, choose done to continue."
-#				while [ ! "$i" = "done" ]
-#				do	i=$(tui-select $(listAudioIDs) done)
-#					[ ! done = "$i" ] && \
-#						audio_ids+=" $i" && \
-#						cmd_audio_maps+=" -map 0:$i"
-#					tui-echo "Now using audio ids: $audio_ids"
-#					tui-echo
-#				done
-#			fi
-#		fi
-## Copied from above
-			# If ID is forced, just do this	
+
+#		set -x
+		if [ "$MODE" = audio ]
+		then	# Handle just audio files, and loop
+			tui-header
+			for AID in $audio_ids;do
+			# Generate command
+				OF=$(tui-str-genfilename "${video}" $ext)
+				tOF=$(basename "$OF")
+				audio_maps=" -map 0:$AID"
+					
+				cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
+			# Display progress	
+				tui-echo "Saving audio stream: $AID"
+
+				printf "$cmd" > "$TMP"
+				if $ADVANCED
+				then	tui-echo "Please save the file before you continue"
+					tui-edit "$TMP"
+					tui-press "Press [ENTER] when read to encode..."
+				fi
+				doLog "Command-Audio: $cmd"
+
+				doExecute "$TMP" \
+					"$OF" \
+					"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
+			done
+			continue
+			tui-header
+			
+		else 	# Regular video handling
 			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
 				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
@@ -2116,96 +2059,74 @@ EOF
 				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
 				exit $?
 			else	# Parse all available audio streams
-				
-				
 				for AID in $audio_ids;do
 				# Generate command
 					OF=$(tui-str-genfilename "${video}" $ext)
-					#OF=${OF/.$ext/.id$AID.$ext}
-					#OF=$(tui-str-genfilename "$OF" $ext)
 					tOF=$(basename "$OF")
 					audio_maps=""
-					for i in $FORCED_IDS;do
-						audio_maps+=" -map 0:$i"
-					done
+					[ $countAudio -eq 1 ] && \
+						audio_maps=" -map 0:a" || \
+						audio_maps+=" -map 0:$AID"
 
-					! $GREP -q -i video "$TMP" && \
-						MODE=audio && \
-						newContainer=$(tui-conf-get "$CONFIG" container_audio)
 					
-					if [ $MODE = audio ]
-					then	[ ! -z "$newContainer" ] && \
-							LoadContainer $newContainer && \
-							OF=$(tui-str-genfilename "$OF" $ext)
-						cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
-					# Display progress	
-						tui-echo "Saving audio stream: $AID"
-						
-						printf "$cmd" > "$TMP"
-						if $ADVANCED
-						then	tui-echo "Please save the file before you continue"
-							tui-edit "$TMP"
-							tui-press "Press [ENTER] when read to encode..."
-						fi
-						doLog "Command-Audio: $cmd"
-
-						doExecute "$TMP" \
-							"$OF" \
-							"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
-					fi
 				done
 			fi
-		#set -x
-		[ $MODE = audio ] && continue
+		fi
 ## Copied end
 		msg="Using for audio streams: $audio_ids"
 		doLog "$msg"
 		
 	# Subtitles
-		if $useSubs
-		then	doSubs > /dev/zero
-			$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
-			subtitle_list=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
-			if [ ! -z "$subtitle_list" ]
-			then # all good
-				for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
-			else	# handle empty
-				tui-echo "No subtitle stream could be recognized"
-				tui-echo "Please select the ids you want to use, choose done to continue."
-				select i in $subtitle_ids done;do 
-					[ "$i" = done ] && break
-					subtitle_ids+=" $i"
-					tui-echo "Now using subtitles ids: $subtitle_ids"
-				done
+		tmp_of="${OF##*/}"
+		tmp_if="${video##*/}"
+		if [ ! -z "${video_codec/-/}" ]
+		then
+			if $useSubs
+			then	doSubs > /dev/zero
+				$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
+				subtitle_list=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
+				if [ ! -z "$subtitle_list" ]
+				then # all good
+					for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
+				else	# handle empty
+					tui-echo "No subtitle stream could be recognized"
+					tui-echo "Please select the ids you want to use, choose done to continue."
+					select i in $subtitle_ids done;do 
+						[ "$i" = done ] && break
+						subtitle_ids+=" $i"
+						tui-echo "Now using subtitles ids: $subtitle_ids"
+					done
+				fi
 			fi
-		fi
 	#
 	#	Handle video pass 1 if 2 enabled
 	#
-		tmp_of="${OF##*/}"
-		tmp_if="${video##*/}"
 		# 2-Pass encoding enabled?
-		if [ $PASS -eq 2 ]
-		then	# Do first pass if 2 pass
-			STR2="Encoded \"$tmp_if\" pass 2/2 to \"$tmp_of\""
-			STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
-			
-			STR2pass1="Encoded \"$tmp_if\" pass 1/2"
-			STR1pass1="Encoding \"$tmp_if\" pass 1/2" # to ffmpeg2pass-0.log.mbtree"
-			
-			cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:0 -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
-			echo "$cmd2pass" > "$TMP"
-			doLog "Command-Video-Pass1: $cmd2pass"
-			#doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
-			tui-bgjob "$TMP"  "$STR1pass1" "$STR2pass1" || exit 1
-		else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
-			STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
-			
+			if [ $PASS -eq 2 ]
+			then	# Do first pass if 2 pass
+				STR2="Encoded \"$tmp_if\" pass 2/2 to \"$tmp_of\""
+				STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
+
+				STR2pass1="Encoded \"$tmp_if\" pass 1/2"
+				STR1pass1="Encoding \"$tmp_if\" pass 1/2" # to ffmpeg2pass-0.log.mbtree"
+
+				cmd2pass="$FFMPEG -i \"${video}\" -an -pass 1 -y -vcodec $video_codec  -map 0:0 -f rawvideo  /dev/null" #/dev/zero" # \"$tmp_of\"" # -f rawvideo -y /dev/null
+				echo "$cmd2pass" > "$TMP"
+				doLog "Command-Video-Pass1: $cmd2pass"
+				#doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
+				tui-bgjob "$TMP"  "$STR1pass1" "$STR2pass1" || exit 1
+			else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
+				STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
+
+			fi
+		else	# Its just audio
+			OF=
 		fi
 	#
 	#	Handle video pass 2 or only one
 	#
 		# Make these strings match onto a single line
+		
 		tmp_border=$[ ${#TUI_BORDER_LEFT} + ${#TUI_BORDER_RIGHT} + 8 + 4 + 8 ]	# Thats TUI_BORDERS TUI_WORK and 4 space chars + filesize
 		string_line=$[ ${#tmp_if} + ${#tmp_of} + $tmp_border ]
 		# Currently shortens every file... :(
