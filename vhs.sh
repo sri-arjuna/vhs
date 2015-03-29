@@ -387,9 +387,10 @@ Files:
 ------------------------------------------------------
 Script:		$0
 Config:		$CONFIG
+URLS:		$URLS.{play,stream}
+Log:		$LOG
 Containers:	$CONTAINER
 Lists:		$LIST_FILE
-Log:		$LOG
 Presets:	$PRESETS
 
 "

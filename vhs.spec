@@ -65,7 +65,7 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
-* Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0.0
+* Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0
 - Added:   Stream Play
 - Added:   Stream Serve, Webcam, Screen, Guide, Video
 - Added:   History re-select for Stream Play/Serve individualy
