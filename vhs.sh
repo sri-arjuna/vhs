@@ -960,7 +960,7 @@ Presets:	$PRESETS
                 cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $EXTRA_CMD $web_audio $cmd_output_all \"${OF}\""
 		doLog "WebCam: Using $webcam_mode command"
                 doLog "Command-Webcam: $cmd"
-		printf "$cmd" > "$TMP.cmd"
+		printf "$cmd" > "$TMP"
 		#OF="$OF"
 		#doExecute "$OF" "Saving Webcam to '$OF'"
 	}
@@ -1792,8 +1792,14 @@ EOF
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when ready to encode..."
 			fi
-			doExecute $TMP "$OF" "Saving to '$OF'" "Saved to '$OF'"
-			RET=$?
+			
+			tui-status $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
+			if $doStream
+			then	tui-bgjob "$TMP" "Streaming $MODE to '$OF'" "Saved to '$OF'"
+				RET=$?
+			else	doExecute "$TMP" "$OF" "Saving to '$OF'" "Saved to '$OF'"
+				RET=$?
+			fi
 			[ $MODE = dvd ] && \
 				[ -f "$dvd_tmp/vobcopy.bla" ] && \
 				rm "$dvd_tmp/vobcopy.bla"
