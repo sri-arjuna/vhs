@@ -1041,6 +1041,7 @@ req_inst=false
 # VIDEO -> avi flv mkv mp4 ogg webm wmv
 # AUDIO -> aac ac3 dts mp3 wav wma
 container=mkv
+container_audio=mp3
 
 # Audio bitrate suggested range (values examples): 72 96 128 144 192 256
 # Note that these values are ment for mono or stereo, to ensure quality of surround sound, 384 should be your absolute minimum
@@ -1627,7 +1628,7 @@ EOF
 	else	# There is NO video
 		MODE=audio
 		cmd_video_all+=" -vn"
-		[ ! -z "${audio_codec/-/}" ] && \
+		[ -z "${audio_codec/-/}" ] && \
 			tui-printf -S 1 "Without video, an audio codec is required!" && \
 			exit 1
 	fi
@@ -1854,8 +1855,9 @@ EOF
 				doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
 			
 			exit $?
-			;;
-	audio)		doAudio "$video"					## Fills the list: audio_ids
+	#		;;
+	#audio)
+			doAudio "$video"					## Fills the list: audio_ids
 			audio_ids=$(cat "$TMP") 
 			#tui-title "on line: $LINENO" ; PlayTime ; tui-title "on line: $LINENO"
 			$beVerbose && tui-echo "Found audio ids:" "$audio_ids"
@@ -1968,7 +1970,6 @@ EOF
 		fi
 		
 		# Remove unrequired files
-		#ls -l --color=auto
 		for V in "${JOIN_VIDS[@]}";do
 			rm "$V"
 			tui-status $? "Deleted $V"
@@ -2074,28 +2075,91 @@ EOF
 		tui-echo
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
-		if [ ! -z "$audio_ids" ]
-		then	# all good
-			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
-			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
-		else	# handle empty
-			tui-echo "No audio stream could be found or recognized"
-			#select i in $(seq 1 1 $(countAudio)) done;do 
-			i=""
-			if [ ! "" = "$(listAudioIDs)" ]
-			then	tui-echo "Please select the audio ids you want to use, choose done to continue."
-				while [ ! "$i" = "done" ]
-				do	i=$(tui-select $(listAudioIDs) done)
-					[ ! done = "$i" ] && \
-						audio_ids+=" $i" && \
-						cmd_audio_maps+=" -map 0:$i"
-					tui-echo "Now using audio ids: $audio_ids"
-					tui-echo
+## ORGINAL WORKING
+#		if [ ! -z "$audio_ids" ]
+#		then	# all good
+#			for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
+#			$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
+#		else	# handle empty
+#			tui-echo "No audio stream could be found or recognized"
+#			#select i in $(seq 1 1 $(countAudio)) done;do 
+#			i=""
+#			if [ ! "" = "$(listAudioIDs)" ]
+#			then	tui-echo "Please select the audio ids you want to use, choose done to continue."
+#				while [ ! "$i" = "done" ]
+#				do	i=$(tui-select $(listAudioIDs) done)
+#					[ ! done = "$i" ] && \
+#						audio_ids+=" $i" && \
+#						cmd_audio_maps+=" -map 0:$i"
+#					tui-echo "Now using audio ids: $audio_ids"
+#					tui-echo
+#				done
+#			fi
+#		fi
+## Copied from above
+			# If ID is forced, just do this	
+			if [ ! -z "$ID_FORCED" ]
+			then	# Just this one ID
+				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
+			# Generate command
+				audio_maps="-map 0:$ID_FORCED"
+				[ -z "$OF_FORCED" ] && \
+					OF=$(tui-str-genfilename "${video}" $ext) && OF=${OF/.$ext/.id$ID_FORCED.$ext} || \
+					OF=$(tui-str-genfilename "$OF_FORCED" $ext)
+				tOF=$(basename "$OF")
+				$beVerbose && tui-echo "Outputfile will be:" "$tOF"
+				cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps -vn $TIMEFRAME $METADATA $extra -y \"$OF\""
+				printf "$cmd" > "$TMP"
+				doLog "Command-Audio: $cmd"
+			# Execute
+				doExecute "$TMP" "$OF" "Encoding \"$tIF\" to $tOF" "Encoded audio to \"$tOF\""
+				exit $?
+			else	# Parse all available audio streams
+				
+				
+				for AID in $audio_ids;do
+				# Generate command
+					OF=$(tui-str-genfilename "${video}" $ext)
+					#OF=${OF/.$ext/.id$AID.$ext}
+					#OF=$(tui-str-genfilename "$OF" $ext)
+					tOF=$(basename "$OF")
+					audio_maps=""
+					for i in $FORCED_IDS;do
+						audio_maps+=" -map 0:$i"
+					done
+
+					! $GREP -q -i video "$TMP" && \
+						MODE=audio && \
+						newContainer=$(tui-conf-get "$CONFIG" container_audio)
+					
+					if [ $MODE = audio ]
+					then	[ ! -z "$newContainer" ] && \
+							LoadContainer $newContainer && \
+							OF=$(tui-str-genfilename "$OF" $ext)
+						cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
+					# Display progress	
+						tui-echo "Saving audio stream: $AID"
+						
+						printf "$cmd" > "$TMP"
+						if $ADVANCED
+						then	tui-echo "Please save the file before you continue"
+							tui-edit "$TMP"
+							tui-press "Press [ENTER] when read to encode..."
+						fi
+						doLog "Command-Audio: $cmd"
+
+						doExecute "$TMP" \
+							"$OF" \
+							"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
+					fi
 				done
 			fi
-		fi
+		#set -x
+		[ $MODE = audio ] && continue
+## Copied end
 		msg="Using for audio streams: $audio_ids"
 		doLog "$msg"
+		
 	# Subtitles
 		if $useSubs
 		then	doSubs > /dev/zero
@@ -2148,10 +2212,7 @@ EOF
 		then	tmp_if="${tmp_if:0:${#tmp_if}/4}...${tmp_if:(-6)}"
 			tmp_of="${tmp_of:0:${#tmp_of}/4}...${tmp_of:(-6)}"
 		fi
-
 		oPWD="$(pwd)"
-		
-
 	# Verify file does not already exists
 	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
 		skip=false
@@ -2214,8 +2275,11 @@ EOF
 					RET=$?
 				fi
 			fi
-			
+## DEBUG MOdE LEFT			
 			set -x
+			tui-title "If above command failed, please send me a screenshot of the below code!"
+			tmp=$(cat "$TMP")
+			echo "$tmp" > /dev/zero
 			# Remove tempfiles from 2pass 
 			if [ $PASS -gt 1 ]
 			then	for f in ffmpeg2pass-*.log*
