@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.03.27
+#	Changed:	2015.03.29
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=1.3.5
+	script_version=1.3.6
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -108,6 +108,9 @@
 	beVerbose=false			# -V 	Show additional steps done
 	doCopy=false			# -C
 	doJoin=false			# -J
+	doPlay=false			# -P, requires -U|[u URL]
+	doSelect=false
+	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W
 	doExternal=false		# -E
 	override_audio_codec=false	# -c a	/ -C
 	override_sub_codec=false	# -c t	/ -C
@@ -131,6 +134,7 @@
 	cmd_output_all=""
 	cmd_subtitle_all=""
 	cmd_video_all=""
+	optLogVerb=""
 	langs=""			# -l LNG 	will be added here
 	PASS=1				# -p 		toggle multipass video encoding, also 1=disabled
 	RES=""				# -q|Q		dimension will set video resolution if provided
@@ -138,8 +142,8 @@
 	VOL=""				# -d VOL
 	ffmpeg_silent="ffmpeg -v quiet" # [-V]		Regular or debug verbose
 	ffmpeg_verbose="ffmpeg -v verbose"	# -v		ffmpeg verbose
+	FFMPEG="$ffmpeg_silent"		# Setting default
 	hwaccel="-hwaccel vdpau"	# NOT USED -H		Enable hw acceleration
-	txt_meta_me="'VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
 	txt_mjpg=""
 	FPS_ov=""			# -f NUM -- string check
 	SS_START=""			# -z 1:23[-1:04:45.15] start value, triggered by beeing non-empty
@@ -151,7 +155,11 @@
 	video_overlay="'[X:v:0]scale=320:-1[a] ; [0:v:0][a]overlay'"
 	# Advanced usage
 	[ -z "$showHeader" ] && showHeader=true
-	
+	URL_UP=""
+	URL_PLAY=""
+	URLS="$CONFIG_DIR/urls"
+	count_P=0
+	count_U=0
 #
 #	Check for PRESETS, required for proper help display
 #
@@ -288,6 +296,7 @@ Where options are: (only the first letter)
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
+	-P(lay[-list])			Requires either '-u URL' or '-U', or be called 2 times to select the playlist history, pass -PPP to open the urls history file.
 	-q(uality)	RES		Encodes the video at ID's bitrates from presets
 	-Q(uality)	RES		Sets to ID-resolution and uses the bitrates from presets, video might become sctreched
 	-r(ate)		48000		Values from 48000 to 96000, or similar
@@ -295,6 +304,8 @@ Where options are: (only the first letter)
 	-S(creen)			Records the fullscreen desktop
 	-t(itles)			Use default and provided langauges as subtitles, where available
 	-T(imeout)	2m		Set the timeout between videos to TIME (append either 's', 'm' or 'h' as other units)
+	-u(rl)		URL		Using URL as streaming target or source, use '-S|W|G' to 'send' or '-P' to play the stream.
+	-U(rl)				Using the URL from the config file
 	-v(erbose)			Displays encode data from ffmpeg
 	-V(erbose)			Show additional info on the fly
 	-w(eb-optimized)		Moves the videos info to start of file (web compatibility)
@@ -382,14 +393,13 @@ Log:		$LOG
 Presets:	$PRESETS
 
 "
-
 #
 #	Functions
 #
 	doLog() { # "MESSAGE STRING"
 	# Prints: Time & "Message STRING"
 	# See 'tui-log -h' for more info
-		tui-log -t "$LOG" "$1"
+		tui-log -t$optLogVerb "$LOG" "$1"
 	}
 	FileSize() { # FILE
 	# Returns the filesize in bytes
@@ -492,6 +502,7 @@ Presets:	$PRESETS
 		eval $cmd|$GREP -i audio|$GREP -i $1|$GREP -q DTS
 		return $?
 	}
+	txt_meta_me="'VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
 	hasSubtitle() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
@@ -776,10 +787,14 @@ Presets:	$PRESETS
 				else	tui-status $? "There was an error"
 				fi
 			fi
-			BIG="$(ls $dvd_tmp/*.vob)"
+			BIG="$dvd_tmp/bigvob.vob"
+			[ ! -f "$BIG" ] && \
+				echo -e "cd $dvd_tmp\neval cat *vob > bigvob.vob" > "$TMP" && \
+				tui-bgjob -f "$BIG" "$TMP" "Merging into single temp file..." "Merged into single vob file."
+			#"$(ls $dvd_tmp/*.vob)"
 			
 			# Show info on video
-			vhs -i "$BIG"
+			showHeader=false vhs -i "$BIG"
 			
 			# Check for audio streams
 			if [ -z "$ID_FORCED" ]
@@ -830,8 +845,7 @@ Presets:	$PRESETS
 		unset files
 		count=0
 		
-		#set -x
-		if cd "$1"
+		if [ ! -z "$1" ] &&  cd "$1"
 		then	if [ ! "" = "$( ls |$GREP -i vob)" ] && tui-yesno "Delete existing vob files?"
 			then	#echo $PWD ; set -x
 				rm -f *vob 	#2>/dev/zero
@@ -842,7 +856,6 @@ Presets:	$PRESETS
 			cd "$OLDPWD"
 		fi
 		
-		#showFFMPEG=true
 		# TODO FIXME, wait for vobcopy update to fix its background incompatibilty - buffer overrun
 		#if true
 		if $showFFMPEG
@@ -881,7 +894,7 @@ Presets:	$PRESETS
 								}
 							}
 						}' vobcopy.bla > "$TMP"
-						
+					
 					# Print the titles and let the user select
 					tui-echo "Which title to use:"
 					declare -a titles
@@ -889,8 +902,6 @@ Presets:	$PRESETS
 						echo $TITLE | $GREP -q ^[0-9] && \
 							titles[$TITLE]="Title $TITLE with $CHAP chapters" #&& \
 					done<$TMP
-					
-					
 					
 					#titles=$($GREP ^[0-9] "$TMP"|$AWK '{print $1}')
 					[ "" = "$(echo ${titles[*]})" ] && \
@@ -914,7 +925,8 @@ Presets:	$PRESETS
 			eval "$cmd"
 			echo "$?" > "$TMP.out"
 		else	# Do the job in the background -- TODO fine tuning
-			eval "$cmd"
+			echo "$cmd" > "$TMP"
+			tui-bgjob "$TMP" "Copying vob files..." "Copied all required vob files."
 			echo "$?" > "$TMP.out"
 		fi
 		[ -f "vobcopy.bla" ] && rm vobcopy.bla
@@ -940,14 +952,14 @@ Presets:	$PRESETS
 		
 		[ -z "$verbose" ] && verbose="-v quiet"
                 doLog "Overwrite already generated name, for 'example' code.. "
-                OF="$(tui-str-tui-str-genfilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
+               	[ -z "$OF" ] && OF="$(tui-str-genfilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
                 #sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
                 web_audio=" -f alsa -i default"
-                cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $EXTRA_CMD $web_audio $extra $METADATA $F \"${OF}\""
+                cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $EXTRA_CMD $web_audio $cmd_output_all \"${OF}\""
 		doLog "WebCam: Using $webcam_mode command"
                 doLog "Command-Webcam: $cmd"
 		printf "$cmd" > "$TMP.cmd"
-		OF="$OF"
+		#OF="$OF"
 		#doExecute "$OF" "Saving Webcam to '$OF'"
 	}
 	UpdateLists() { #
@@ -1076,6 +1088,11 @@ sleep_between=1m
 # Default values are for fps: 25
 webcam_res=640x480
 webcam_fps=25
+
+# Streaming
+FFSERVER_CONF=$(locate ffserver.conf|head -n1)
+URL_UP="$(ifconfig | grep broadcast | awk '{print $2}'):8090"
+URL_PLAY="$(ifconfig | grep broadcast | awk '{print $2}'):8090"
 EOF
 			tui-status $? "Wrote $CONFIG" 
 			
@@ -1112,7 +1129,7 @@ EOF
                 case $var in
 			Back)		break	;;
 			UpdateLists)	$var 	;;
-			ReWriteContainers) WriteContainers ;;							
+			ReWriteContainers) WriteContainerFile ;;							
 			*)	val=$(tui-conf-get "$CONFIG" "$var")
 				newval=""
 				tui-echo "${var^} is set to:" "$val"
@@ -1175,7 +1192,7 @@ EOF
 		req_inst=false
 		
 		doLog "Setup: Writing container and list files"
-		WriteContainers
+		WriteContainerFile
                 #WriteTemplateFile
 		UpdateLists
 		
@@ -1200,6 +1217,19 @@ EOF
 		tui-conf-set "$CONFIG" "req_inst" "$FIRST_RET"
 	fi
 	source "$CONFIG"
+	if [ ! -f "${URLS}.play" ]
+	then	for T in play stream;do
+		cat > "${URLS}.${T}" <<-EOF
+			#######################
+			###    Favorites    ###
+			#######################
+			
+			#######################
+			###    Last Added   ###
+			#######################
+			EOF
+		done
+	fi
 	# Print Log entry only if its neither:
 	#	info, help, Log
 	printf '%s\n' "$@" | $GREP -q -- '-[Lih]' || \
@@ -1213,7 +1243,8 @@ EOF
 #
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
-	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:p:Rr:SstT:q:Q:vVwWxXyz:" opt
+	#showHeader=false
+	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:SstT:q:Q:Uu:vVwWxXyz:" opt
 	do 	case $opt in
 		2)	PASS=2	;;
 		a)	log_msg="Appending to input list: $OPTARG"
@@ -1281,7 +1312,8 @@ EOF
 				;;
 			esac
 			;;
-		C)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+		C)	$showHeader && tui-header "$ME ($script_version)" "$(date +'%F %T')"
+			showHeader=false
 			log_msg="Entering configuration mode"
 			MenuSetup
 			source "$CONFIG"
@@ -1318,7 +1350,8 @@ EOF
 			doLog "Force using FPS from config file ($FPS)"
 			;;
 		G)	MODE=guide
-			log_msg="Options: Set MODE to ${MODE^}, saving as $OF"
+#			OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext)
+			log_msg="Options: Set MODE to ${MODE^}"
 			;;
 		h)	doLog "Show Help"
 			printf "$help_text"
@@ -1339,7 +1372,7 @@ EOF
 			exit $RET_DONE
 			;;
 		I)	# TODO
-			ID_FORCED+="$OPTARG"
+			ID_FORCED+="$OPTARG "
 			log_msg="Options: Foced to use this id: $ID_FORCED"
 			;;
 		j)	useJpg=true
@@ -1347,7 +1380,7 @@ EOF
 			;;
 		J)	doJoin=true
 			;;
-		K)	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+		K)	#tui-header "$ME ($script_version)" "$(date +'%F %T')"
 			tui-title "VHS Task Killer"
 			RAW=""
 			fine=""
@@ -1439,6 +1472,11 @@ EOF
 			
 			log_msg+=", orietiation: $char @ $num"
 			;;
+		P)	log_msg="Stream: Playmode enabled"
+			$doPlay && doSelect=true
+			doPlay=true
+			#doStream=true
+			;;
 		q)	Q=$(getQualy "$OPTARG")
 			RES=$(getRes $OPTARG)
 			RES=${RES/x*/:-1}
@@ -1467,6 +1505,7 @@ EOF
 			log_msg="Force audio_rate to $audio_rate"
 			;;
 		S)	MODE=screen
+			#OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext)
 			log_msg="Set MODE to ${MODE^}, saving as $OF"
 			;;
 		t)	useSubs=true
@@ -1475,31 +1514,41 @@ EOF
 		T)	log_msg="Changed delay between jobs from \"$sleep_between\" to \"$OPTARG\""
 			sleep_between="$OPTARG"
 			;;
+		u)	URL="$OPTARG"
+			log_msg="Stream: Using $URL"
+			## $GREP -q "$URL" "$URLS" || echo "$URL" >> "$URLS"
+			doStream=true
+			;;
+		U)	$doStream && doSelect=true
+			doStream=true
+			log_msg="Stream: Using an existing URL"
+			;;
 		v)	log_msg="Be verbose (ffmpeg)!"
 			FFMPEG="$ffmpeg_verbose"
 			showFFMPEG=true
 			;;
 		V)	log_msg="Be verbose ($ME)!"
-			FFMPEG="$ffmpeg_silent"
 			beVerbose=true
 			tui-title "Retrieve options"
+			optLogVerb="v"
 			;;
 		w)	web="-movflags faststart"
 			log_msg="Moved 'faststart' flag to front, stream/web optimized"
 			;;
 		W)	MODE=webcam
-			OF=$(tui-str-tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext )
 			override_container=true
-			log_msg="Options: Set MODE to Webcam, saving as $OF"
+			#OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext)
+			log_msg="Options: Set MODE to Webcam" #, saving as $OF"
 			;;
-		x)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+		x)	#tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 			tui-printf "Clearing logfile" "$TUI_WORK"
 			printf "" > "$LOG"
 			tui-status $? "Cleaned logfile"
 			showHeader=false
 			#exit $?
 			;;
-		X)	tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+		X)	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+			showHeader=false
 			if tui-yesno "Are you sure to remove '$CONFIG_DIR'?"
 			then	rm -fr "$CONFIG_DIR"
 				exit $?
@@ -1533,7 +1582,7 @@ EOF
 		*)	log_msg="Invalid argument: $opt : $OPTARG"
 			;;
 		esac
-		$beVerbose && tui-echo "$log_msg"
+		#$beVerbose && tui-echo "$log_msg"
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
@@ -1546,78 +1595,115 @@ EOF
 #
 #	Little preparations before we start showing the interface
 #
-	LoadContainer $container
-	#src="$CONTAINER/$container" ; source "$src"
-	# If (not) set...
-	[ -z "$video_codec" ] && [ ! -z $audio_codec ] && MODE=audio		# If there is no video codec, go audio mode
-	for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
-	$showFFMPEG && \
-		FFMPEG="$ffmpeg_verbose" || \
-		FFMPEG="$ffmpeg_silent"	# Initialize the final command
-	[ -z "$FFMPEG" ] && \
-		cmd_all="$ffmpeg_silent" || \
-		cmd_all="$FFMPEG"	
-	[ -z "$BIT_AUDIO" ] || \
-		cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
-	[ -z "$VOL" ] || \
-		cmd_audio_all+=" $VOL"
-	[ -z "$BIT_VIDEO" ] || \
-		cmd_video_all+=" -b:v ${BIT_VIDEO}K"		# Set video bitrate if requested
-	[ ! copy = "$video_codec_ov" ] && \
-		[ ! -z "$RES" ] && \
-		cmd_video_all+=" -vf scale=$RES"		# Set video resolution
-	[ -z "$OF" ] || \
-		cmd_output_all="$OF"				# Set output file 
-	[ -z "$BIT_VIDEO" ] || \
-		buffer=" -minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
-	# Bools...
-	$file_extra && \
-		F="-f $ext"					# File extra, toggle by container
-	$code_extra && \
-		extra+=" -strict -2"				# codec requires strict, toggle by container
-	$channel_downgrade && \
-		cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
-	if $useFPS
-	then	[ -z $FPS_ov ] || FPS=$FPS_ov
-		cmd_video_all+=" -r $FPS"
-		doLog "Added '$FPS' to commandlist"
-	fi
-	$useRate && \
-		cmd_audio_all+=" -ar $audio_rate"		# Use default hertz rate
-	$override_sub_codec && \
-		subtitle=$sub_codec_ov
-	$useSubs && \
-		cmd_subtitle_all=" -c:s $subtitle" || \
-		cmd_subtitle_all=" -sn"
-	$override_audio_codec && \
-		cmd_audio_all+=" -c:a $audio_codec_ov" || \
-		cmd_audio_all+=" -c:a $audio_codec"		# Set audio codec if provided
-	if $override_video_codec				# Set video codec if provided
-	then	cmd_video_all+=" -c:v $video_codec_ov"
-	else	[ -z $video_codec ] || cmd_video_all+=" -c:v $video_codec"				
+	$showHeader && \
+		tui-header \
+			"$ME ($script_version)" \
+			"$TITLE" "$(date +'%F %T')" && \
+	doLog "Loading: $container"
+	LoadContainer "$container"
+	
+	doLog "FFMPEG: $FFMPEG"
+	cmd_all="$FFMPEG"
+	
+	if [ ! -z "$video_codec" ] 
+	then	# There is a video codec
+		$override_video_codec && \
+			cmd_video_all+=" -c:v $video_codec_ov" || \
+			cmd_video_all+=" -c:v $video_codec"
+		# Set video resolution only if codec is not copy
+		[ ! copy = "$video_codec_ov" ] && \
+			[ ! -z "$RES" ] && \
+			cmd_video_all+=" -vf scale=$RES"
+		if [ ! -z "$BIT_VIDEO" ]
+		then	buffer="-minrate $[ 2 * ${BIT_VIDEO} ]K -maxrate $[ 2 * ${BIT_VIDEO} ]K -bufsize ${BIT_VIDEO}K"
+			cmd_video_all+=" -b:v ${BIT_VIDEO}K $buffer"		# Set video bitrate if requested
+		fi
+		if $useFPS
+		then	[ -z "$FPS_ov" ] || FPS="$FPS_ov"
+			cmd_video_all+=" -r $FPS"
+		fi
+		# codec requires strict, toggle by container
+		$code_extra && extra+=" -strict -2"
+	else	# There is NO video
+		MODE=audio
+		cmd_video_all+=" -vn"
+		[ ! -z "${audio_codec/-/}" ] && \
+			tui-printf -S 1 "Without video, an audio codec is required!" && \
+			exit 1
 	fi
 	
-	if $beVerbose
-	then	tui-echo "MODE:"	"$MODE"
-		tui-echo "FFMPEG:"	"$cmd_all"
-		tui-echo "Audio:"	"$cmd_audio_all"
-		tui-echo "Video:"	"$cmd_video_all"
-		tui-echo "Subtitles:"	"$cmd_subtitle_all"
-		[ -z $langs ] || tui-echo "Additional Languages:"	"$langs"
+	doLog "MODE: $MODE"
+	[ "$MODE" = screen ] || for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
+	
+	# Already and has to be handled above
+	doLog "Video: $cmd_video_all"
+	
+	if [ ! -z "${audio_codec/-/}" ]
+	then	# There is an audio codec
+		$override_audio_codec && \
+			cmd_audio_all+=" -c:a $audio_codec_ov" || \
+			cmd_audio_all+=" -c:a $audio_codec"		# Set audio codec if provided
+		[ -z "$BIT_AUDIO" ] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
+		$channel_downgrade &&  cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
+		if $useRate 
+		then	[ $container = flv ] && \
+				cmd_audio_all+=" -r 44100" || \
+				cmd_audio_all+=" -ar $audio_rate"		# Use default hertz rate
+		fi
+		# Volumecheck
+		[ -z "$VOL" ] || cmd_audio_all+=" $VOL"
 	fi
-	# Metadata
+	doLog "Audio: $cmd_audio_all"
+	
+	if $useSubs
+	then	$override_sub_codec && subtitle="$sub_codec_ov"
+		cmd_subtitle_all="-c:s $subtitle"
+	else	cmd_subtitle_all="-sn"
+	fi
+	doLog "Subtitles: $cmd_subtitle_all"
+	[ -z "$langs" ] || doLog "Additional Languages: $langs"
+	
+	F=""
+	#set -x
+	if $doStream
+	then	file_extra=true
+		if $doPlay
+		then	tui-title "Stream : Play"
+			if $doSelect
+			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
+			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_PLAY)
+			fi	
+			log_msg="Stream play:"
+		else	tui-title "Stream : Up"
+			if $doSelect
+			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
+			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_UP)
+			fi	
+			log_msg="Stream  Server:"
+		fi
+		log_msg+=" $URL"
+		OF="$URL"
+		F="-f mpegts"
+		[ -z "$URL" ] && exit 1
+	else	# File extra, toggle by container
+		F="-f $ext"					
+	fi
+	doLog "$log_msg"
+	# Generate general target
 	METADATA="$txt_mjpg -metadata encoded_by=$txt_meta_me"
+	cmd_output_all="$METADATA"
+	[ -z "$F" ] || cmd_output_all+=" $F"
 	
 	# Special container treatment
 	case "$container" in
 	"webm")	threads="$($GREP proc /proc/cpuinfo|wc -l)" && threads=$[ $threads - 1 ] 
 		cmd_audio_all+=" -cpu-used $threads"
-		cmd_video_all+=" -threads $threads  -deadline realtime"
+		cmd_video_all+=" -threads $threads -deadline realtime"
 		msg="$container: Found $threads hypterthreads, leaving 1 for system"
 		doLog "$msg"
 		$beVerbose && tui-echo "$msg"
 		;;
-	flv)	cmd_audio_all+=" -r 44100"	;;
+	
 #	*)	cmd_video_all+=" $buffer"	;;
 	esac
 #
@@ -1630,7 +1716,45 @@ EOF
 #
 #	Display & Action
 #
-	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+	#case $count_P in
+	#2)	tui-title "Play URL from history"
+	#	tui-echo "Please select an url you want to replay:"
+	#	URL=$(tui-select $($GREP -v ^"#" "$URLS" | $AWK '{print $1}' ))
+	#	;;
+	#3)	tui-edit "$URLS.play"
+	#	exit 0
+	#	;;
+	#esac
+	if $doPlay
+	then	$doSelect && \
+			tui-echo "Please select an url you want to replay:" && \
+			URL=$(tui-select $($GREP -v ^"#" "$URLS" | $AWK '{print $1}' ))
+		[ -z "$URL" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL'!" && exit 1
+		#echo "ffplay -v quiet -i \"$URL\" -nodisp" > "$TMP"
+		#showdisp="-nodisp"
+		$showFFMPEG && \
+			showdisp="" && \
+			doLog "Stream: Play, expecting video stream..." || \
+			showdisp="-nodisp"
+		echo "ffplay -v quiet -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
+	#	trgt="$XDG_VIDEOS_DIR/stream-$(date +%F_%T)-$(echo ${URL/":"/_}|$SED s,"/","_",g).ts"
+		#touch "$trgt"
+		
+		#if $beVerbose
+		#then	#echo saving the day
+		#	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
+		#el
+		#if $showFFMPEG
+		#then
+			doLog "Stream: Play-Command: $(cat $TMP)"
+			tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
+			RET=$?
+		#else	echo play here?
+		#	bash "$TMP" ; RET=$?
+		#fi
+		
+		exit $RET
+	fi
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
 	case $MODE in
 	dvd|screen|webcam)
@@ -1642,14 +1766,16 @@ EOF
 			case $MODE in
 			webcam) doWebCam	;;
 			screen) #doScreen
-				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $container )
-				msg="Options: Set MODE to Screen, saving as $OF"
+				[ -z "$OF" ] && OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/screen-out.$container" $ext )
+				$doStream && OF="$URL"
+				msg="Options: Saving as $OF"
 				doLog "$msg"
 				$beVerbose && tui-echo "$msg"
 				msg+=" Capturing"
-				[ -z $DISPLAY ] && DISPLAY=":0.0"	# Should not happen, setting to default
+				[ -z "$DISPLAY" ] && DISPLAY=":0.0"	# Should not happen, setting to default
 				cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
-				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $buffer $cmd_audio_all $web $METADATA $extra $METADATA $F \"${OF}\""
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $cmd_audio_all $web $extra $METADATA $F \"${OF}\""
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $cmd_audio_all $web $extra $METADATA $F \"${OF}\""
 				printf "$cmd" > "$TMP"
 				doLog "Screenrecording: $cmd"
 				$beVerbose && tui-echo "$msgA"
@@ -1670,7 +1796,7 @@ EOF
 						tui-printf -S 1 "Please insert a DVD and try again!" && \
 						exit 1
 				fi
-				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $container )
+				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $ext )
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doDVD
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
@@ -1710,12 +1836,11 @@ EOF
 			exit $RET
 			;;
 	guide)		[ -z "$ext" ] && source $CONTAINER/$container
-			OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
-			
+			[ -z "$OF" ] && OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/guide-out.$container" $ext )
+			$doStream && OF="$URL"
 			cmd="$cmd_all -f v4l2 -s $webcam_res -framerate $webcam_fps -i /dev/video0 $EXTRA_CMD -f x11grab -video_size  $(getRes screen) -framerate $FPS -i :0 -f $sound -i default -filter_complex $guide_complex -c:v $video_codec -crf 23 -preset veryfast -c:a $audio_codec -q:a 4 $extra $METADATA $F \"$OF\""
-			printf "$cmd" > "$TMP"
 			
-			doLog "Command-Guide: $cmd"
+			printf "$cmd" > "$TMP"
 			
 			tui-status $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
 			if $ADVANCED
@@ -1723,7 +1848,10 @@ EOF
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when read to encode..."
 			fi
-			doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
+			doLog "Command-Guide: $cmd"
+			$doStream && \
+				tui-bgjob "$TMP" "Streaming 'Guide' to '$OF'" "Streamed 'Guide' to '$OF'" || \
+				doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
 			
 			exit $?
 			;;
@@ -1771,16 +1899,17 @@ EOF
 					done
 
 					cmd="$FFMPEG -i \"$1\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
-					printf "$cmd" > "$TMP"
-					doLog "Command-Audio: $cmd"
+					
 				# Display progress	
 					tui-title "Saving audio stream: $AID"
-					
+					printf "$cmd" > "$TMP"
 					if $ADVANCED
 					then	tui-echo "Please save the file before you continue"
 						tui-edit "$TMP"
 						tui-press "Press [ENTER] when read to encode..."
 					fi
+					doLog "Command-Audio: $cmd"
+					
 					doExecute "$TMP" \
 						"$OF" \
 						"Encoding \"$tIF\" to \"$tOF\"" "Encoded audio to \"$tOF\""
@@ -1855,6 +1984,27 @@ EOF
 		EXTRA_CMD="-qscale:v 2"
 		doLog "Join-Final: Adding \"$EXTRA_CMD\" to command."
 	fi
+	if $doStream
+	then	[ -z "$FFSERVER_CONF" ] && FFSERVER_CONF=/share/doc/ffmpeg/ffserver.conf
+		ps -hau | $GREP -v $GREP | $GREP -q ffserver || ffserver -f $FFSERVER_CONF &
+		case "$MODE" in
+		dvd|screen|webcam)	# Requirement met
+			echo todo
+			exit $?
+			;;
+		video)	if [ -z "$1" ]
+			then	doLog "Stream: Aborting, no video passed"
+				tui-status 1 "Must pass a video to stream!"
+				exit $?
+			fi
+			;;
+		*)	tui-echo "Mode is currently set to: $MODE"
+			tui-status 1 "Required mode is either: Screen, Webcam or Guide"
+			exit $?
+			;;
+		esac
+		
+	fi
 #
 #
 ##
@@ -1881,7 +2031,9 @@ EOF
 		# Start initial log per video to parse
 		doLog "----- $video -----"
 		$beVerbose && tui-title "Video: $video"
-		OF=$(tui-str-genfilename "${video}" "$ext")		# Output File
+		$doStream && \
+			OF="$URL" || \
+			OF=$(tui-str-genfilename "${video}" "$ext")		# Output File
 		audio_ids=						# Used ids for audio streams
 		audio_maps=""						# String generated using the audio maps
 		subtitle_ids=""
@@ -1999,11 +2151,6 @@ EOF
 
 		oPWD="$(pwd)"
 		
-		# Command just needs to be generated
-		$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps" 
-		cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
-		doLog "Command-Simple: $cmd"
-		msg+=" Converting"
 
 	# Verify file does not already exists
 	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
@@ -2021,6 +2168,19 @@ EOF
 		#
 		#	Execute the command
 		#
+			# Command just needs to be generated
+			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps"
+			if $doStream
+			then	#echo todo
+				## ffmpeg -i "$input" -f mpegts udp://$ip:$port
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f mpegts $URL"
+				#cmd="$FFMPEG -i \"$video\" -f mpegts $URL"
+				
+			else	cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $buffer $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
+			fi
+			doLog "Command-Simple: $cmd"
+			msg+=" Converting"
+		
 			printf "$cmd" > "$TMP"
 			if $ADVANCED
 			then	tui-echo "Please save the file before you continue"
@@ -2030,13 +2190,24 @@ EOF
 			
 			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
 			
-			if $showFFMPEG
-			then	bash "$TMP"
+			if $showFFMPEG && ! $doStream
+			then	#echo run here?
+				bash "$TMP"
 				RET=$?
-			else	$beVerbose && \
+			else	#echo run there?
+				$beVerbose && \
 					tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
 					tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
-				if [ 0 -eq $EXPECTED ]
+				#echo stream $doStream
+				#echo ffmpeg $showFFMPEG
+			##	exit
+				if $doStream && ! $showFFMPEG
+				then	tui-bgjob "$TMP" "$STR1" "$STR2"
+					RET=$?
+				elif $showFFMPEG
+				then	tui-bgjob "$TMP" "$STR1" "$STR2"
+					RET=$?
+				elif [ 0 -eq $EXPECTED ]
 				then	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
 					RET=$?
 				else	tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
@@ -2081,7 +2252,7 @@ EOF
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
 				tui-printf -rS 2 "$msg"
 				#tui-echo "aid $aid .$audio_ids"
-				aid="$(vhs -i \"$OF\" |$GREP Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
+				aid="$(showHeader=false vhs -i \"$OF\" |$GREP Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
 				#aid=1
 				doLog "Audio : Set default audio stream $aid"
 				case "$container" in
