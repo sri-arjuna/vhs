@@ -387,7 +387,7 @@ Files:
 ------------------------------------------------------
 Script:		$0
 Config:		$CONFIG
-Containers:	$CONTAINER/*
+Containers:	$CONTAINER
 Lists:		$LIST_FILE
 Log:		$LOG
 Presets:	$PRESETS
