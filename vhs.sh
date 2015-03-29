@@ -2275,10 +2275,6 @@ EOF
 					RET=$?
 				fi
 			fi
-## DEBUG MOdE LEFT			
-			set -x
-			tui-title "If above command failed, please send me a screenshot of the below code!"
-			tmp=$(cat "$TMP")
 			echo "$tmp" > /dev/zero
 			# Remove tempfiles from 2pass 
 			if [ $PASS -gt 1 ]

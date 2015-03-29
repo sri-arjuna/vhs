@@ -1,5 +1,5 @@
 Name:           vhs
-Version:        2.0.0
+Version:        2.0
 Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
