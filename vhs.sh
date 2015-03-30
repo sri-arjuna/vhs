@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.0.1
+	script_version=2.0.4
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -639,7 +639,7 @@ Presets:	$PRESETS
 			fi
 			;;
 		1)	audio_ids=$(listAudioIDs)
-			tui-echo "Using only audio stream found ($audio_ids)..." "$DONE"
+			$beverbose && tui-echo "Using only audio stream found ($audio_ids)..." "$DONE"
 			printf $audio_ids > $TMP
 			;;
 		*)	count=0
@@ -1919,8 +1919,8 @@ EOF
 			exit $?
 			;;
 		video)	if [ -z "$1" ]
-			then	doLog "Stream: Aborting, no video passed"
-				tui-status 1 "Must pass a video to stream!"
+			then	doLog "Stream: Aborting, no $MODE passed"
+				tui-status 1 "Must pass a file to stream!"
 				exit $?
 			fi
 			;;
@@ -1929,7 +1929,6 @@ EOF
 			exit $?
 			;;
 		esac
-		
 	fi
 #
 #
@@ -1945,6 +1944,8 @@ EOF
 	#set -x
 	#MODE=video
 	#set +x
+	cmd_video_all_outside="$cmd_video_all"
+	cmd_audio_all_outside="$cmd_audio_all"
 	for video in "${ARGS[@]}";do 
 		# Only wait for 2nd loop and later
 		if $wait_now
@@ -1969,6 +1970,8 @@ EOF
 		subtitle_maps=""
 		found=0							# Found streams per language
 		cmd_audio_maps=""
+		cmd_audio_all="$cmd_audio_all_outside"
+		cmd_video_all="$cmd_video_all_outside"
 		cmd_input_all="-i \\\"$video\\\""				
 		cmd_output_all="$F \\\"$OF\\\""
 		cmd_run_specific=""					# Contains stuff that is generated per video
@@ -1976,8 +1979,13 @@ EOF
 	#
 	#	Output per video
 	#
-		$0 -i "$video"						# Calling itself with -info for video
-		if ! $GREP -i video -q "$TMP.info" # || ! $GREP video "$TMP"
+		$doStream && \
+			tui-title "Next title: $video" #&& \
+		#	( $0 -i "$video" )  > /dev/zero && \
+		#	sleep 0.5 || \
+			$0 -i "$video"	# Calling itself with -info for video
+		
+		if ! $GREP -i "video:" -q "$TMP.info" # | $GREP -q video # || ! $GREP video "$TMP"
 		then	tui-echo "No Video found!"
 			MODE=audio
 			
@@ -1985,7 +1993,7 @@ EOF
 			LoadContainer $container
 			doLog "Loading: $container"
 			
-			cmd_video_all=""
+			cmd_video_all="-nv"
 			cmd_audio_all=" -c:a $audio_codec"		# Set audio codec if provided
 			[ -z "$BIT_AUDIO" ] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
 			$channel_downgrade &&  cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
@@ -2019,20 +2027,25 @@ EOF
 	
 	# Audio	
 		tui-echo
+		#echo "" > "$TMP"
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
 		
 		if [ "$MODE" = audio ]
 		then	# Handle just audio files, and loop
+			$doStream && \
+				OF="$URL"
 			for AID in $audio_ids;do
 			# Generate command
-				OF=$(tui-str-genfilename "${video}" $ext)
+				OF=$(tui-str-genfilename "${video/.*/.id-$AID.$AID}" $ext)
 				tOF=$(basename "$OF")
 				audio_maps=" -map 0:$AID"
 					
-				cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
+				$doStream && \
+					cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y -f $ext \"$URL\"" || \
+					cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
 			# Display progress	
-				tui-echo "Saving audio stream: $AID"
+				$doStream || tui-echo "Saving audio stream: $AID"
 
 				printf "$cmd" > "$TMP"
 				if $ADVANCED
@@ -2042,9 +2055,10 @@ EOF
 				fi
 				doLog "Command-Audio: $cmd"
 
-				doExecute "$TMP" \
-					"$OF" \
-					"Encoding \"$tIF\" to \"$OF\"" "Encoded audio to \"$tOF\""
+				if $doStream
+				then	tui-bgjob "$TMP" "Streaming \"$video-$AID\" to \"$OF\"" "Streamed $video-$AID to \"$OF\""
+				else	doExecute "$TMP" "$OF" "Encoding \"$video\" to \"$OF\"" "Encoded audio to \"$tOF\""
+				fi
 			done
 			continue
 		else 	# Regular video handling
@@ -2056,17 +2070,23 @@ EOF
 					audio_maps+=" -map 0:$AID"
 				done
 				$beVerbose && tui-echo "Outputfile will be:" "$OF"
-				cmd="$FFMPEG -i \"$1\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y \"$OF\""
+				$doStream && \
+					OF="$URL" && \
+					cmd="$FFMPEG -i \"$video\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y -f mp3 \"$OF\"" || \
+					cmd="$FFMPEG -i \"$video\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
-				if $ADVANCED
-				then	tui-echo "Please save the file before you continue"
-					tui-edit "$TMP"
-					tui-press "Press [ENTER] when read to encode..."
-				fi
+			#	if $ADVANCED
+			#	then	tui-echo "Please save the file before you continue"
+			#		tui-edit "$TMP"
+			#		tui-press "Press [ENTER] when read to encode..."
+			#	fi
 				doLog "Command-Audio: $(cat $TMP)"
-			# Execute
-				doExecute "$TMP" "$OF" "Encoding \"${IF##*/}\" to ${OF##*/}" "Encoded audio to \"$OF\""
-				exit $?
+			# Execute	
+			#	if $doStream
+			#	then	tui-bgjob "$TMP" "Streaming \"$video\" to \"$OF\"" "Streamed $video to \"$OF\""
+			#	else	doExecute "$TMP" "$OF" "Encoding \"$tIF\" to \"$OF\"" "Encoded audio to \"$tOF\""
+			#	fi
+			#	exit $?
 			else	# Parse all available audio streams
 				doLog "Audio: Found $audio_ids audio streams"
 				for AID in $audio_ids;do
@@ -2084,7 +2104,7 @@ EOF
 	# Subtitles
 		tmp_of="${OF##*/}"
 		tmp_if="${video##*/}"
-		if [ ! -z "${video_codec/-/}" ]
+		if [ "$MODE" = video ]
 		then	doLog "Video: Parse sub"
 			if $useSubs
 			then	doSubs > /dev/zero
@@ -2122,7 +2142,6 @@ EOF
 				tui-bgjob "$TMP"  "$STR1pass1" "$STR2pass1" || exit 1
 			else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
 				STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
-
 			fi
 		else	# Its just audio
 			OF=
@@ -2145,7 +2164,7 @@ EOF
 		if [ -f "$OF" ]
 		then 	tui-echo "ATTENTION: Failsafe catcher!"
 			if tui-yesno "Outputfile ($OF) exists, overwrite it?"
-			then 	rm -f "$OF"
+			then 	[ -f "$OF" ] && rm -f "$OF"
 			else	skip=true
 			fi
 		fi
@@ -2159,22 +2178,36 @@ EOF
 			$useSubs && cmd_run_specific+=" $cmd_subtitle_all $subtitle_maps"
 			if $doStream
 			then	#echo todo
+				OF="$URL"
 				## ffmpeg -i "$input" -f mpegts udp://$ip:$port
-				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f mpegts $URL"
+				[ $MODE = video ] && ext=mpegts && tui-header oh no
+				tVID=${video##*/}
+				#set -x
+				[ -z "$COLUMNS" ] && COLUMNS=$(tput cols)
+				[ $(( 2 * ${#tVID} )) -gt $COLUMNS ] && \
+					tVIDa=${tVID:0:${#tVID}/4} && \
+					tVIDb=${tVID:${#tVID}/4*3}:${#tVID}/4} && \
+					tVID="$tVIDa...$tVIDb"
+				STR1="Streaming $tVID as $MODE to $OF"
+				set +x
+				STR1="Streaming $tVID to $OF"
+				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f $ext $URL"
 				#cmd="$FFMPEG -i \"$video\" -f mpegts $URL"
-				
+				printf "$cmd" > "$TMP"
+				#cat "$TMP" ; exit
 			else	cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders $cmd_output_all"
 			fi
 			doLog "Command-Simple: $cmd"
 			msg+=" Converting"
 		
-			printf "$cmd" > "$TMP"
-			if $ADVANCED
-			then	tui-echo "Please save the file before you continue"
-				tui-edit "$TMP"
-				tui-press "Press [ENTER] when ready to encode..."
+			if ! $doStream
+			then	printf "$cmd" > "$TMP"
+				if $ADVANCED
+				then	tui-echo "Please save the file before you continue"
+					tui-edit "$TMP"
+					tui-press "Press [ENTER] when ready to encode..."
+				fi
 			fi
-			
 			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
 			
 			if $showFFMPEG && ! $doStream
