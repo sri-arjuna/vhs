@@ -76,7 +76,6 @@
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
-	CONTAINER="$CONFIG_DIR/containers"	# Base of the container definition files
 	CONTAINER="$CONFIG_DIR/container"
 	PRESETS=$CONFIG_DIR/presets             # Contains a basic table of the presets
         LOG="$CONFIG_DIR/$ME.log" 		# If a daily log file is prefered, simply insert: -$(date +'%T')
@@ -214,8 +213,8 @@
 		tui-status $? "Wrote presets in:" "$PRESETS"
 	}
 	WriteContainerFile() { #
-	#
-	#
+	# This writes the default contaienrs, note that ffmpeg must be build 
+	# against the according codecs and libraries. --> vhs build-ffmpeg
 		touch "$CONTAINER"
 		cat > "$CONTAINER" <<-EOF
 		# VHS ($script_version) container file
@@ -243,8 +242,12 @@
 		ogv	ogv	true	false	libvorbis	libtheora
 		webm	webm	true	true	libvorbis	libvpx
 		wmv	wmv	false	false	wmav2		wmv2
-		xvid	divx	false	true	libmp3lame	libxvid
+		xvid	avi	false	true	libmp3lame	libxvid
 		divx	divx	false	true	libmp3lame	libxvid
+		# - Special containers - x265 + Streaming
+		mkv5	mkv	false 	false	ac3		libx265
+		mpegts	mpeg	false	false	mp2fixed	mpeg2video
+		mp5	mp4	true	true	libfdk_aac	libx265
 		#
 		# Place here your custom/new containers
 		#
@@ -264,7 +267,7 @@ help_text="
 $ME ($script_version) - ${TITLE^}
 Usage: 		$ME [options] filename/s ...
 
-Examples:	$ME -C				| Enter the configuration/setup menu
+${BOLD}${TUI_FONT_UNDERLINE}Examples:${RESET}	$ME -C				| Enter the configuration/setup menu
 		$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
 		$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c ${BOLD}s${RESET}SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
 		$ME -e mp4 filename		| Re-encode a file, just this one time to mp4, using the input files bitrates
@@ -273,7 +276,7 @@ Examples:	$ME -C				| Enter the configuration/setup menu
 		$ME -Q fhd filename		| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
 		$ME -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
-Where options are: (only the first letter)
+${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-h(elp) 			This screen
 	-2(-pass)			Enabled 2 Pass encoding: Video encoding only (Will fail when combinied with -y (copy)!)
 	-a(dd)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
@@ -316,16 +319,19 @@ Where options are: (only the first letter)
 	-y(copY)			Just copy streams, fake convert
 	-z(sample)  1:23[-1:04:45[.15]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
 
+${BOLD}${TUI_FONT_UNDERLINE}Tools:${RESET}
+VHS now comes with some small additional tools built in.
+Invoke ${BOLD}vhs calc${RESET} to calculate the best bitrates if you want to match multiple files onto one storage device.
+You can pass arguments to it: ${BOLD}[cd|dvd|br] [#files] [avrg:duration]${RESET}
+Also, to play and recieve streams, ${BOLD}vhs [my]ip${RESET} will print ip's you could use.
 
-Info:
-------------------------------------------------------
+${BOLD}${TUI_FONT_UNDERLINE}Info:${RESET}
 After installing codecs, drivers or plug in of webcam,
 it is highy recomended to update the list file.
 You can do so by entering the Setup dialog: $ME -C
 and select 'UpdateLists'.
 
-Values:
-------------------------------------------------------
+${BOLD}${TUI_FONT_UNDERLINE}Values:${RESET}
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
 RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
@@ -384,8 +390,7 @@ TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
 For more information or a FAQ, please see ${BOLD}man vhs${RESET}.
 
-Files:		
-------------------------------------------------------
+${BOLD}${TUI_FONT_UNDERLINE}Files:${RESET}
 Script:		$0
 Config:		$CONFIG
 URLS:		$URLS.{play,stream}
@@ -449,11 +454,111 @@ Presets:	$PRESETS
 		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( ($1*60*60 + $2*60 + $3) * BYTES )}' BYTES=$t_BYTERATE
 		return $?
 	}
+	bit_calculator()  { # ITEM COUNT DURATION
+	# Trying to calculate suggested bitrates,
+	#  according to storage size and amount of files.
+		
+	#
+	#	Variables
+	#
+		def_STOR=dvd	# The general storage
+		def_COUNT=20	# Spread among this many files
+		def_AVRG=45	# Of which each plays about this many minutes
+		SIZE=""		# Leave empty to start
+	#
+	#	Functions
+	#
+		storage_size() { # ITEM
+		# Returns the filesize of a storage device
+		# A little bit less to be sure
+			case "$item" in
+			cd)	def_size=680	;;
+			dvd)	def_size=4450	;;
+			br)	def_size=29000	;;
+			other)	def_size=$(tui-read "What is the available storage size?")	;;
+			esac
+			echo $def_size
+			return 0
+		}
+	#
+	#	Action & Display
+	#
+		tui-title "Bitrate calculator"
+		[ -z "$1" ] && \
+			tui-echo "What is the storage?" && \
+			item=$(tui-select cd dvd br other) || \
+			item="$1"
+		case "$item" in
+		other)	SIZE=$(tui-read "Please type the size in numbers:")
+			;;
+		*)	[ -z "$SIZE" ] && SIZE=$(storage_size "$item")
+			;;
+		esac
+		[ -z "$2" ] && \
+			COUNT=$(tui-read "How many files? ($def_COUNT)") || \
+			COUNT="$2"
+		[ -z "$COUNT" ] && COUNT=$def_COUNT
+
+		[ -z "$3" ] && \
+			AVRG=$(tui-read "What is the average duration in minutes? ($def_AVRG)") || \
+			AVRG="$3"
+		[ -z "$AVRG" ] && AVRG=$def_AVRG
+		
+		# Size per file
+		SF=$(echo "$SIZE $COUNT" | $AWK '{print int ($1*1024/$2)}')
+		# Size per minue
+		SM=$(echo "$SF $AVRG" | $AWK '{print int ($1/$2)}')
+		# Size per second
+		SS=$(echo "$SM 60" | $AWK '{print int ($1/$2)}')
+		# Bytes per second
+		BS=$(echo "$SS 8" | $AWK '{print int ($1*$2)}')
+		# Audio Bit
+		AB=$(echo $BS | $AWK '{print int ($1/4)}')
+		# Video Bit
+		if [ $AB -gt 768 ]
+		then	VB=$(echo $AB | $AWK '{print int ($1*4-768)}')
+			AB=768
+		elif [ $AB -gt 512 ]
+		then	VB=$(echo $AB | $AWK '{print int ($1*4-512)}')
+			AB=512
+		else	VB=$(echo $AB | $AWK '{print int ($1*3)}')
+		fi
+		
+		tui-title "Suggested rates"
+		tui-echo "Filesize to achieve:"	"$SF kbytes per file" #| -- comments refer to last output line
+		tui-echo "Size per minute"	"$SM kbytes" #| $BS * 8 	= Byterate per second
+		tui-echo "Total bitrate:" 	"$BS kbit/s" #| ^ * 60 * AVRG 	= Byterate per file
+		tui-echo "Audio (suggestion):"	"$AB kbit/s" #| ^ * $COUNT 	= Byterate total
+		tui-echo "Video (suggestion):"	"$VB kbit/s" #|	^ / 1024 	= kilobytes total
+	}
 	StreamInfo() { # VIDEO
 	# Returns the striped down output of  ffmpeg -psnr -i video
 	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
 		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
 		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
+	}
+	myIp() { # 
+	# Simply prints internal and external IP using http://www.unix.com/what-is-my-ip.php
+	#
+		tui-title "My IP's"
+		URL=http://www.unix.com/what-is-my-ip.php
+		for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
+			tui-echo "External:" "$i"
+		done
+		for i in $(ifconfig | awk -F" " '/netmask / {print $2}');do
+			tui-echo "Internal:" "$i"
+		done
+		return $?
+		#DATA=$(curl -s $URL) > /dev/zero
+		#str="DNS Lookup For"
+		#tui-echo "Internal" \
+		#	"$(ifconfig | \
+		#		grep -i broadcast | grep ^[[:space:]] | \
+		#		awk '{ print $2}')"
+		#tui-echo "External" \
+		#	"$(echo "$DATA" | \
+		#		sed s,"$str","\n\n$str",g | sed s,"<"," ",g | \
+		#		grep "$str" | awk '{print $4}')"
 	}
 	PlayTime() { #
 	# Returns the play time duration of a media file
@@ -1367,7 +1472,9 @@ EOF
 			then	$beVerbose && tui-echo "Video exist, showing info"
 				tui-printf "Retrieving data from ${A##*/}" "$WORK"
 				StreamInfo "$A" > "$TMP.info.2"
-				tui-title "Input: ${A##*/}"
+				$doStream && \
+					tui-title "Next title: ${A##*/}"  || \
+					tui-title "Input: ${A##*/}"
 				$GREP -v "\--version" "$TMP.info.2" | while read line;do tui-echo "$line";done
 			else	$beVerbose && tui-echo "Input '$A' not found, skipping..." "$SKIP"
 			fi
@@ -1590,6 +1697,20 @@ EOF
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
+	$showHeader && \
+		tui-header \
+			"$ME ($script_version)" \
+			"$TITLE" "$(date +'%F %T')"
+	case "$1" in
+	calc)	bit_calculator $2 $3 $4
+		exit $?
+		;;
+	ip|myip)
+		myIp
+		exit $?
+		;;
+	esac
+	
 	ARGS=("${@}")
 	if [ ! -z "$ADDERS" ] && [ ! -z "$ADDED_VIDEO" ]
 	then	[ -z "$guide_complex" ] && \
@@ -1599,15 +1720,13 @@ EOF
 #
 #	Little preparations before we start showing the interface
 #
-	$showHeader && \
-		tui-header \
-			"$ME ($script_version)" \
-			"$TITLE" "$(date +'%F %T')" && \
+	$doStream && container=mpegts
 	doLog "Loading: $container"
 	LoadContainer "$container"
 	
 	doLog "FFMPEG: $FFMPEG"
 	cmd_all="$FFMPEG"
+			
 	
 	if [ ! -z "$video_codec" ] 
 	then	# There is a video codec
@@ -1674,7 +1793,8 @@ EOF
 	
 	F=""
 	if $doStream
-	then	file_extra=true
+	then	
+		file_extra=true
 		if $doPlay
 		then	tui-title "Stream : Play"
 			if $doSelect
@@ -1941,9 +2061,6 @@ EOF
 #	Show menu or go for the loop of files
 #
 	wait_now=false
-	#set -x
-	#MODE=video
-	#set +x
 	cmd_video_all_outside="$cmd_video_all"
 	cmd_audio_all_outside="$cmd_audio_all"
 	for video in "${ARGS[@]}";do 
@@ -1980,10 +2097,12 @@ EOF
 	#	Output per video
 	#
 		$doStream && \
-			tui-title "Next title: $video" #&& \
+			$0 -Ui "$video" || \
+			$0 -i "$video"
+			#tui-title "Next title: $video" #&& \
 		#	( $0 -i "$video" )  > /dev/zero && \
 		#	sleep 0.5 || \
-			$0 -i "$video"	# Calling itself with -info for video
+			#$0 -Ui "$video"	# Calling itself with -info for video
 		
 		if ! $GREP -i "video:" -q "$TMP.info" # | $GREP -q video # || ! $GREP video "$TMP"
 		then	tui-echo "No Video found!"
@@ -2007,6 +2126,7 @@ EOF
 		EXPECTED=$(fs_expected)
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
+		for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
 		num="${RES/[x:]*/}"
 		[ -z "$num" ] && num=3840
 		
@@ -2189,7 +2309,7 @@ EOF
 					tVIDb=${tVID:${#tVID}/4*3}:${#tVID}/4} && \
 					tVID="$tVIDa...$tVIDb"
 				STR1="Streaming $tVID as $MODE to $OF"
-				set +x
+				#for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
 				STR1="Streaming $tVID to $OF"
 				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $ADDERS $web $extra $cmd_video_all $txt_mjpg $cmd_audio_all $cmd_run_specific $cmd_audio_maps $TIMEFRAME $METADATA $adders -f $ext $URL"
 				#cmd="$FFMPEG -i \"$video\" -f mpegts $URL"
@@ -2309,3 +2429,4 @@ EOF
 		exit $RET_HELP
 	fi
 exit 0
+for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n ;done
