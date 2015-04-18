@@ -1146,6 +1146,7 @@ req_inst=false
 # Available (yet supported) containers:
 # VIDEO -> avi flv mkv mp4 ogg webm wmv
 # AUDIO -> aac ac3 dts mp3 wav wma
+# Understand that the audio container is only used for streaming!
 container=mkv
 container_audio=mp3
 
@@ -1187,7 +1188,7 @@ subtitle=ssa
 
 # How long to wait by default between encodings if multiple files are queued?
 # Note that 's' is optional, and could be as well either: 'm' or 'h'.
-sleep_between=1m
+sleep_between=90s
 
 # This is a default value that should work on most webcams
 # Please use the script's Configscreen (-C) to change the values
@@ -1198,8 +1199,8 @@ webcam_fps=25
 
 # Streaming
 FFSERVER_CONF=$(locate ffserver.conf|head -n1)
-URL_UP="$(ifconfig | grep broadcast | awk '{print $2}'):8090"
-URL_PLAY="$(ifconfig | grep broadcast | awk '{print $2}'):8090"
+URL_UP="udp://$(ifconfig | grep broadcast | awk '{print $2}'):8090/live.ffm"
+URL_PLAY="udp://$(ifconfig | grep broadcast | awk '{print $2}'):8090"
 EOF
 			tui-status $? "Wrote $CONFIG" 
 			
@@ -2210,7 +2211,7 @@ EOF
 				doLog "Command-Audio: $cmd"
 
 				if $doStream
-				then	tui-bgjob "$TMP" "Streaming \"$video-$AID\" to \"$OF\"" "Streamed $video-$AID to \"$OF\""
+				then	tui-bgjob "$TMP" "Streaming \"$video-$AID\" to \"$URL\"" "Streamed $video-$AID to \"$URL\""
 				else	doExecute "$TMP" "$OF" "Encoding \"$video\" to \"$OF\"" "Encoded audio to \"$tOF\""
 				fi
 			done
@@ -2334,7 +2335,7 @@ EOF
 			then	#echo todo
 				OF="$URL"
 				## ffmpeg -i "$input" -f mpegts udp://$ip:$port
-				[ $MODE = video ] && ext=mpegts && tui-header oh no
+				[ $MODE = video ] && ext=mpegts #&& tui-header oh no
 				tVID=${video##*/}
 				#set -x
 				[ -z "$COLUMNS" ] && COLUMNS=$(tput cols)

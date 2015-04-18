@@ -71,6 +71,8 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 - Changed: Rearanged project files
 - Changed: README.md
 - Added:   INSTALL.md & install.sh
+- Fixed:   Audio extraction using the passed codec again
+
 
 
 * Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0
