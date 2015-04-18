@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        2.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -23,10 +23,9 @@ Requires:       vobcopy
 #Requires:       speex-tools
 #Requires:       swftools
 #Requires:       mjpegtools
-#Requires:       libdvdcss
 
 %description
-A Script to handle different multimedia tasks.
+A Script to handle many different multimedia tasks.
 * Re-encode existing videos
 * Capture web cam
 * Capture desktop
@@ -36,6 +35,7 @@ A Script to handle different multimedia tasks.
 * Include PiP Video
 * Include Logoimage (Top Left fixed)
 * Encode DVD
+* Streaming / server
 
 %prep
 %setup -q -c %{name}-%{version}
@@ -52,10 +52,10 @@ mkdir -p %{buildroot}%{_bindir}/ \
 	 %{buildroot}%{_mandir}/man1 \
 	 %{buildroot}%{_sysconfdir}/bash_completion.d/
 rm -fr %{name}/.git
-mv %{name}/vhs.sh %{buildroot}%{_bindir}/vhs
-mv %{name}/vhs.1      %{buildroot}%{_mandir}/man1
-mv %{name}/[RL]*  %{buildroot}%{_datarootdir}/%{name}
-mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
+mv %{name}/files/vhs.sh %{buildroot}%{_bindir}/vhs
+mv %{name}/files/vhs.1      %{buildroot}%{_mandir}/man1
+mv %{name}/files/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
+mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 
 %files
 %doc %{_datarootdir}/%{name}/README.md 
@@ -65,9 +65,17 @@ mv %{name}/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_bindir}/vhs
 
 %changelog
+* Thu Apr 09 2015 Simon A. Erat <erat.simon@gmail.com> 2.5
+- Added:   Bit Calculator, vhs calc
+- Added:   Ip lister, vhs ip
+- Changed: Rearanged project files
+- Changed: README.md
+- Added:   INSTALL.md & install.sh
+
+
 * Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0
 - Added:   Stream Play
-- Added:   Stream Serve, Webcam, Screen, Guide, Video
+- Added:   Stream Server, Webcam, Screen, Guide, Video
 - Added:   History re-select for Stream Play/Serve individualy
 - Updated: Now can encode multiple files to audio
 

@@ -65,7 +65,7 @@
 	X="$HOME/.config/user-dirs.dirs"
 	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file, using: $HOME/Videos"
 	# Setting default videos dir and create it if none is present
-	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos" && ( [ -d "$XDG_VIDEOS_DIR" ] || mkdir -p "$XDG_VIDEOS_DIR" )
+	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos" && ( [ -d "$XDG_VIDEOS_DIR" ] || tui-bol-dir "$XDG_VIDEOS_DIR" )
 #
 #	Script Environment
 #
@@ -101,24 +101,24 @@
 #	Defaults for proper option catching, do not change
 #
 	# BOOL's
-	ADDED_VIDEO=false
-	ADVANCED=false
+	ADDED_VIDEO=false		# Toggle if a video/-stream is added
+	ADVANCED=false			# Open the tempfile before executing?
 	showFFMPEG=false		# -v 	Debuging help, show the real encoder output
 	beVerbose=false			# -V 	Show additional steps done
-	doCopy=false			# -C
-	doJoin=false			# -J
-	doPlay=false			# -P, requires -U|[u URL]
-	doSelect=false
-	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W
+	doCopy=false			# -y	Just set all stream codecs to copy
+	doJoin=false			# -J	Joins all the passed video files
+	doPlay=false			# -P	requires -U|[u URL]
+	doSelect=false			# -[PP|UU] Show selection menu for either one
+	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W or a file
 	doExternal=false		# -E
-	override_audio_codec=false	# -c a	/ -C
-	override_sub_codec=false	# -c t	/ -C
-	override_video_codec=false	# -c v	/ -C
+	override_audio_codec=false	# -c a	/ -C	User passed codec
+	override_sub_codec=false	# -c t	/ -C	''
+	override_video_codec=false	# -c v	/ -C	''
 	override_container=false	# -e ext
 	useFPS=false			# -f / -F
 	useRate=false			# -R
 	useSubs=false			# -t
-	useJpg=false			# -j
+	useJpg=false			# -j		Now: Copy all streams
 	codec_extra=false		# Depends on container /file extension
 	file_extra=false		# Depends on container /file extension
 	# Values - 
@@ -157,6 +157,7 @@
 	URL_UP=""
 	URL_PLAY=""
 	URLS="$CONFIG_DIR/urls"
+	LS=$(locate ls|$GREP bin/ls$|head -n1)
 	count_P=0
 	count_U=0
 #
@@ -194,11 +195,9 @@
 		#quhd	15360x8640	128720	1280	16k, Quad UHD - 4xUHD
 		#ouhd	30720x17380	512000	2048	32k, Octo UHD - 8xUHD, my suggestion
 		#
-		# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions,
-		#  as they are set that high to meet google its standard.
-		# Saying, whatever video quality you pass to youtube, it will be re-encoded with these values.
-		# So it is best to provide a source as high as that (selected resolution, 
-		#  'upscale' does increase filesize only)
+		# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions, as they are set that high to remain technicly lossless.
+		# Saying, whatever video quality you pass to youtube, it will be re-encoded with the values found here.
+		# So it is best to provide a source as high as that (selected resolution, 'upscale' does not increase quality)
 		# See:	https://support.google.com/youtube/answer/1722171?hl=en
 		#  for more details.
 		#
@@ -219,12 +218,12 @@
 		cat > "$CONTAINER" <<-EOF
 		# VHS ($script_version) container file
 		# Use '-' for an empty codec
-		# STRICT true = -strict 2
-		# FILE true = -f EXT
+		# STRICT true 	= 	-strict -2
+		# FILE true 	= 	-f EXT
 		#
-		# LABEL	EXT	STRICT FILE	AUDIO		VIDEO
+		# LABEL	EXT	STRICT	FILE	AUDIO		VIDEO
 		# - Audio -
-		aac	aac	false	false	aac		-
+		aac	aac	true	false	aac		-
 		ac3	ac3	false	false	ac3		-
 		dts	dts	false	false	dts		-
 		flac	flac	false	false	flac		-
@@ -234,7 +233,7 @@
 		wma	wma	false	true	wmav2		-
 		wav	wav	false	false	pcm_s16le	-
 		# - Video with Audio -
-		avi	avi	false	true	libmp3lame	msvideo1		
+		avi	avi	false	true	wmav1		msvideo1		
 		flv	flv	false	false	aac		flv
 		mp4	mp4	true	true	aac		libx264
 		mpeg	mpeg	false	false	mp2fixed	mpeg2video
@@ -243,15 +242,14 @@
 		webm	webm	true	true	libvorbis	libvpx
 		wmv	wmv	false	false	wmav2		wmv2
 		xvid	avi	false	true	libmp3lame	libxvid
-		divx	divx	false	true	libmp3lame	libxvid
-		# - Special containers - x265 + Streaming
-		mkv5	mkv	false 	false	ac3		libx265
+		# - Special containers : Streaming -
 		mpegts	mpeg	false	false	mp2fixed	mpeg2video
-		mp5	mp4	true	true	libfdk_aac	libx265
 		#
 		# Place here your custom/new containers
 		#
 		# LABEL	EXT	STRICT FILE	AUDIO		VIDEO
+		mk5	mkv	false 	false	ac3		libx265
+		mp5	mp4	true	true	libfdk_aac	libx265
 		
 		EOF
 		tui-status $? "Wrote containers in:" "$CONTAINER"
@@ -408,6 +406,12 @@ Presets:	$PRESETS
 	# See 'tui-log -h' for more info
 		tui-log -t$optLogVerb "$LOG" "$1"
 	}
+	StreamInfo() { # VIDEO
+	# Returns the striped down output of  ffmpeg -psnr -i video
+	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
+		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
+		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
+	}
 	FileSize() { # FILE
 	# Returns the filesize in bytes
 	#
@@ -473,7 +477,7 @@ Presets:	$PRESETS
 		# A little bit less to be sure
 			case "$item" in
 			cd)	def_size=680	;;
-			dvd)	def_size=4450	;;
+			dvd)	def_size=4400	;;
 			br)	def_size=29000	;;
 			other)	def_size=$(tui-read "What is the available storage size?")	;;
 			esac
@@ -530,12 +534,6 @@ Presets:	$PRESETS
 		tui-echo "Total bitrate:" 	"$BS kbit/s" #| ^ * 60 * AVRG 	= Byterate per file
 		tui-echo "Audio (suggestion):"	"$AB kbit/s" #| ^ * $COUNT 	= Byterate total
 		tui-echo "Video (suggestion):"	"$VB kbit/s" #|	^ / 1024 	= kilobytes total
-	}
-	StreamInfo() { # VIDEO
-	# Returns the striped down output of  ffmpeg -psnr -i video
-	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
-		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
-		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
 	}
 	myIp() { # 
 	# Simply prints internal and external IP using http://www.unix.com/what-is-my-ip.php
@@ -1059,7 +1057,7 @@ Presets:	$PRESETS
 		
 		[ -z "$verbose" ] && verbose="-v quiet"
                 doLog "Overwrite already generated name, for 'example' code.. "
-               	[ -z "$OF" ] && OF="$(tui-str-genfilename $XDG_VIDEOS_DIR/webcam-out.$container $container)"
+               	[ -z "$OF" ] && OF="$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $container)"
                 #sweb_audio="-f alsa -i default -c:v $video_codec -c:a $audio_codec"
                 web_audio=" -f alsa -i default"
                 cmd="$FFMPEG -f v4l2 -s $webcam_res -i $input_video $EXTRA_CMD $web_audio $cmd_output_all \"${OF}\""
@@ -1072,12 +1070,13 @@ Presets:	$PRESETS
 	UpdateLists() { #
 	# Retrieve values for later use
 	# Run again after installing new codecs or drivers
-		[ -f "$LIST_FILE" ] || touch "$LIST_FILE"
 		tui-title "Generating a list file"
 		$beVerbose && tui-progress "Retrieve raw data..."
+		[ -f "$LIST_FILE" ] && \
+			printf "" > "$LIST_FILE" || \
+			touch "$LIST_FILE"
 		[ -z "$verbose" ] && verbose="-v quiet"
 		ffmpeg $verbose -codecs | $GREP \ DE > "$TUI_TEMP_FILE"
-		printf "" > "$LIST_FILE"
 		
 		for TASK in DEA DES DEV;do
 			case $TASK in
@@ -1587,6 +1586,9 @@ EOF
 			$doPlay && doSelect=true
 			doPlay=true
 			#doStream=true
+			[ -z "$COUNTER_STREAM_PLAY" ] && \
+				COUNTER_STREAM_PLAY=1 || \
+				COUNTER_STREAM_PLAY=$(( $COUNTER_STREAM_PLAY + 1 ))
 			;;
 		q)	Q=$(getQualy "$OPTARG")
 			RES=$(getRes $OPTARG)
@@ -1633,6 +1635,9 @@ EOF
 		U)	$doStream && doSelect=true
 			doStream=true
 			log_msg="Stream: Using an existing URL"
+			[ -z "$COUNTER_STREAM_STREAM" ] && \
+				COUNTER_STREAM_STREAM=1 || \
+				COUNTER_STREAM_STREAM=$(( $COUNTER_STREAM_STREAM + 1 ))
 			;;
 		v)	log_msg="Be verbose (ffmpeg)!"
 			FFMPEG="$ffmpeg_verbose"
@@ -1697,6 +1702,9 @@ EOF
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
+#
+#	First handling of arguments
+#
 	$showHeader && \
 		tui-header \
 			"$ME ($script_version)" \
@@ -1710,7 +1718,18 @@ EOF
 		exit $?
 		;;
 	esac
-	
+	# Edit the URL files
+	[ -z "$COUNTER_STREAM_STREAM" ] && COUNTER_STREAM_STREAM=0
+	[ -z "$COUNTER_STREAM_PLAY" ] && COUNTER_STREAM_PLAY=0
+	if [ $COUNTER_STREAM_PLAY -eq 3 ]
+	then	tui-echo "Edit $URLS.play"
+		tui-edit "$URLS.play"
+		exit $?
+	elif [ $COUNTER_STREAM_STREAM -eq 3 ]
+	then	tui-echo "Edit $URLS.stream"
+		tui-edit "$URLS.stream"
+		exit $?
+	fi
 	ARGS=("${@}")
 	if [ ! -z "$ADDERS" ] && [ ! -z "$ADDED_VIDEO" ]
 	then	[ -z "$guide_complex" ] && \
@@ -1722,8 +1741,9 @@ EOF
 #
 	$doStream && container=mpegts
 	doLog "Loading: $container"
+	#set -x
 	LoadContainer "$container"
-	
+	#set +x ; exit
 	doLog "FFMPEG: $FFMPEG"
 	cmd_all="$FFMPEG"
 			
@@ -1754,14 +1774,19 @@ EOF
 			tui-printf -S 1 "Without video, an audio codec is required!" && \
 			exit 1
 		#set -x
-		container=$(tui-conf-get $CONFIG container_audio)
-		LoadContainer $container
-		doLog "Loading: $container"
+		if $doStream
+		then	# Its a stream, use the 'default' audio codec
+			container=$(tui-conf-get $CONFIG container_audio)
+			LoadContainer $container
+			doLog "Loading: $container"
+		fi
 		#echo "--> $ext <--" > /dev/stderr ; exit 99
 	fi
 	
+	
 	doLog "MODE: $MODE"
 	[ "$MODE" = screen ] || for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
+	
 	
 	# Already and has to be handled above
 	doLog "Video: $cmd_video_all"
@@ -1780,6 +1805,9 @@ EOF
 		fi
 		# Volumecheck
 		[ -z "$VOL" ] || cmd_audio_all+=" $VOL"
+		# Check of strict
+		$codec_extra && \
+			cmd_audio_all+=" -strict -2"
 	fi
 	doLog "Audio: $cmd_audio_all"
 	
@@ -1799,13 +1827,19 @@ EOF
 		then	tui-title "Stream : Play"
 			if $doSelect
 			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
-			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_PLAY)
+			else	if [ -z "$URL" ]
+				then	URL=$(tui-conf-get $CONFIG URL_PLAY)
+				else	$GREP -q $URL $URLS.play || echo "$URL" >> "$URLS.play"
+				fi
 			fi	
 			log_msg="Stream play:"
 		else	tui-title "Stream $MODE : Up"
 			if $doSelect
 			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
-			else	[ -z "$URL" ] && URL=$(tui-conf-get $CONFIG URL_UP)
+			else	if [ -z "$URL" ]
+				then	URL=$(tui-conf-get $CONFIG URL_UP)
+				else	$GREP -q "$URL" "$URLS.stream" || echo "$URL" >> "$URLS.stream"
+				fi
 			fi	
 			log_msg="Stream Server:"
 		fi
@@ -1958,7 +1992,7 @@ EOF
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when read to encode..."
 			fi
-			doLog "Command-Guide: $cmd"
+			doLog "Command-Guide: $(cat $TMP)"
 			$doStream && \
 				tui-bgjob "$TMP" "Streaming 'Guide' to '$OF'" "Streamed 'Guide' to '$OF'" || \
 				doExecute "$TMP" "$OF" "Encoding 'Guide' to '$OF'" "Encoded 'Guide' to '$OF'"
@@ -2038,8 +2072,8 @@ EOF
 			echo failure
 			exit $?
 			;;
-		video)	if [ -z "$1" ]
-			then	doLog "Stream: Aborting, no $MODE passed"
+		video|audio)	if [ -z "$1" ]
+			then	doLog "Stream: Aborting, no $MODE file passed"
 				tui-status 1 "Must pass a file to stream!"
 				exit $?
 			fi

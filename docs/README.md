@@ -1,47 +1,67 @@
 VHS
 ===
 
-Video Handler Script by sea, using [ffmpeg](http://ffmpeg.org)
-
+Video Handler Script by sea, using [ffmpeg](http://ffmpeg.org) and [TUI](https://github.com/sri-arjuna/tui)
 
 
 Intro
 -----
 
-This is a handler script and therefor it lets you generate a full valid ffmpeg-command, using alot fewer arguments due to the use of a config file.
+I'm a lazy guy, and eventhough i love the power of the console, one cannot remember/know all of the options and arguments of every tool there is.
+This said, i wanted to make my use of ffmpeg a little easier.
 
-Now since my TV doesnt support webm formated videos, i have to reencode many files (docs, howtos, guides) to a basic (main-target) container-extension, which would be Matroska (mkv) for my TV.
+What started as a simple script to mass-encode videos to save discspace, became a quite powerfull tool around ffmpeg.
+It was never supposed to be, but now it is my favorite web radio player :D
 
-Its main goal is, to simplify the process of re-encoding a video using my custom (config file) preferences to the same name but changed file extension, increasing the added number if the file already exists.
+Rather than typing a complex line of a single command, with the change of a letter, you can record from your webcam, your desktop or combine the both in a guide video.
+Encoding files, automaticly increases a naming number, so no file gets overwritten.
 
-
-Also i needed to save up some space, so the goal was set, make a script to:
-
-* easy re-enconde inputfiles to a certain container
-* reuse the codec info of diffrent containers,
-* strip down audio streams to favorite ones, 
-* automaticly (but toggable) downcode to stereo,
-* remove subtitles unless told they shall be kept
-* make a log file for easier debuging & code reuse
-* make ffmpeg less verbose, so i can better find the filename its currently working on
+Even for dvd encoding, for which it requires __vobcopy__ to be installed, in best case scenario, it reads the dvd its name, and uses that automaticly for the output name.
 
 
-On the road ffmpeg showed it had alot more functionality to offer:
+What does it do?
+----------------
+All the features below can be quick access'ed by simply passing 1 option to vhs, and if required the input files of concern.
+*	Make ffmpeg silent, as it expects the commands to work properly
+*	Encode files to save space.
+*	Rearange audio streams
+*	Extract time segments or just samples (1min)
+*	Extract audio / subtitle
+*	Add audio or subtitle stream
+*	Add another video stream as pip (there are presets for orientation)
+*	Join/concat audio or video files
+*	Enable, Remove or rearange subtitles
+*	Stream/Record Webcam
+*	Stream/Record Desktop
+*	Stream/Record Guide (the two above, webcam as pip)
+*	Streamserver, Audio or Video
+*	Streamplayer, Audio or Video
+*	Make a backup of your DVD
 
-* Screen recording
-* Webcam recording
-* 'Guide' recording, Screen with Webcam as picture in picture, orientation changable using (-p ARG) presets like: tl, br
-* DVD encoding, but 'currently droped' due to issues of actualy doing so, and not beeing top priority
+
+Tools
+-----
+
+Recently i've added some handy tools.
+
+vhs calc [cd|dvd|br #files ~#min]
+__vhs calc__ Would start the tool, and ask you for the storage device, the amount of files, and their average playtime.
+__vhs calc dvd 32 20__ Does pass all that information on the call and just prints the result.
+
+__vhs ip__ Simply prints your external (wan) and internal (lan) IP adresses.
+
+__vhs build-ffmpeg [CHROOT]__ Will pull in all source code and compile ffmpeg pulling in as many possible features as possible.
+CHROOT by default will be $HOME/.local, during compilation, the PREFIX will then be $CHROOT/usr -> $HOME/.local/usr.
 
 
-Reason
-------
+Examples : Command lenght
+-------------------------
 
 So for lazy people like me, i usualy just call the first line, rather than the second...
 
 Using subtitles and use 'full' preset Quality *-Q RES*
 
-	vhs -tQ fhd videofile
+	vhs -tQ fhd inputfile
 	ffmpeg -i "inputfile"  -strict -2  -map 0:0 -b:v 1664K -vf scale=1920x1080 -c:v libx264  -minrate 3328K -maxrate 3328K -bufsize 1664K  -b:a 256K -ac 2 -c:a ac3   -c:s ssa  -map 0:3  -map 0:1  "outputfile"
 
 
@@ -49,7 +69,6 @@ Or to record whats going on on my desktop
 
 	vhs -S
 	ffmpeg -f x11grab -video_size  1920x1080 -i :0 -f alsa -i default  -strict -2 -f mp4 "outputfile"
-
 
 
 If you still want more output, there you go:
@@ -65,22 +84,23 @@ If you still want more output, there you go:
 	tail ~/.config/vhs/vhs.log
 
 
-Examples
------------
+Examples : Usage
+----------------
 
 	vhs [/path/to/]file				# Encodes a specific file
-	vhs *							# Encodes all files in current directory, using the sources bitrates
+	vhs *							# Encodes all files in current directory
 	vhs -b a128 -b v256 files		# Encode a video with given bitrates in kbytes
-	vhs -B files					# Encode a video with default bitrates
-	vhs -c vlibtheora -c alibvorbis files	# Encode a file with given codecs
-	vhs -e XY files					# Encode a video with container XY rather than favorite
-	vhs -w files					# Encode a video and move info flags in front (web/streaming)
-	vhs -v files					# Encode a video and (ffmpeg) be verbose
-	vhs -C files					# Copy streams - dont encode
-	vhs -U files					# Upstream passed files, to favorite upstream ID
+	vhs -B files					# Encode a video with default bitrates (vhs.conf)
+	vhs -c vlibx265 -c alibfaac files	# Encode a file with given codecs
+	vhs -e XY files					# Encode a video with container XY rather than favorite from vhs.conf
+	vhs -w files ...					# Encode a video and move info flags in front (web/streaming)
+	vhs -v files ...					# Encode a video and (ffmpeg) be verbose (good to see why it failed)
+	vhs -y files ...					# Copy streams - dont encode
+	vhs -U files ...					# Upstream passed files, to favorite upstream ID (urls.stream)
 	vhs -SU						# Upstream desktop, to favorite upstream ID
-	vhs -vPU					# Play videostream from favorite playstream id
-	vhs -Pu adress					# Play audio stream from adress
+	vhs -vPU					# Play videostream from your most favorite playstream id (vhs.conf)
+	vhs -vPP					# Play videostream from one of the prevously played streams (urls.play)
+	vhs -Pu adress					# Play audio stream from adress (urls.play)
 
 Help-screen
 -----------
@@ -199,37 +219,3 @@ Help-screen
 	Lists:		/home/sea/.config/vhs/vhs.list
 	Log:		/home/sea/.config/vhs/vhs.log
 	Presets:	/home/sea/.config/vhs/presets
-
-
-
-Videoguide
-----------
-
-If you want a video guide, please acknowledge that i dont like to be recorded: [VHS - Playlist](https://www.youtube.com/playlist?list=PLLFcWWccyIef2wUuT-KUMzRdlvNj525mG)
-
-	
-Dependencies
-------------
-
-It expects bash and either wget with unzip or git to be already installed.
-Bash-completion is optional but recomended.
-
-To display properly, VHS depends on [TUI](http://github.com/sri-arjuna/tui), the Text User Interface.
-This dependency is automaticly installed, if either git or wget and unzip are available.
-
-FFMPEG, mkvtoolnix, v4l-tools are attempt to be installed with the package manager of your system, if reckognized by TUI.
-For any codec or container you attempt to encode, even just the defaults set by VHS, is in your obligation to provide.
-If your ffmpeg build does not support the task you want to achieve, you can build your own following the instructions on [ffmpeg.org](http://ffmpeg.org/general.html) and the [forum](http://ffmpeg.gusari.org/viewtopic.php?f=25&t=38)
-
-
-Installation
-------------
-
-Only 3 files are to be installed, as root, place the files as (rename vhs.sh along):
-
-	vhs.sh		/usr/bin/vhs
-	vhs.1		/usr/share/man/man1/
-	vhs_compl.bash	/etc/bash_completion.d/
-
-
-Hope you like it as much as i do, enjoy :)
