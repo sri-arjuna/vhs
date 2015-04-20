@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        2.0
-Release:        5%{?dist}
+Version:        2.1
+Release:        7%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -59,20 +59,20 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 
 %files
 %doc %{_datarootdir}/%{name}/README.md 
+%doc %{_datarootdir}/%{name}/INSTALL.md 
 %doc %{_datarootdir}/%{name}/LICENSE
 %{_sysconfdir}/bash_completion.d/%{name}*
 %{_mandir}/man1/%{name}*.1.gz
 %{_bindir}/vhs
 
 %changelog
-* Thu Apr 09 2015 Simon A. Erat <erat.simon@gmail.com> 2.5
+* Thu Apr 09 2015 Simon A. Erat <erat.simon@gmail.com> 2.1
 - Added:   Bit Calculator, vhs calc
 - Added:   Ip lister, vhs ip
 - Changed: Rearanged project files
 - Changed: README.md
 - Added:   INSTALL.md & install.sh
 - Fixed:   Audio extraction using the passed codec again
-
 
 
 * Sun Mar 29 2015 Simon A. Erat <erat.simon@gmail.com> 2.0

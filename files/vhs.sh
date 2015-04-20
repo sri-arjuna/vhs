@@ -72,7 +72,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.0.4
+	script_version=2.1.4
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -179,14 +179,15 @@
 		hvga	  480x320	320	192	Half VGA, mobile devices
 		#ntsc	  440×486	320	192	TV - NTSC 4:3
 		#pal	  520×576	480	192	TV - PAL 4:3
-		nhd	  640x360	512	256	Ninth of HD, mobile devices
-		vga	  640x480	640	256	VGA
-		dvdn	  720x480	744	384	DVD NTSC
-		dvd	  720x576	768	384	DVD-wide - Pal
-		fwvga	  854x480	768	384	DVD-wide - NTCS, mobile devices
-		hd	 1280x720	1280	384	HD aka HD Ready
-		fhd	1920x1080	1920	384	Full HD
-		qhd	2560x1440	3840	448	2k, Quad HD - 4xHD
+		nhd	  640x360	512	192	Ninth of HD, mobile devices
+		vga	  640x480	640	192	VGA
+		dvdn	  720x480	744	256	DVD NTSC
+		dvd	  720x576	768	256	DVD-wide - Pal
+		fwvga	  854x480	768	256	DVD-wide - NTCS, mobile devices
+		hdr	 1280x720	1280	256	HD Ready
+		hd	1920x1080	1920	256	Full HD
+		HD	1920x1080	2560	384	Full HD
+		qhd	2560x1440	3840	384	2k, Quad HD - 4xHD
 		uhd	3840x2160	7680	512	4K, Ultra HD TV
 		# Below are presets which fail on (freeze!) my machine.
 		# Feel free to uncomment the below 4 lines at your own risk.
@@ -303,6 +304,7 @@ ${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-Q(uality)	RES		Sets to ID-resolution and uses the bitrates from presets, video might become sctreched
 	-r(ate)		48000		Values from 48000 to 96000, or similar
 	-R(ate)				Uses the frequency rate from configuration ($CONFIG)
+	-s(cale)	RES		Expects RES to be in form/kind of either one: ${BOLD}1600x900$RESET or ${BOLD}hd$RESET
 	-S(creen)			Records the fullscreen desktop
 	-t(itles)			Use default and provided langauges as subtitles, where available
 	-T(imeout)	2m		Set the timeout between videos to TIME (append either 's', 'm' or 'h' as other units)
@@ -1352,7 +1354,7 @@ EOF
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
 	#showHeader=false
-	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:SstT:q:Q:Uu:vVwWxXyz:" opt
+	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:Ss:tT:q:Q:Uu:vVwWxXyz:" opt
 	do 	log_msg=""
 		case $opt in
 		2)	PASS=2	;;
@@ -1365,7 +1367,8 @@ EOF
 		#		;;
 			jpg|jpeg|gif|bmp|png|ico)
 				out_str="out$A"
-				ARG=" -filter_complex 'overlay$image_overlay'"
+				#ARG=" -filter_complex 'overlay$image_overlay'"
+				ARG=" -filter_complex ${video_overlay/[X/[$A}"
 				;;
 			avi|xvid|webm|ogm|mkv|mp4|mpeg|ogv|ogm|flv|wmv)
 				adders+=" -map $A:a -map $A:v -filter_complex ${video_overlay/[X/[$A}"
@@ -1618,6 +1621,9 @@ EOF
 			useRate=true
 			log_msg="Force audio_rate to $audio_rate"
 			;;
+		s)	RES="$OPTARG"
+			log_msg="Scale video to $RES"
+			;;
 		S)	MODE=screen
 			#OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext)
 			log_msg="Set MODE to ${MODE^}, saving as $OF"
@@ -1784,11 +1790,8 @@ EOF
 		#echo "--> $ext <--" > /dev/stderr ; exit 99
 	fi
 	
-	
 	doLog "MODE: $MODE"
 	[ "$MODE" = screen ] || for v in $(listVideoIDs "$1");do cmd_video_all+=" -map 0:$v";done	# Make sure video stream is used always
-	
-	
 	# Already and has to be handled above
 	doLog "Video: $cmd_video_all"
 	
@@ -1883,15 +1886,34 @@ EOF
 	then	$doSelect && [ -z "$URL" ] && \
 			tui-echo "Please select an url you want to replay:" && \
 			URL=$(tui-select $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
-		[ -z "$URL" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL'!" && exit 1
+		[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
 		$showFFMPEG && \
-			showdisp="" && \
-			doLog "Stream: Play, expecting video stream..." || \
+			showdisp="-fs" && \
+			doLog "Stream: Play, expecting stream..." || \
 			showdisp="-nodisp"
-		echo "ffplay -v quiet -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
+		if [ -z "$1" ]
+		then	tui-title "Playing Stream"
+			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
+		else	tui-title "Playing File"
+			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play File : $1\" -i \"$1\" $showdisp || exit 1" > "$TMP"
+		fi
+		if $ADVANCED
+		then	tui-edit "$TMP"
+			tui-press
+		fi
 		doLog "Stream: Play-Command: $(cat $TMP)"
-		tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
-		RET=$?
+		
+		tui-list -n 	"q) Quit" "f) Fullscreen" "p) Pause" \
+				"a) Cycle Audio" "v) Cycle video" "t) Cycle Subtitles" \
+				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" 
+		
+		if [ -z "$1" ]
+		then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
+			RET=$?
+		else	tui-bgjob "$TMP" "Streaming from: $1" "Done playing $1" 1.5
+			RET=$?
+		fi
+		
 		exit $RET
 	fi
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
@@ -2162,13 +2184,15 @@ EOF
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
 		for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
-		num="${RES/[x:]*/}"
-		[ -z "$num" ] && num=3840
-		
-		if [ 3840 -lt $num ]
-		then	tui-echo
-			tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
-			tui-yesno "Continue anyway?" || exit 0
+		if [ "" != "$(echo $num|tr -d [:alpha:])" ]
+		then	num="${RES/[x:]*/}"
+			[ -z "$num" ] && num=3840
+
+			if [ 3840 -lt $num ]
+			then	tui-echo
+				tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
+				tui-yesno "Continue anyway?" || exit 0
+			fi
 		fi
 		
 		if $useJpg
@@ -2211,8 +2235,8 @@ EOF
 				doLog "Command-Audio: $cmd"
 
 				if $doStream
-				then	tui-bgjob "$TMP" "Streaming \"$video-$AID\" to \"$URL\"" "Streamed $video-$AID to \"$URL\""
-				else	doExecute "$TMP" "$OF" "Encoding \"$video\" to \"$OF\"" "Encoded audio to \"$tOF\""
+				then	tui-bgjob "$TMP" "Streaming \"$video:$AID\" to \"$URL\"" "Streamed $video-$AID to \"$URL\""
+				else	doExecute "$TMP" "$OF" "Encoding to \"$OF\"" "Encoded audio to \"$tOF\""
 				fi
 			done
 			continue
@@ -2284,8 +2308,8 @@ EOF
 		# 2-Pass encoding enabled?
 			if [ $PASS -eq 2 ]
 			then	# Do first pass if 2 pass
-				STR2="Encoded \"$tmp_if\" pass 2/2 to \"$tmp_of\""
-				STR1="Encoding \"$tmp_if\" pass 2/2 to \"$tmp_of\""
+				STR2="Encoded \"$tmp_if\" pass 2/2" # to \"$tmp_of\""
+				STR1="Encoding \"$tmp_if\" pass 2/2" # to \"$tmp_of\""
 
 				STR2pass1="Encoded \"$tmp_if\" pass 1/2"
 				STR1pass1="Encoding \"$tmp_if\" pass 1/2" # to ffmpeg2pass-0.log.mbtree"
@@ -2295,8 +2319,8 @@ EOF
 				doLog "Command-Video-Pass1: $cmd2pass"
 				#doExecute "$TMP" "ffmpeg2pass-0.log.mbtree" "$STR1pass1" "$STR2pass1" || exit 1
 				tui-bgjob "$TMP"  "$STR1pass1" "$STR2pass1" || exit 1
-			else	STR2="Encoded \"$tmp_if\" to \"$tmp_of\""
-				STR1="Encoding \"$tmp_if\" to \"$tmp_of\""
+			else	STR2="Encoded to \"$tmp_of\"" # \"$tmp_if\"
+				STR1="Encoding to \"$tmp_of\"" # \"$tmp_if\"
 			fi
 		else	# Its just audio
 			OF=
