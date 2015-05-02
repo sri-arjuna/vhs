@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.03.29
+#	Changed:	2015.04.21
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -53,7 +53,8 @@
 			unzip master.zip && rm -f master.zip
 			mv tui-master/* . ; rmdir tui-master
 		fi
-    		if ! PREFIX=/usr bash /tmp/tui.inst/install.sh
+    		cd /tmp/tui.inst || exit 1
+    		if ! PREFIX=/usr bash ./install.sh
     		then	printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n"
 			exit 1
 		fi
@@ -72,7 +73,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.1.4
+	script_version=2.1.5
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -542,9 +543,15 @@ Presets:	$PRESETS
 	#
 		tui-title "My IP's"
 		URL=http://www.unix.com/what-is-my-ip.php
-		for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
-			tui-echo "External:" "$i"
-		done
+		#for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
+		#	tui-echo "External:" "$i"
+		#done
+		
+		
+		DATA=$(curl -s $URL) > /dev/zero
+		str="DNS Lookup For"
+		tui-echo "External" "$(echo "$DATA" | sed s,"$str","\n\n$str",g  | sed s,"<"," ",g|grep "$str" | awk '{print $4}')"
+		
 		for i in $(ifconfig | awk -F" " '/netmask / {print $2}');do
 			tui-echo "Internal:" "$i"
 		done

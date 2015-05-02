@@ -10,9 +10,9 @@
 	DIR_ROOT=/usr/bin
 	DIR_MAN=/usr/share/man
 	DIR_COMPL=/etc/bash_completion.d
-	EXE="$APP.sh"
-	MAN="$APP.1"
-	COMPL="${APP}_compl.bash"
+	EXE="files/$APP.sh"
+	MAN="files/$APP.1"
+	COMPL="files/${APP}_compl.bash"
 #
 #	Action & Display
 #
@@ -41,7 +41,7 @@
 		esac
 	elif [ $UID -eq 0 ]
 	then	# User is root, system wide installation
-		mv "$APP.sh" 	"$DIR_ROOT/$APP"
+		mv "$EXE" 	"$DIR_ROOT/$APP"
 		mv "$MAN"	"$DIR_MAN/man1/"
 		mv "$COMPL"	"$DIR_COMPL"
 		exit $?

@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        2.1
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -13,6 +13,8 @@ Requires:       ffmpeg
 Requires:       mkvtoolnix
 Requires:       v4l-utils
 Requires:       vobcopy
+# gstreamer1 gstreamer1-plugins-{good,bad-free,ugly,base} gstreamer1-plugins-{base-tools,good-extras,bad-freeworld} faac
+# 
 
 # Not yet there, need to write handler for these,
 #   if i'm going to implement (need) all this
