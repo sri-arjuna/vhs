@@ -42,8 +42,7 @@
 #
 #	Check if TUI is installed...
 #
-	S=$(which tui) 2>/dev/zero 1>/dev/zero
-	if [ ! -f "$S" ]
+	if [ ! -f "$(which tui)" ]
 	then 	[ ! 0 -eq $UID ] && \
 			printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" && \
 			exit 1
@@ -59,7 +58,8 @@
 			exit 1
 		fi
     	fi
-    	source $S ; S=""
+    	source $HOME/.tui_rc && \
+		. $TUI_DIR_CONF/commands.conf 
 #
 #	Get XDG Default dirs
 #
@@ -427,7 +427,7 @@ Presets:	$PRESETS
 		LINE=$($GREP -v ^"#" "$CONTAINER"|$GREP "$1")
 		[ -z "$LINE" ] && return 1
 		echo "$LINE" | while read lbl E c f a v
-			do	cat > "$TUI_TEMP_FILE" <<-EOF
+			do	cat > "$TUI_FILE_TEMP" <<-EOF
 				ext=$E
 				codec_extra=$c
 				file_extra=$f
@@ -437,9 +437,9 @@ Presets:	$PRESETS
 				#echo "Loop: $EXT / $E - $audio_codec / $a - $codec_extra / $c"
 				break
 			done
-		source "$TUI_TEMP_FILE"
+		source "$TUI_FILE_TEMP"
 		export ext codec_extra file_extra audio_codec video_codec
-		echo "" >  "$TUI_TEMP_FILE"
+		echo "" >  "$TUI_FILE_TEMP"
 	}
 	fs_expected() { #
 	# Returns the expected filesize in bytes
@@ -1085,7 +1085,7 @@ Presets:	$PRESETS
 			printf "" > "$LIST_FILE" || \
 			touch "$LIST_FILE"
 		[ -z "$verbose" ] && verbose="-v quiet"
-		ffmpeg $verbose -codecs | $GREP \ DE > "$TUI_TEMP_FILE"
+		ffmpeg $verbose -codecs | $GREP \ DE > "$TUI_FILE_TEMP"
 		
 		for TASK in DEA DES DEV;do
 			case $TASK in
@@ -1094,7 +1094,7 @@ Presets:	$PRESETS
 			DEV)	txt_prog="Video-Codecs"	; 	var=codecs_video	;;
 			esac
 			tui-progress "Saving $txt_prog"
-			raw=$($GREP $TASK "$TUI_TEMP_FILE"|$AWK '{print $2}'|sed s,"\n"," ",g)
+			raw=$($GREP $TASK "$TUI_FILE_TEMP"|$AWK '{print $2}'|sed s,"\n"," ",g)
 			clean=""
 			for a in $raw;do clean+=" $a";done
 			printf "$var=\"$clean\"\n" >> "$LIST_FILE"
@@ -1102,8 +1102,8 @@ Presets:	$PRESETS
 		done
 		
 		tui-progress "Saving Codecs-Format"
-		ffmpeg $verbose -formats > "$TUI_TEMP_FILE"
-		formats_raw=$($GREP DE "$TUI_TEMP_FILE"|$AWK '{print $2}'|sed s,"\n"," ",g)
+		ffmpeg $verbose -formats > "$TUI_FILE_TEMP"
+		formats_raw=$($GREP DE "$TUI_FILE_TEMP"|$AWK '{print $2}'|sed s,"\n"," ",g)
 		formats=""
 		for f in $formats_raw;do formats+=" $f";done
 		printf "codecs_formats=\"$formats\"\n" >> "$LIST_FILE"
@@ -1297,6 +1297,199 @@ EOF
 			printf "\n"
 			tui-echo "Press [ENTER] to see the menu:" "$INFO"
 		done
+	}
+	function build_ffmpeg () { # [mini]
+	# Build ffmpeg with default packages, or just mini (x265,libfdk_aac,libass)
+	#
+		tui-header "$ME ($script_version)" "$(date +'%F %T')"
+		tui-title "Building ffmpeg from scratch"$( [ -z "$1" ] || echo " ($2)")
+	#
+	#	Build environment
+	#
+		tui-echo "Please select the target CHROOT"
+		CHROOT=$(tui-select -2 / /usr/local $HOME/.local $HOME)
+		LOG_DIR="$CHROOT/logs"		#/$TASK.log will be added
+		LOG=~/ffmpeg-build.log		# 'main' logfile is always @ home
+		SKIPTHIS="$DIR_SRC/skip_these"
+	#
+	#	Variables	:	Environment
+	#
+		[ -f "$HOME/.config/user-dirs.dirs" ] && \
+			source "$HOME/.config/user-dirs.dirs" || \
+			XDG_DOWNLOAD_DIR="$HOME/Downloads"
+		> "$LOG"
+		TMP="${LOG_DIR}/command.sh"
+	#
+	#	Variables	:	Hardcoded
+	#
+		DIR_SRC="$XDG_DOWNLOAD_DIR/ffmpeg_sources"
+		LOG_DIR="$DIR_SRC/logs"
+		DIR_CONF="$CHROOT/etc"
+		# Dirs using PREFIX
+		PREFIX="$CHROOT/usr"
+		DIR_BIN="$PREFIX/bin"
+		DIR_LIB="$PREFIX/lib"
+		[ $(uname -m) = x86_64 ] && DIR_LIB+=64
+		DIR_INC="$PREFIX/include"
+	#
+	#	Variables	:	Optic fixes
+	#
+		DIR_BIN=${DIR_BIN/\/\//\/}
+		DIR_CONF=${DIR_CONF/\/\//\/}
+		PREFIX=${PREFIX/\/\//\/}
+		DIR_LIB=${DIR_LIB/\/\//\/}
+		DIR_INC=${DIR_INC/\/\//\/}
+	#
+	#	Variables	:	Build Environment
+	#
+		CC="$(which gcc)"
+		CXX="$(which g++)"
+		PATHS_LIBS32="/lib:/usr/lib:/usr/local/lib:$CHROOT/lib:$PREFIX/lib"
+		PATHS_LIBS+="$PATHS_LIBS32:$(echo $PATHS_LIBS32|sed s,lib,lib64,g)"
+		PATHS_INC="/include:/usr/include:/usr/local/include:$CHROOT/include:$PREFIX/include"
+	#
+	#	Variables	:	Remote locations	
+	#
+		GIT_FFMPEG="git://source.ffmpeg.org/ffmpeg.git"
+		# Audio
+		URL_flac="http://flac.cvs.sourceforge.net/viewvc/flac/?view=tar"
+		GIT_libfdk_aac="git://git.code.sf.net/p/opencore-amr/fdk-aac"
+		URL_libmp3lame="http://downloads.sourceforge.net/project/lame/lame/3.99/lame-3.99.5.tar.gz"
+		URL_libogg="http://downloads.xiph.org/releases/ogg/libogg-1.3.2.tar.gz"
+		GIT_libopus="git://git.opus-codec.org/opus.git"
+		URL_faac="http://downloads.sourceforge.net/faac/faac-1.28.tar.bz2"
+		# Video
+		GIT_x264="git://git.videolan.org/x264.git"
+		HG_x265="http://hg.videolan.org/x265"	
+		URL_libvorbis="http://downloads.xiph.org/releases/vorbis/libvorbis-1.3.4.tar.gz"
+		GIT_libvpx="https://chromium.googlesource.com/webm/libvpx.git"
+		URL_libtheora="http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.xz"
+		URL_xvid="http://downloads.xvid.org/downloads/xvidcore-1.3.3.tar.gz"
+		URL_webp="http://downloads.webmproject.org/releases/webp/libwebp-0.4.3.tar.gz"
+		URL_vdpau="http://people.freedesktop.org/~aplattner/vdpau/libvdpau-1.1.tar.bz2"
+		URL_libva="http://www.freedesktop.org/software/vaapi/releases/libva/libva-1.5.1.tar.bz2"
+		URL_libva_intel="http://www.freedesktop.org/software/vaapi/releases/libva-intel-driver/libva-intel-driver-1.5.1.tar.bz2"
+		GIT_libcaca="https://github.com/cacalabs/libcaca"
+		# Images
+		SVN_openjpeg="http://openjpeg.googlecode.com/svn/trunk/"
+		URL_png="http://downloads.sourceforge.net/libpng/libpng-1.6.16.tar.xz"
+		# Fonts
+		URL_fribidi="http://fribidi.org/download/fribidi-0.19.6.tar.bz2"
+		URL_fontconfig="http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.11.1.tar.bz2"
+		URL_freetype2="http://downloads.sourceforge.net/freetype/freetype-2.5.5.tar.bz2"
+		URL_xml="http://xmlsoft.org/sources/libxml2-2.9.2.tar.gz"
+		# Subtitle
+		URL_ass="https://github.com/libass/libass/releases/download/0.12.1/libass-0.12.1.tar.xz"
+		# Extras
+		URL_libffi="ftp://sourceware.org/pub/libffi/libffi-3.2.1.tar.gz"
+		URL_mako="https://pypi.python.org/packages/source/M/Mako/Mako-1.0.1.tar.gz"
+		# v4l
+		URL_v4l="http://www.linuxtv.org/downloads/v4l-utils/v4l-utils-1.6.2.tar.bz2"
+		URL_v4l_mesa_drm="http://dri.freedesktop.org/libdrm/libdrm-2.4.60.tar.bz2"
+		URL_v4l_mesa="ftp://ftp.freedesktop.org/pub/mesa/10.5.2/mesa-10.5.2.tar.xz"
+		URL_v4l_glu="ftp://ftp.freedesktop.org/pub/mesa/glu/glu-9.0.0.tar.bz2"
+		URL_v4l_libjpeg="http://downloads.sourceforge.net/libjpeg-turbo/libjpeg-turbo-1.4.0.tar.gz"
+		URL_v4l_libalsa="http://alsa.cybermirror.org/lib/alsa-lib-1.0.29.tar.bz2"
+		# Hardware
+		GIT_bluray="git://git.videolan.org/libbluray.git"
+		URL_libcddb="http://prdownloads.sourceforge.net/libcddb/libcddb-1.3.2.tar.bz2"
+		URL_libcdio="http://ftp.gnu.org/gnu/libcdio/libcdio-0.93.tar.bz2"
+		URL_libcdio_para="http://ftp.gnu.org/gnu/libcdio/libcdio-paranoia-10.2+0.93+1.tar.bz2"
+		GIT_libdc1394="git://git.code.sf.net/p/libdc1394/code"
+		URL_libdc1394="https://sourceforge.net/projects/libdc1394/files/latest/download"
+	#
+	#	Functions
+	#
+		skip_this() { # PKG
+		# Returns true (0) if passed PKG is found in SKIPFILE
+		# Returns false (1) otherwise
+			#set -x
+			$GREP -q ^"$1"$ "$SKIPTHIS"
+		}
+	#
+	#	Verify paths
+	#
+		for d in "$DIR_SRC" "$CHROOT" "$LOG_DIR" "$(dirname $TMP)"
+		do	tui-bol-dir "$d"
+		done
+		cd "$DIR_SRC" || exit 1
+		[ -f "$SKIPTHIS" ] || touch "$SKIPTHIS"
+	#
+	#	Info & Check for build tools
+	#
+		tui-title "Important Information"
+		tui-echo "To build ffmpeg and several of its features, the following will be required:"
+		tui-list -1 	"Aprox 200mb for the build tools" \
+				"aprox 350 mb of the bandwidth" \
+				"aprox 500 mb diskspace for temp files" \
+				"aprox 30 minutes of your time, depending on you machine & internet"
+		tui-echo
+
+		if tui-yesno "Install all building tools? (the last 4 might report failure)"
+		then	# Last line (packageblock) fails on Fedora 22
+			sudo tui-install -v git hg svn \
+					cpp make  cmake nasm yasm \
+					gcc cross-gcc-common libtool \
+					autoconf automake git2cl help2man \
+					gcc-c++ enca \
+					texinfo aclocal makeinfo libiconv-devel
+		fi
+	#
+	#	Download & Compile dep-tree
+	#
+		
+	#
+	#	Download, Configure & Compile FFMPEG
+	#
+		configured=false
+		if tui-yesno "Download and configure ffmpeg now?"
+		then
+			tui-title "Downloading ffmpeg"
+			LOG_THIS="$DIR_SRC/ffmpeg.log"
+			touch "$LOG_THIS"
+			cd "$DIR_SRC"
+			default_git ffmpeg "$GIT_FFMPEG"
+			# Prepare the enable strings
+			enable_VIDEO="--enable-libx264  --enable-libx265  --enable-libxvid --enable-libcaca --enable-libwebp --enable-vdpau --enable-libtheora" # --enable-libva --enable-libva-intel"
+			enable_AUDIO="--enable-libmp3lame --enable-libfdk_aac --enable-libopus --enable-libvorbis "
+			enable_TITLE="--enable-fontconfig --enable-libfreetype --enable-libass"
+			enable_HW="--enable-x11grab --enable-libv4l2" #--enable-libcdio " # --enable-gnutls"
+			enable_IMG="--enable-libopenjpeg "
+			TMP="$(dirname $LOG_THIS)"	# this ./configure seems to use TMP internaly...
+			
+			# Configure FFMPEG for the enables
+			./configure 	--prefix="$PREFIX" --bindir="$DIR_BIN" --libdir=$DIR_LIB --incdir=$DIR_INC --docdir=$PREFIX/share/doc/ffmpeg \
+					--enable-shared  --enable-nonfree --enable-gpl \
+					$enable_AUDIO \
+					$enable_VIDEO \
+					$enable_HW 1>"$LOG_THIS" 2>"$LOG_THIS"
+			tui-status $? "Configured ffmpeg"
+			RET=$?
+			[ $RET -ne 0 ] && tui-edit "$LOG_THIS"
+			readonly configured=true
+			export configured
+		fi
+
+		if $configured && tui-yesno "So you just want to build it now?"
+		then	tui-status 111 "Expected build time... aprox. 10mins..."
+			TMP="$LOG_DIR/ffmpeg.sh"
+			cat > "$TMP" <<-EOF
+			time make V=1	 	1>>"$LOG_THIS" 2>>"$LOG_THIS"
+			tui-status \$? "ffmpeg: Make"
+			tui-title "ffmpeg made"
+			sudo make install	1>>"$LOG_THIS" 2>>"$LOG_THIS"
+			tui-status \$? "ffmpeg: make install"
+			make distclean		1>>"$LOG_THIS" 2>>"$LOG_THIS"
+			hash -r
+			EOF
+			if tui-bgjob "$TMP" "Building ffmpeg..." "Built ffmpeg."
+			then	# Some ENV settings are required if its build in a custom dir
+				PKG_CONFIG_PATH="$DIR_LIB:$DIR_LIB/pkgconfig:${DIR_LIB}64/pkgconfig:/usr/lib/pkgconfig:/usr/lib64/pkgconfig"
+				LD_LIBRARY_PATH="$DIR_LIB:${DIR_LIB}64:/usr/local/lib:/usr/local/lib64:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib64:/usr/lib"
+				tui-conf-set ~/.bashrc PKG_CONFIG_PATH "$PKG_CONFIG_PATH"
+				tui-conf-set ~/.bashrc LD_LIBRARY_PATH "$LD_LIBRARY_PATH"
+			fi
+		fi
 	}
 #
 #	Environment checks
