@@ -2416,7 +2416,7 @@ EOF
 				OF="$URL"
 			for AID in $audio_ids;do
 			# Generate command
-				OF=$(tui-str-genfilename "${video/.*/.id-$AID.$AID}" $ext)
+				OF=$(tui-str-genfilename "${video/.*/.id-$AID.$AID}.$ext" $ext)
 				tOF=$(basename "$OF")
 				audio_maps=" -map 0:$AID"
 					

@@ -70,6 +70,7 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 %changelog
 * Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.1
 - Changed: Some temp file variable names
+- Fixed:   Outputfile name when exporting audio
 
 * Thu Apr 09 2015 Simon A. Erat <erat.simon@gmail.com> 2.1
 - Added:   Bit Calculator, vhs calc
