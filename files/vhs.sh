@@ -2091,11 +2091,14 @@ EOF
 			showdisp="-fs" && \
 			doLog "Stream: Play, expecting stream..." || \
 			showdisp="-nodisp"
+		$showFFMPEG && \
+				strPlayType=video || strPlayType=audio
 		if [ -z "$1" ]
-		then	tui-title "Playing Stream"
-			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
-		else	tui-title "Playing File"
-			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play File : $1\" -i \"$1\" $showdisp || exit 1" > "$TMP"
+		then	tui-title "Playing $strPlayType Stream"
+			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
+		else	tui-title "Playing $strPlayType File"
+			
+			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType File : $1\" -i \"$1\" $showdisp || exit 1" > "$TMP"
 		fi
 		if $ADVANCED
 		then	tui-edit "$TMP"
@@ -2103,9 +2106,10 @@ EOF
 		fi
 		doLog "Stream: Play-Command: $(cat $TMP)"
 		
-		tui-list -n 	"q) Quit" "f) Fullscreen" "p) Pause" \
-				"a) Cycle Audio" "v) Cycle video" "t) Cycle Subtitles" \
-				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" 
+		$showFFMPEG && \
+			tui-list -n 	"q) Quit" "f) Fullscreen" "p) Pause" \
+					"a) Cycle Audio" "v) Cycle video" "t) Cycle Subtitles" \
+					"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" 
 		
 		if [ -z "$1" ]
 		then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
@@ -2383,7 +2387,7 @@ EOF
 		EXPECTED=$(fs_expected)
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
-		for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
+		#for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
 		if [ "" != "$(echo $num|tr -d [:alpha:])" ]
 		then	num="${RES/[x:]*/}"
 			[ -z "$num" ] && num=3840
@@ -2412,11 +2416,10 @@ EOF
 		
 		if [ "$MODE" = audio ]
 		then	# Handle just audio files, and loop
-			$doStream && \
-				OF="$URL"
+			$doStream && OF="$URL"
 			for AID in $audio_ids;do
 			# Generate command
-				OF=$(tui-str-genfilename "${video/.*/.id-$AID.$AID}.$ext" $ext)
+				$doStream || OF=$(tui-str-genfilename "${video/.*/.id-$AID}.$ext" $ext)
 				tOF=$(basename "$OF")
 				audio_maps=" -map 0:$AID"
 					
@@ -2439,7 +2442,7 @@ EOF
 				else	doExecute "$TMP" "$OF" "Encoding to \"$OF\"" "Encoded audio to \"$tOF\""
 				fi
 			done
-			continue
+			continue	# Its just video, continue with next passed argument
 		else 	# Regular video handling
 			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
@@ -2688,4 +2691,4 @@ EOF
 		exit $RET_HELP
 	fi
 exit 0
-for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n ;done
+# for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n ;done
