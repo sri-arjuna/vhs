@@ -29,9 +29,9 @@
 		case $task in
 		myself)		set -x
 				mkdir -p $DIR_BIN $HOME/.local/share/man/man1 $HOME/.local$DIR_COMPL
-				mv $EXE $DIR_BIN/$APP
-				mv $MAN $HOME/.local/share/man/man1/
-				mv $COMPL $HOME/.local$DIR_COMPL/
+				cp $EXE $DIR_BIN/$APP
+				cp $MAN $HOME/.local/share/man/man1/
+				cp $COMPL $HOME/.local$DIR_COMPL/
 				exit $?
 				set +x
 				;;
@@ -41,8 +41,8 @@
 		esac
 	elif [ $UID -eq 0 ]
 	then	# User is root, system wide installation
-		mv "$EXE" 	"$DIR_ROOT/$APP"
-		mv "$MAN"	"$DIR_MAN/man1/"
-		mv "$COMPL"	"$DIR_COMPL"
+		cp "$EXE" 	"$DIR_ROOT/$APP"
+		cp "$MAN"	"$DIR_MAN/man1/"
+		cp "$COMPL"	"$DIR_COMPL"
 		exit $?
 	fi
