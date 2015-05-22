@@ -16,8 +16,7 @@
 #
 #	Action & Display
 #
-	echo "It is recomended to use the rpm installation"
-	
+	[ redhat = $(tui-install -b) ] && echo "It is recomended to use the rpm installation"
 	
 	[ ! -f "$EXE" ] && \
 		echo "$EXE not found, you are not in the proper directory." && \
@@ -44,5 +43,6 @@
 		cp "$EXE" 	"$DIR_ROOT/$APP"
 		cp "$MAN"	"$DIR_MAN/man1/"
 		cp "$COMPL"	"$DIR_COMPL"
+		tui-status $? "Installed VHS"
 		exit $?
 	fi

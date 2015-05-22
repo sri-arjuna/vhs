@@ -53,10 +53,7 @@
 			mv tui-master/* . ; rmdir tui-master
 		fi
     		cd /tmp/tui.inst || exit 1
-    		if ! PREFIX=/usr bash ./install.sh
-    		then	printf "\n#\n#\tPlease report this issue of TUI installation fail.\n#\n#\n"
-			exit 1
-		fi
+    		! ./install.sh || exit 1
     	fi
     	source $HOME/.tui_rc && \
 		. $TUI_DIR_CONF/commands.conf 
