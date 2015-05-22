@@ -1898,8 +1898,9 @@ EOF
 				((t_mins++))
 				SS_END="$t_mins:$t_secs"
 			fi
-			TIMEFRAME="-ss $SS_START -to $SS_END"
-			
+			#z_cur=${#TIMEFRAME[@]}
+			#count=$(( $z_cur - 1 ))
+			TIMEFRAME=" -ss $SS_START -to $SS_END"
 			log_msg="Set starttime to \"$SS_START\" and endtime to \"$SS_END\""
 			;;
 		*)	log_msg="Invalid argument: $opt : $OPTARG"
@@ -1948,7 +1949,7 @@ EOF
 #
 	$doStream && container=mpegts
 	doLog "Loading: $container"
-	#set -x
+	#set -x 
 	LoadContainer "$container"
 	#set +x ; exit
 	doLog "FFMPEG: $FFMPEG"
@@ -2228,7 +2229,7 @@ EOF
 		;;
 #video)		echo just continue > /dev/zero	;;
 	*)	[ -z "$1" ] && \
-			tui-printf -S 1 "Mode $MODE requires input files!" && \
+			show_help && \
 			exit 1
 		;;
 	esac
