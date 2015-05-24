@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.04.21
+#	Changed:	2015.05.24
 #	Description:	All in one movie handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -70,7 +70,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.1.5
+	script_version=2.1.6
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -158,6 +158,13 @@
 	LS=$(locate ls|$GREP bin/ls$|head -n1)
 	count_P=0
 	count_U=0
+	# Figured an average webradio url has like 67 chars.... * 3 =~ 180-210
+	if [ ${COLUMNS:-$(tput cols)} -le  100 ]
+	then	intPlayRows="-1"	# 1 or less
+	elif [ $WIDTH -le  200 ]
+	then	intPlayRows="-2"	# 2 or less
+	else	intPlayRows=""		# Its wider, so use all 3 colums
+	fi
 #
 #	Check for PRESETS, required for proper help display
 #
@@ -570,6 +577,17 @@ Presets:	$PRESETS
 		ff=$(cat $TMP.info)
 		d="${ff#*Duration: }"
 		echo "${d%%,*}"
+	}
+	PlayTimeSecs() { #
+	# Returns the playtime in seconds
+	#
+		str_work=$(PlayTime)
+		base="${str_work/*:/}"
+		mins=${str_work/:$base/}
+		hours=${str_work/:*/}
+		H=$(( $hours * 3600 ))
+		M=$(( ${mins/*:} * 60 ))
+		echo $base $M $H | $AWK '{print int ($1 + $2 + $3)}'
 	}
 	countVideo() { # [VIDEO]
 	# Returns the number of video streams found in VIDEO
@@ -1304,7 +1322,7 @@ EOF
 	#	Build environment
 	#
 		tui-echo "Please select the target CHROOT"
-		CHROOT=$(tui-select -2 / /usr/local $HOME/.local $HOME)
+		CHROOT=$(tui-select $intPlayRows / /usr/local $HOME/.local $HOME)
 		LOG_DIR="$CHROOT/logs"		#/$TASK.log will be added
 		LOG=~/ffmpeg-build.log		# 'main' logfile is always @ home
 		SKIPTHIS="$DIR_SRC/skip_these"
@@ -1672,6 +1690,7 @@ EOF
 			then	$beVerbose && tui-echo "Video exist, showing info"
 				tui-printf "Retrieving data from ${A##*/}" "$WORK"
 				StreamInfo "$A" > "$TMP.info.2"
+				
 				$doStream && \
 					tui-title "Next title: ${A##*/}"  || \
 					tui-title "Input: ${A##*/}"
@@ -2028,7 +2047,7 @@ EOF
 		if $doPlay
 		then	tui-title "Stream : Play"
 			if $doSelect
-			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
+			then	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
 			else	if [ -z "$URL" ]
 				then	URL=$(tui-conf-get $CONFIG URL_PLAY)
 				else	$GREP -q $URL $URLS.play || echo "$URL" >> "$URLS.play"
@@ -2037,7 +2056,7 @@ EOF
 			log_msg="Stream play:"
 		else	tui-title "Stream $MODE : Up"
 			if $doSelect
-			then	URL=$(tui-select $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
+			then	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
 			else	if [ -z "$URL" ]
 				then	URL=$(tui-conf-get $CONFIG URL_UP)
 				else	$GREP -q "$URL" "$URLS.stream" || echo "$URL" >> "$URLS.stream"
@@ -2083,7 +2102,7 @@ EOF
 	if $doPlay
 	then	$doSelect && [ -z "$URL" ] && \
 			tui-echo "Please select an url you want to replay:" && \
-			URL=$(tui-select $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
+			URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
 		[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
 		$showFFMPEG && \
 			showdisp="-fs" && \
@@ -2382,7 +2401,12 @@ EOF
 			fi
 		fi
 		
-		EXPECTED=$(fs_expected)
+		
+		echo "$BIT_AUDIO$BIT_VIDEO" | $GREP -q [0-9] && \
+			EXPECTED="$(( $(( $(PlayTimeSecs) * $(( $BIT_VIDEO + $BIT_AUDIO )) )) * 1024 ))" || \
+			EXPECTED=$(fs_expected)
+		
+		
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
 		#for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
@@ -2607,10 +2631,12 @@ EOF
 				elif $showFFMPEG
 				then	tui-bgjob "$TMP" "$STR1" "$STR2"
 					RET=$?
-				elif [ 0 -eq $EXPECTED ]
+				elif [ 0 -eq $EXPECTED ] #&& [ ! -z "$EXPECTED_FILE_SIZE2"
 				then	tui-bgjob -f "$OF" "$TMP" "$STR1" "$STR2"
 					RET=$?
-				else	tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
+				else	
+					#tui-bgjob -f "$OF" -s "$video" "$TMP" "$STR1" "$STR2"
+					tui-bgjob -f "$OF" -e "$EXPECTED" "$TMP" "$STR1" "$STR2"
 					RET=$?
 				fi
 			fi

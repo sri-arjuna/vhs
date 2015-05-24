@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        2.1
-Release:        8%{?dist}
+Version:        2.2
+Release:        0%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -68,9 +68,11 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
-* Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.1
+* Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
 - Changed: Some temp file variable names
 - Fixed:   Outputfile name when exporting audio
+- Fixed:   When encoding videos, progressbar should match now
+- Updated: Selection of playstreams should now match terminal width
 
 * Thu Apr 09 2015 Simon A. Erat <erat.simon@gmail.com> 2.1
 - Added:   Bit Calculator, vhs calc
