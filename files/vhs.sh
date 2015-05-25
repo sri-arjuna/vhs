@@ -159,7 +159,8 @@
 	count_P=0
 	count_U=0
 	# Figured an average webradio url has like 67 chars.... * 3 =~ 180-210
-	if [ ${COLUMNS:-$(tput cols)} -le  100 ]
+	WIDTH=${COLUMNS:-$(tput cols)}
+	if [ $WIDTH -le  100 ]
 	then	intPlayRows="-1"	# 1 or less
 	elif [ $WIDTH -le  200 ]
 	then	intPlayRows="-2"	# 2 or less
