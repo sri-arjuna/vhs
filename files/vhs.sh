@@ -55,8 +55,11 @@
     		cd /tmp/tui.inst || exit 1
     		! ./install.sh || exit 1
     	fi
-    	source $HOME/.tui_rc && \
-		. $TUI_DIR_CONF/commands.conf 
+    	if [ ! -f $HOME/.tui_rc ]
+	then	. tui
+	else	source $HOME/.tui_rc && \
+			. $TUI_DIR_CONF/commands.conf
+	fi
 #
 #	Get XDG Default dirs
 #
@@ -155,7 +158,7 @@
 	URL_UP=""
 	URL_PLAY=""
 	URLS="$CONFIG_DIR/urls"
-	LS=$(locate ls|$GREP bin/ls$|head -n1)
+	#LS=$(locate ls|$GREP bin/ls$|head -n1)
 	count_P=0
 	count_U=0
 	# Figured an average webradio url has like 67 chars.... * 3 =~ 180-210
@@ -268,7 +271,7 @@
 #
 	BOLD="$TUI_FONT_BOLD"
 	RESET="$TUI_COLOR_RESET"
-help_text="
+	help_text="
 $ME ($script_version) - ${TITLE^}
 Usage: 		$ME [options] filename/s ...
 
@@ -463,7 +466,7 @@ Presets:	$PRESETS
 		fi
 		[ ! "" = "$(echo $t_BYTERATE|tr -d [[:digit:]])" ] && echo 0 && return 1
 		t_TIMES=$( PlayTime | $SED s,":"," ",g)
-		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( ($1*60*60 + $2*60 + $3) * BYTES )}' BYTES=$t_BYTERATE
+		echo "${t_TIMES}" | $AWK '{ printf "%.0f\n", ( ($1*60*60 + $2*60 + $3) * BYTES / 4.2 * 3.1 )}' BYTES=$t_BYTERATE
 		return $?
 	}
 	bit_calculator()  { # ITEM COUNT DURATION
@@ -2209,11 +2212,12 @@ EOF
 				doLog "Successfully encoded $mode"
 				if [ -z "$TIMEFRAME" ]
 				then	# But only if the whole dvd was encoded
-					if [ -d "$dvd_tmp" ]
+					if [ ! -z "$dvd_tmp" ] && [ -d "$dvd_tmp" ]
 					then	cd "$dvd_tmp"
 						LC_ALL=C ; export LC_ALL
-						numTotal=$(ls -lh|$GREP total|$AWK '{print $2}')
-
+						numTotal=$($LS -lh|$GREP total|$AWK '{print $2}')
+						LC_ALL="" ; export LC_ALL
+						
 						if tui-yesno "Removing temporary data? ($numTotal)"
 						then	[ "$PWD" = "$dvd_tmp" ] && \
 								rm -fr *vob
@@ -2246,7 +2250,7 @@ EOF
 		;;
 #video)		echo just continue > /dev/zero	;;
 	*)	[ -z "$1" ] && \
-			show_help && \
+			printf "$help_text" && \
 			exit 1
 		;;
 	esac
@@ -2404,9 +2408,8 @@ EOF
 		
 		
 		echo "$BIT_AUDIO$BIT_VIDEO" | $GREP -q [0-9] && \
-			EXPECTED="$(( $(( $(PlayTimeSecs) * $(( $BIT_VIDEO + $BIT_AUDIO )) )) * 1024 ))" || \
+			EXPECTED="$(( ( $(PlayTimeSecs) * ( $BIT_VIDEO + $BIT_AUDIO ) ) * 1024 / 8))" || \
 			EXPECTED=$(fs_expected)
-		
 		
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
