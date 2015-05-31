@@ -53,7 +53,8 @@
 			mv tui-master/* . ; rmdir tui-master
 		fi
     		cd /tmp/tui.inst || exit 1
-    		! ./install.sh || exit 1
+    		echo "Installing to default locations."
+		! ./install.sh || exit 1
     	fi
     	if [ ! -f $HOME/.tui_rc ]
 	then	. tui
@@ -127,10 +128,10 @@
 	ADDERS=""			# Stream to be added / included
 	cmd_all=""
 	#cmd_data=""			# Actualy, ffmpeg uses the datastream by default.
-	cmd_audio_all=""
-	cmd_audio_maps=""
-	cmd_audio_rate=""
-	cmd_input_all=""
+	cmd_audio_all=""		# These cmd_XY_all commands contain
+	cmd_audio_maps=""		# the presets for all the files passed
+	cmd_audio_rate=""		# This counts for audio, video
+	cmd_input_all=""		#  enconand upstreaming
 	cmd_output_all=""
 	cmd_subtitle_all=""
 	cmd_video_all=""
@@ -180,14 +181,16 @@
 		# Presets 'RES' configuration, there must be no empty line or output will fail.
 		# Label	Resolution 	Vidbit	Audbit	Comment	(Up to 7 elements/words)
 		scrn	resolve 	1024	256	This is only used for screenrecording
-		a-vga	  640x480	512	196	Anime optimized, VGA
-		a-dvd	  720x576	640	256	Anime optimized, DVD-wide - PAL
-		a-hd	 1280x720	768	256	Anime optimized, HD
-		a-fhd	1920x1080	1280	256	Anime optimized, Full HD
+		a-hvga	  480x320	320	192	Lower bitrate for Animes and Cartoons
+		a-nhd	  640x360	512	192	Lower bitrate for Animes and Cartoons
+		a-vga	  640x480	512	196	Lower bitrate for Animes and Cartoons
+		a-dvd	  720x576	640	256	Lower bitrate for Animes and Cartoons
+		a-hd	 1280x720	768	256	Lower bitrate for Animes and Cartoons
+		a-fhd	1920x1080	1280	256	Lower bitrate for Animes and Cartoons
 		qvga	  320x240	240	128	Quarter of VGA, mobile devices 
 		hvga	  480x320	320	192	Half VGA, mobile devices
-		#ntsc	  440×486	320	192	TV - NTSC 4:3
-		#pal	  520×576	480	192	TV - PAL 4:3
+		ntsc	  440×486	320	192	TV - NTSC 4:3
+		pal	  520×576	480	192	TV - PAL 4:3
 		nhd	  640x360	512	192	Ninth of HD, mobile devices
 		vga	  640x480	640	192	VGA
 		dvdn	  720x480	744	256	DVD NTSC
@@ -198,18 +201,17 @@
 		HD	1920x1080	2560	384	Full HD
 		qhd	2560x1440	3840	384	2k, Quad HD - 4xHD
 		uhd	3840x2160	7680	512	4K, Ultra HD TV
-		# Below are presets which fail on (freeze!) my machine.
+		# Below are presets which fail (freeze!) on my machine.
 		# Feel free to uncomment the below 4 lines at your own risk.
 		#uhd+	5120x2880	14400	768	5K, UHD+
 		#fuhd	7680x4320	32160	1280	8K, Full UHD TV
 		#quhd	15360x8640	128720	1280	16k, Quad UHD - 4xUHD
 		#ouhd	30720x17380	512000	2048	32k, Octo UHD - 8xUHD, my suggestion
 		#
-		# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions, as they are set that high to remain technicly lossless.
-		# Saying, whatever video quality you pass to youtube, it will be re-encoded with the values found here.
-		# So it is best to provide a source as high as that (selected resolution, 'upscale' does not increase quality)
-		# See:	https://support.google.com/youtube/answer/1722171?hl=en
-		#  for more details.
+		# It is strongly recomended to NOT modify the youtube preset bitrates or resolutions, as they are set that high to meet google its standard.
+		# Saying, whatever video quality you pass to youtube, it will be re-encoded with these values.
+		# So it is best to provide a source as high as that (selected resolution, 'upscale' does not work, it increases filesize only)
+		# For more details see:	https://support.google.com/youtube/answer/1722171?hl=en
 		#
 		yt-240	  426x240	768	196	YT, seriously, no reason to choose
 		yt-360	  640x360	1000	196	YT, Ninth of HD, mobile devices
@@ -349,7 +351,7 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 		See \"$BOLD$PRESETS$RESET\" to see currently muted ones or to add your own presets.
 
 $( 
-	printf "\t${TUI_FONT_UNDERSCORE}Label	Resolution	Pixels	Vidbit	Audbit	Bitrate	1min	Comment$RESET\n"
+	printf "\t${TUI_FONT_UNDERSCORE}Label	Resolution	Pixels	Vidbit	Audbit	Bitrate	1min	30mins	Comment$RESET\n"
 	
 	$AWK	'BEGIN  {
 			# Prepare Unit arrays
@@ -377,6 +379,8 @@ $(
 			bitrate = FMT($3+$4, BUNT)
 			byterate = (($3+$4)/8*60)
 			megabytes = FRMT(byterate/1024,MUNT)
+			#timed = 
+			halfhour = FRMT(byterate/1024*30,MUNT)
 			if("B" == U) {
 					split(bitrate,B,".")
 					bitrate=B[1]
@@ -385,7 +389,7 @@ $(
 			split($2, A, "x")
 			pixels = FMT(A[1] * A[2], PUNT);
 		# Output
-			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12
+			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , halfhour, $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
 
@@ -420,8 +424,12 @@ Presets:	$PRESETS
 	StreamInfo() { # VIDEO
 	# Returns the striped down output of  ffmpeg -psnr -i video
 	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
+		LC_ALL=C
+		export LC_ALL
 		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
 		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
+		LC_ALL=""
+		export LC_ALL
 	}
 	FileSize() { # FILE
 	# Returns the filesize in bytes
@@ -596,58 +604,71 @@ Presets:	$PRESETS
 	countVideo() { # [VIDEO]
 	# Returns the number of video streams found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$1" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
 		eval $cmd|$GREP -i video|wc -l
+		LC_ALL="" ; export LC_ALL
 	}
 	countAudio() { # [VIDEO]
 	# Returns the number of audio streams found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$1" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
 		eval $cmd|$GREP -i audio|wc -l
+		LC_ALL="" ; export LC_ALL
 	}
 	countSubtitles() { # [VIDEO]
 	# Returns the number of subtitles found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$1" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
 		eval $cmd|$GREP -i subtitle|wc -l
+		LC_ALL="" ; export LC_ALL
 	}
 	hasLang() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$2" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
 		eval $cmd|$GREP -i audio|$GREP -q -i "$1"
+		LC_ALL="" ; export LC_ALL
 		return $?
 	}
 	hasLangDTS() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO and declares itself as DTS
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$2" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
 		eval $cmd|$GREP -i audio|$GREP -i $1|$GREP -q DTS
+		LC_ALL="" ; export LC_ALL
 		return $?
 	}
 	txt_meta_me="'VHS ($TITLE $script_version - (c) 2014-2015 by sea), using $(ffmpeg -version|$GREP ^ffmpeg|sed s,'version ',,g)'"
 	hasSubtitle() { # LANG [VIDEO] 
 	# Returns true if LANG was found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$2" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$2\""
 		eval $cmd|$GREP -i subtitle|$GREP -q -i $1
 		return $?
+		LC_ALL="" ; export LC_ALL
 	}
 	listIDs() { # [VIDEO]
 	# Prints a basic table of stream ID CONTENT (and if found) LANG
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
+		LC_ALL=C ; export LC_ALL
 		[ -z "$1" ] && \
 			[ -f "$TMP.info" ] && \
 			cmd="cat \"$TMP.info\"" || \
@@ -659,6 +680,7 @@ Presets:	$PRESETS
 			   printf "\n"
 			done
 		IFS=$OIFS
+		LC_ALL="" ; export LC_ALL
 	}
 	listAttachents(){ #
 	# To call after StreamInfo or vhs -i video

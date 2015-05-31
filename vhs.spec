@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        2.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -68,6 +68,11 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
+* Sun May 31 2015 Simon A. Erat <erat.simon@gmail.com> 2.3
+- Fixed:  Some files (audio streams) could not be identfied
+-         on systems with non-english locales.
+
+
 * Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
 - Changed: Some temp file variable names
 - Fixed:   Outputfile name when exporting audio
