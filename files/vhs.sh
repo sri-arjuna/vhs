@@ -1546,7 +1546,32 @@ EOF
 		[ "00" = "${PT:0:2}" ] && \
 			PT="${PT/00:}"	# Cut off 'empty' leading hours
 		PT="${PT/.*}"		# Cut off miliseconds
+		[ "0" = "${PT:0:1}" ] && \
+			PT="${PT:1}"
 		STATUS="$TMP.playstatus"
+		# Be easy on display
+		function secs2time() { # SECS
+		# Returns given SECS as readable TIME (hh:mm:ss)
+		#
+			[ -z "$1" ] && echo "Usage: secs2time SECS" && return 1
+			SECS=$1
+			MINS=$(( $SECS / 60  ))
+			HRS=$(( $MINS / 60 ))
+			SECS=$(( $SECS - $MINS * 60  ))
+			[ $HRS -eq 0 ] && HRS=""
+			[ $MINS -eq 0 ] && MINS=""
+			[ -z "$HRS" ]  || printf "${HRS}:"
+			if [ -z "$MINS" ] 
+			then	[ ! -z "$HRS" ] && printf "00"
+			else	printf "${MINS}:"
+			fi
+			if [ -z "$SECS" ]
+			then	printf "00"
+			else	[ ${#SECS} -eq 1 ] && [ ! -z "$MINS" ] && PRE="0" || PRE=""
+				printf "${PRE}${SECS}"
+			fi
+			return 0
+		}
 		
 		# Make required changes at the command file
 		$SED s,'v quiet','hide_banner',g -i "$TMP"
@@ -1560,7 +1585,7 @@ EOF
 		# Print information line
 		while ps $PID > /dev/null
 		do	CUR=$(tr '\r' '\n' < "$STATUS" | tail -n 1  | awk '{print $1}')
-			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: ${CUR/.*/}s/$PT"
+			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $(secs2time ${CUR/.*/})/$PT"
 			# If progress works, this is the next to be tested - multiple files
 			CUR="${CUR/.*/}"
 			[ -z "$(echo $CUR|tr -d [:alpha:])" ] && CUR=0
