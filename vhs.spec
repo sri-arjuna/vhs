@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        2.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3

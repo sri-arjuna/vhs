@@ -1590,7 +1590,7 @@ EOF
 			CUR="${CUR/.*/}"
 			[ -z "$(echo $CUR|tr -d [:alpha:])" ] && CUR=0
 			[ $CUR -eq "$PTS" ] && printf "\n" && pkill ffplay && break
-			sleep 0.5
+			sleep 1
 		done
 		rm -f "$STATUS"
 	}
