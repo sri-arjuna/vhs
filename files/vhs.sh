@@ -2398,6 +2398,7 @@ EOF
 	wait_now=false
 	cmd_video_all_outside="$cmd_video_all"
 	cmd_audio_all_outside="$cmd_audio_all"
+	$PlayFile && URL=""
 	for video in "${ARGS[@]}" "$URL" ;do 
 		# Only wait for 2nd loop and later
 		if $wait_now
