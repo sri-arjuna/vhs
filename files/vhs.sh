@@ -2043,6 +2043,10 @@ EOF
 		myIp
 		exit $?
 		;;
+	build-ffmpeg)
+		build_ffmpeg
+		exit $?
+		;;
 	esac
 	# Edit the URL files
 	[ -z "$COUNTER_STREAM_STREAM" ] && COUNTER_STREAM_STREAM=0
