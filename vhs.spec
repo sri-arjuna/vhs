@@ -68,10 +68,10 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
-* Sun May 31 2015 Simon A. Erat <erat.simon@gmail.com> 2.3
-- Fixed:  Some files (audio streams) could not be identfied
--         on systems with non-english locales.
-
+* Mon Jun 1 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
+- Fixed:   Some files (audio streams) could not be identfied
+-          on systems with non-english locales.
+- Updated: Playmode now shows progressbar for files
 
 * Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
 - Changed: Some temp file variable names

@@ -110,6 +110,8 @@
 	doCopy=false			# -y	Just set all stream codecs to copy
 	doJoin=false			# -J	Joins all the passed video files
 	doPlay=false			# -P	requires -U|[u URL]
+	PlayFilesShown=false		# Show playing file title just once
+	VideoInfoShown=false		# Show playback info for videos just once
 	doSelect=false			# -[PP|UU] Show selection menu for either one
 	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W or a file
 	doExternal=false		# -E
@@ -1532,6 +1534,39 @@ EOF
 			fi
 		fi
 	}
+	PlayStatus() { # FILE
+	# Prints the extra status play bar
+	# Time as Progress, yay 
+		# Vars
+		$ME -i "$video"
+		PT=$(PlayTime)		# Get nice displayed playtime
+		PTS=$(PlayTimeSecs)	# Get playtime as seconds
+		[ "00" = "${PT:0:2}" ] && \
+			PT="${PT/00:}"	# Cut off 'empty' leading hours
+		PT="${PT/.*}"		# Cut off miliseconds
+		STATUS="$TMP.playstatus"
+		
+		# Make required changes at the command file
+		$SED s,'v quiet','hide_banner',g -i "$TMP"
+		$SED s,"||"," 2\>$STATUS ||",g -i "$TMP"
+		
+		# Start job
+		$SHELL "$TMP" &
+		PID=$!
+		sleep 0.7
+				
+		# Print information line
+		while ps $PID > /dev/null
+		do	CUR=$(tr '\r' '\n' < "$STATUS" | tail -n 1  | awk '{print $1}')
+			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: ${CUR/.*/}s/$PT"
+			# If progress works, this is the next to be tested - multiple files
+			CUR="${CUR/.*/}"
+			[ -z "$(echo $CUR|tr -d [:alpha:])" ] && CUR=0
+			[ $CUR -eq "$PTS" ] && printf "\n" && pkill ffplay && break
+			sleep 0.5
+		done
+		rm -f "$STATUS"
+	}
 #
 #	Environment checks
 #
@@ -1831,7 +1866,7 @@ EOF
 		P)	log_msg="Stream: Playmode enabled"
 			$doPlay && doSelect=true
 			doPlay=true
-			#doStream=true
+			doStream=true
 			[ -z "$COUNTER_STREAM_PLAY" ] && \
 				COUNTER_STREAM_PLAY=1 || \
 				COUNTER_STREAM_PLAY=$(( $COUNTER_STREAM_PLAY + 1 ))
@@ -2096,7 +2131,7 @@ EOF
 		[ -z "$URL" ] && exit 1
 	else	# File extra, toggle by container
 		#LoadContainer
-		$file_extra && F="-f $ext"					
+		$file_extra && F="-f $ext"
 	fi
 	doLog "$log_msg"
 	# Generate general target
@@ -2125,44 +2160,6 @@ EOF
 #
 #	Display & Action
 #
-	if $doPlay
-	then	$doSelect && [ -z "$URL" ] && \
-			tui-echo "Please select an url you want to replay:" && \
-			URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
-		[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
-		$showFFMPEG && \
-			showdisp="-fs" && \
-			doLog "Stream: Play, expecting stream..." || \
-			showdisp="-nodisp"
-		$showFFMPEG && \
-				strPlayType=video || strPlayType=audio
-		if [ -z "$1" ]
-		then	tui-title "Playing $strPlayType Stream"
-			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
-		else	tui-title "Playing $strPlayType File"
-			
-			echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType File : $1\" -i \"$1\" $showdisp || exit 1" > "$TMP"
-		fi
-		if $ADVANCED
-		then	tui-edit "$TMP"
-			tui-press
-		fi
-		doLog "Stream: Play-Command: $(cat $TMP)"
-		
-		$showFFMPEG && \
-			tui-list -n 	"q) Quit" "f) Fullscreen" "p) Pause" \
-					"a) Cycle Audio" "v) Cycle video" "t) Cycle Subtitles" \
-					"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" 
-		
-		if [ -z "$1" ]
-		then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
-			RET=$?
-		else	tui-bgjob "$TMP" "Streaming from: $1" "Done playing $1" 1.5
-			RET=$?
-		fi
-		
-		exit $RET
-	fi
 	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
 	case "$MODE" in
 	dvd|screen|webcam)
@@ -2271,7 +2268,7 @@ EOF
 			exit $?
 		;;
 #video)		echo just continue > /dev/zero	;;
-	*)	[ -z "$1" ] && \
+	*)	[ -z "$1$URL" ] && \
 			printf "$help_text" && \
 			exit 1
 		;;
@@ -2343,7 +2340,8 @@ EOF
 			echo failure
 			exit $?
 			;;
-		video|audio)	if [ -z "$1" ]
+		video|audio)
+			if [ -z "$1$URL" ]
 			then	doLog "Stream: Aborting, no $MODE file passed"
 				tui-status 1 "Must pass a file to stream!"
 				exit $?
@@ -2368,7 +2366,7 @@ EOF
 	wait_now=false
 	cmd_video_all_outside="$cmd_video_all"
 	cmd_audio_all_outside="$cmd_audio_all"
-	for video in "${ARGS[@]}";do 
+	for video in "${ARGS[@]}" "$URL" ;do 
 		# Only wait for 2nd loop and later
 		if $wait_now
 		then	doLog "--------------------------------"
@@ -2379,6 +2377,51 @@ EOF
 			# Show empty log entry line as optical divider
 			doLog ""
 		fi
+		
+if $doPlay
+then	$doSelect && [ -z "$URL" ] && \
+		tui-echo "Please select an url you want to replay:" && \
+		URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
+	[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
+	# Audio or Video?
+	$showFFMPEG && \
+			strPlayType=video || strPlayType=audio
+	$showFFMPEG && \
+		showdisp="-fs" && \
+		doLog "Stream: Play, expecting video..." || \
+		showdisp="-nodisp"
+	# Show title and write command
+	if [ -z "$1" ]
+	then	tui-title "Playing $strPlayType stream" #&& PlayFilesShown=true
+		echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
+	else	! $PlayFilesShown && tui-title "Playing $strPlayType file" && PlayFilesShown=true
+		echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType File : $video\" -i \"$video\" $showdisp || exit 1" > "$TMP"
+	fi
+	# Edit before executing?
+	if $ADVANCED
+	then	tui-edit "$TMP"
+		tui-press
+	fi
+	doLog "Stream: Play-Command: $(<$TMP)"
+	# Show video handling keys before the status bar
+	$showFFMPEG && \
+		! $VideoInfoShown && \
+		tui-list -n 	"q) Quit/Next" "f) Toggle Fullscreen" "p) Pause" \
+				"a) Cycle Audio streams" "v) Cycle video streams" "t) Cycle Subtitles" \
+				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" && \
+		VideoInfoShown=true
+	sleep 0.001
+	# Start the backgroundjob and playstatus AFTER printed keys
+	if [ -z "$1" ]
+	then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
+		RET=$?
+	else	#tui-bgjob "$TMP" "Playing $video ($PT)..." "Done playing $1" 1.5
+		PlayStatus "$video"
+		RET=$?
+		continue
+	fi
+	exit $RET
+fi
 		
 		# Start initial log per video to parse
 		doLog "----- $video -----"
@@ -2467,7 +2510,11 @@ EOF
 			$doStream && OF="$URL"
 			for AID in $audio_ids;do
 			# Generate command
-				$doStream || OF=$(tui-str-genfilename "${video/.*/.id-$AID}.$ext" $ext)
+				if ! $doStream
+				then	[ -z "$video_codec" ] && \
+						OF=$(tui-str-genfilename "$video" $ext) || \
+						OF=$(tui-str-genfilename "${video}" id-$AID.$ext)
+				fi
 				tOF=$(basename "$OF")
 				audio_maps=" -map 0:$AID"
 					
@@ -2642,7 +2689,7 @@ EOF
 			
 			if $showFFMPEG && ! $doStream
 			then	#echo run here?
-				bash "$TMP"
+				$SHELL "$TMP"
 				RET=$?
 			else	#echo run there?
 				$beVerbose && \
@@ -2736,7 +2783,7 @@ EOF
 	[ ! -z "$dvd_tmp" ] && [ -d "$dvd_tmp" ] && \
 		tui-yesno "There are remaining tempfiles from dvd encoding, remove them now?" && \
 		rm -fr "$dvd_tmp"
-	if [ -z "$1" ]
+	if [ -z "$1$URL" ]
 	then 	printf "$help_text"
 		exit $RET_HELP
 	fi
