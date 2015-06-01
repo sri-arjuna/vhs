@@ -53,7 +53,8 @@
 			mv tui-master/* . ; rmdir tui-master
 		fi
     		cd /tmp/tui.inst || exit 1
-    		echo "Installing to default locations."
+    		echo "Installing to default locations?"
+		sleep 1.5
 		! ./install.sh || exit 1
     	fi
     	if [ ! -f $HOME/.tui_rc ]
@@ -74,7 +75,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.1.6
+	script_version=2.2.2
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -111,6 +112,7 @@
 	doJoin=false			# -J	Joins all the passed video files
 	doPlay=false			# -P	requires -U|[u URL]
 	PlayFilesShown=false		# Show playing file title just once
+	PlayFile=true			# In stream checks, make sure if its play file or stream
 	VideoInfoShown=false		# Show playback info for videos just once
 	doSelect=false			# -[PP|UU] Show selection menu for either one
 	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W or a file
@@ -1915,9 +1917,11 @@ EOF
 			log_msg="Stream: Using $URL"
 			## $GREP -q "$URL" "$URLS" || echo "$URL" >> "$URLS"
 			doStream=true
+			PlayFile=false
 			;;
 		U)	$doStream && doSelect=true
 			doStream=true
+			PlayFile=false
 			log_msg="Stream: Using an existing URL"
 			[ -z "$COUNTER_STREAM_STREAM" ] && \
 				COUNTER_STREAM_STREAM=1 || \
@@ -2106,7 +2110,10 @@ EOF
 	then	
 		file_extra=true
 		if $doPlay
-		then	tui-title "Stream : Play"
+		then	# Print the stream play header only on these conditions
+			if $doSelect || ! $PlayFile
+			then	tui-title "Stream : Play"
+			fi
 			if $doSelect
 			then	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
 			else	if [ -z "$URL" ]
@@ -2332,7 +2339,7 @@ EOF
 		EXTRA_CMD="-qscale:v 2"
 		doLog "Join-Final: Adding \"$EXTRA_CMD\" to command."
 	fi
-	if $doStream
+	if $doStream && ! $PlayFile
 	then	[ -z "$FFSERVER_CONF" ] && FFSERVER_CONF=/share/doc/ffmpeg/ffserver.conf
 		ps -hau | $GREP -v $GREP | $GREP -q ffserver || ffserver -f $FFSERVER_CONF &
 		case "$MODE" in

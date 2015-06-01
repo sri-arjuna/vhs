@@ -1,6 +1,6 @@
 Name:           vhs
 Version:        2.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -72,6 +72,7 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 - Fixed:   Some files (audio streams) could not be identfied
 -          on systems with non-english locales.
 - Updated: Playmode now shows progressbar for files
+- Changed: Several stream checks got messed up because of PlayStatus
 
 * Sun May 17 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
 - Changed: Some temp file variable names
