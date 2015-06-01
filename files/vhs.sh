@@ -243,15 +243,15 @@
 		ac3	ac3	false	false	ac3		-
 		dts	dts	false	false	dts		-
 		flac	flac	false	false	flac		-
-		m4a	m4a	false	false	aac		-
+		m4a	m4a	false	false	mp4als		-
 		mp3	mp3	false	false	libmp3lame	-
 		ogg	ogg	false	false	libvorbis	-
 		wma	wma	false	true	wmav2		-
 		wav	wav	false	false	pcm_s16le	-
 		# - Video with Audio -
 		avi	avi	false	true	wmav1		msvideo1		
-		flv	flv	false	false	aac		flv
-		mp4	mp4	true	true	aac		libx264
+		flv	flv	false	false	adpcm_swf	flv
+		mp4	mp4	true	true	mp4als		libx264
 		mpeg	mpeg	false	false	mp2fixed	mpeg2video
 		mkv	mkv	false	false	ac3		libx264
 		ogv	ogv	true	false	libvorbis	libtheora
@@ -1891,7 +1891,7 @@ EOF
 			log_msg+=", orietiation: $char @ $num"
 			;;
 		P)	log_msg="Stream: Playmode enabled"
-			$doPlay && doSelect=true
+			$doPlay && doSelect=true && PlayFile=false #&& echo $PlayFile
 			doPlay=true
 			doStream=true
 			[ -z "$COUNTER_STREAM_PLAY" ] && \
@@ -2364,7 +2364,7 @@ EOF
 		EXTRA_CMD="-qscale:v 2"
 		doLog "Join-Final: Adding \"$EXTRA_CMD\" to command."
 	fi
-	if $doStream && ! $PlayFile
+	if $doStream && ! $PlayFile && ! $doPlay
 	then	[ -z "$FFSERVER_CONF" ] && FFSERVER_CONF=/share/doc/ffmpeg/ffserver.conf
 		ps -hau | $GREP -v $GREP | $GREP -q ffserver || ffserver -f $FFSERVER_CONF &
 		case "$MODE" in
@@ -2412,9 +2412,9 @@ EOF
 		fi
 		
 if $doPlay
-then	$doSelect && [ -z "$URL" ] && \
-		tui-echo "Please select an url you want to replay:" && \
-		URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
+then	#$doSelect && [ -z "$URL" ] && \
+	#	tui-echo "Please select an url you want to replay:" && \
+	#	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
 	[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
 	# Audio or Video?
 	$showFFMPEG && \
