@@ -117,6 +117,7 @@
 	doSelect=false			# -[PP|UU] Show selection menu for either one
 	doStream=false			# -U|u, unless -P is passed, requres one of -G|S|W or a file
 	doExternal=false		# -E
+	doZone=false			# -S required
 	override_audio_codec=false	# -c a	/ -C	User passed codec
 	override_sub_codec=false	# -c t	/ -C	''
 	override_video_codec=false	# -c v	/ -C	''
@@ -332,6 +333,7 @@ ${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-x(tract)			Clean up the log file
 	-X(tract)			Clean up system from $ME-configurations
 	-y(copY)			Just copy streams, fake convert
+	-Z(one) TOP LEFT WIDTH HEIGHT	Only record this zone of the screen
 	-z(sample)  1:23[-1:04:45[.15]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
 
 ${BOLD}${TUI_FONT_UNDERLINE}Tools:${RESET}
@@ -757,7 +759,7 @@ Presets:	$PRESETS
 				$SHELL "$1"
 			tui-status $? "$msg $2"
 			RET=$?
-		else	tui-bgjob -f "$2" "$1" "$3" "$4"
+		else	sh -x tui-bgjob -f "$2" "$1" "$3" "$4"
 			RET=$?
 		fi
 		return $RET
@@ -1657,7 +1659,7 @@ EOF
 	A=1 			# Files added counter
 	image_overlay=""	# Clean variable for 'default' value
 	#showHeader=false
-	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:Ss:tT:q:Q:Uu:vVwWxXyz:" opt
+	while getopts "2a:ABb:c:Cd:De:E:f:FGhHi:I:jJKLl:O:Pp:Rr:Ss:tT:q:Q:Uu:vVwWxXyz:Z:" opt
 	do 	log_msg=""
 		case $opt in
 		2)	PASS=2	;;
@@ -2009,6 +2011,16 @@ EOF
 			TIMEFRAME=" -ss $SS_START -to $SS_END"
 			log_msg="Set starttime to \"$SS_START\" and endtime to \"$SS_END\""
 			;;
+		Z)	# ZONE
+			shift
+			( [ -z "$4" ] || [ ! -z "$(echo $4 | tr -d [:digit:])" ] ) && echo "Usage: $ME -Z TOP LEFT WIDTH HEIGHT" && exit 1
+			Z_TOP=$1
+			Z_LEFT=$2
+			Z_WIDTH=$3
+			Z_HEIGHT=$4
+			doZone=true
+			shift 4
+			;;
 		*)	log_msg="Invalid argument: $opt : $OPTARG"
 			;;
 		esac
@@ -2210,7 +2222,12 @@ EOF
 				$beVerbose && tui-echo "$msg"
 				msg+=" Capturing"
 				[ -z "$DISPLAY" ] && DISPLAY=":0.0"	# Should not happen, setting to default
-				cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
+				if $doZone
+				then	# Special treatement
+					cmd_input_all="-f x11grab -video_size  ${Z_WIDTH}x${Z_HEIGHT} -i $DISPLAY+${Z_LEFT},${Z_TOP} -f $sound -i default"
+				else	# Default
+					cmd_input_all="-f x11grab -video_size  $(getRes screen) -i $DISPLAY -f $sound -i default"
+				fi
 				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $cmd_audio_all $web $extra $METADATA $F \"${OF}\""
 				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $cmd_audio_all $web $extra $METADATA $F \"${OF}\""
 				printf "$cmd" > "$TMP"
@@ -2239,7 +2256,7 @@ EOF
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				;;
 			esac
-
+			
 			doLog "$msgA"
 			if $ADVANCED
 			then	tui-echo "Please save the file before you continue"
@@ -2247,12 +2264,16 @@ EOF
 				tui-press "Press [ENTER] when ready to encode..."
 			fi
 			
-			tui-status $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
+			tui-status ${RET_INFO:-111} "Press 'CTRL+C' to stop recording the $MODE..."
 			if $doStream
 			then	tui-bgjob "$TMP" "Streaming $MODE to '$OF'" "Saved to '$OF'"
 				RET=$?
-			else	doExecute "$TMP" "$OF" "Saving to '$OF'" "Saved to '$OF'"
-				RET=$?
+			else	if [ screen = $MODE ]
+				then	tui-bgjob -f "$OF" "$TMP" "Saving to '$OF'" "Saved to '$OF'"
+					RET=$?
+				else	doExecute "$TMP" "$OF" "Saving to '$OF'" "Saved to '$OF'"
+					RET=$?
+				fi
 			fi
 			[ $MODE = dvd ] && \
 				[ -f "$dvd_tmp/vobcopy.bla" ] && \
