@@ -26,11 +26,10 @@
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
 #	Changed:	2015.05.24
-#	Description:	All in one movie handler, wrapper for ffmpeg
+#	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
 #			
-#
 #	Resources:	http://ffmpeg.org/index.html
 #			https://wiki.archlinux.org/index.php/FFmpeg
 #			https://support.google.com/youtube/answer/1722171?hl=en&ref_topic=2888648
@@ -57,10 +56,11 @@
 		sleep 1.5
 		! ./install.sh || exit 1
     	fi
-    	if [ ! -f $HOME/.tui_rc ]
-	then	. tui
-	else	source $HOME/.tui_rc && \
-			. $TUI_DIR_CONF/commands.conf
+    	if [ ! -f $HOME/.tuirc ]
+	then	[ -f /etc/tuirc ] && source /etc/tuirc
+		source tuirc
+	else	source $HOME/.tuirc && \
+			source $TUI_DIR_CONF/commands.conf
 	fi
 #
 #	Get XDG Default dirs
@@ -75,7 +75,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.2.2
+	script_version=2.5
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -169,7 +169,7 @@
 	count_U=0
 	# Figured an average webradio url has like 67 chars.... * 3 =~ 180-210
 	WIDTH=${COLUMNS:-$(tput cols)}
-	if [ $WIDTH -le  100 ]
+	if [ $WIDTH -le  100 ]		# This check sets the variable used by tui-select when selecting from urllist
 	then	intPlayRows="-1"	# 1 or less
 	elif [ $WIDTH -le  200 ]
 	then	intPlayRows="-2"	# 2 or less
@@ -315,7 +315,9 @@ ${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-l(anguage)	LNG		Add LNG to be included (3 letter abrevihation, eg: eng,fre,ger,spa,jpn)
 	-L(OG)				Show the log file
 	-p(ip)		LOCATION[NUM]	Possible: tl, tc, tr, br, bc, bl, cl, cc, cr ; optional appending (NO space between) NUM would be the width of the PiP webcam
-	-P(lay[-list])			Requires either '-u URL' or '-U', or be called 2 times to select the playlist history, pass -PPP to open the urls history file.
+	-P(lay)		-[PUu]|FILE	Requires either '-u URL','-P|U' or a file as argument
+	-PP				Select the url playlist history
+	-PPP 				Open the urls history file.
 	-q(uality)	RES		Encodes the video at ID's bitrates from presets
 	-Q(uality)	RES		Sets to ID-resolution and uses the bitrates from presets, video might become sctreched
 	-r(ate)		48000		Values from 48000 to 96000, or similar
@@ -325,7 +327,8 @@ ${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-t(itles)			Use default and provided langauges as subtitles, where available
 	-T(imeout)	2m		Set the timeout between videos to TIME (append either 's', 'm' or 'h' as other units)
 	-u(rl)		URL		Using URL as streaming target or source, use '-S|W|G' to 'send' or '-P' to play the stream.
-	-U(rl)				Using the URL from the config file
+	-U(rl)				Using the URL from the config file, 
+	-UU				Select among already used upstream urls
 	-v(erbose)			Displays encode data from ffmpeg
 	-V(erbose)			Show additional info on the fly
 	-w(eb-optimized)		Moves the videos info to start of file (web compatibility)
@@ -759,7 +762,7 @@ Presets:	$PRESETS
 				$SHELL "$1"
 			tui-status $? "$msg $2"
 			RET=$?
-		else	sh -x tui-bgjob -f "$2" "$1" "$3" "$4"
+		else	tui-bgjob -f "$2" "$1" "$3" "$4"
 			RET=$?
 		fi
 		return $RET
@@ -1253,6 +1256,14 @@ sleep_between=90s
 webcam_res=640x480
 webcam_fps=25
 
+# Set the default zone of screen to record from
+# Top Left at FullHD:  0 0 520 960
+# Top Right at FullHD: 0 960 520 960
+# Lower Left at FullHD:  520 0 960 520
+# Lower Right at FullHD: 520 960 520 960
+screen_zone="520 960 0  520"
+#$(SIZE=$(xrandr | $AWK  '/\*/ {print $1}'))
+
 # Streaming
 FFSERVER_CONF=$(locate ffserver.conf|head -n1)
 URL_UP="udp://$(ifconfig | grep broadcast | awk '{print $2}'):8090/live.ffm"
@@ -1457,7 +1468,7 @@ EOF
 	#	Verify paths
 	#
 		for d in "$DIR_SRC" "$CHROOT" "$LOG_DIR" "$(dirname $TMP)"
-		do	tui-bol-dir "$d"
+		do	[ -z "$d" ] || tui-bol-dir -v "$d"
 		done
 		cd "$DIR_SRC" || exit 1
 		[ -f "$SKIPTHIS" ] || touch "$SKIPTHIS"
@@ -2013,15 +2024,26 @@ EOF
 			;;
 		Z)	# ZONE
 			shift
-			( [ -z "$4" ] || [ ! -z "$(echo $4 | tr -d [:digit:])" ] ) && echo "Usage: $ME -Z TOP LEFT WIDTH HEIGHT" && exit 1
-			Z_TOP=$1
-			Z_LEFT=$2
-			Z_WIDTH=$3
-			Z_HEIGHT=$4
 			doZone=true
-			shift 4
+			if [ Z = "$OPTARG" ] && [ -z "$Z_TOP" ]
+			then	screen_zone=$(tui-conf-get "$CONFIG" screen_zone|sed s,'"',,g)
+				Z_TOP=$(echo $screen_zone | $AWK '{print $1}')
+				Z_LEFT=$(echo $screen_zone | $AWK '{print $2}')
+				Z_HEIGHT=$(echo $screen_zone | $AWK '{print $3}')
+				Z_WIDTH=$(echo $screen_zone | $AWK '{print $4}')
+				shift
+			else
+				( [ -z "$4" ] || [ ! -z "$(echo $4 | tr -d [:digit:])" ] ) && echo "Usage: $ME -Z TOP LEFT WIDTH HEIGHT" && exit 1
+				Z_TOP=$1
+				Z_LEFT=$2
+				Z_WIDTH=$3
+				Z_HEIGHT=$4
+				shift 4
+				screen_zone="$Z_TOP $Z_LEFT $Z_WIDTH $Z_HEIGHT"
+			fi
 			;;
 		*)	log_msg="Invalid argument: $opt : $OPTARG"
+			exit
 			;;
 		esac
 		#$beVerbose && tui-echo "$log_msg"
@@ -2215,6 +2237,7 @@ EOF
 			$beVerbose && tui-echo "Set outputfile to $OF"
 			msg="Beginn:"
 			msgA="Generated command for $MODE-encoding in $TMP"
+			[ ! -z "$Z_TOP" ] && msgA="${msgA/encoding/encoding ($screen_zones)}"
 			doLog "${msgA/ed/ing}"
 			case "$MODE" in
 			webcam) doWebCam	;;
@@ -2272,8 +2295,8 @@ EOF
 			if $doStream
 			then	tui-bgjob "$TMP" "Streaming $MODE to '$OF'" "Saved to '$OF'"
 				RET=$?
-			else	if [ screen = $MODE ]
-				then	tui-bgjob -f "$OF" "$TMP" "Saving to '$OF'" "Saved to '$OF'"
+			else	if ${doScreen:-false}
+				then	tui-bgjob -f "$OF" "$TMP" "Saving to '$OF' ($screen_zone)" "Saved to '$OF'"
 					RET=$?
 				else	doExecute "$TMP" "$OF" "Saving to '$OF'" "Saved to '$OF'"
 					RET=$?

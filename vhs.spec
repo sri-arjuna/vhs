@@ -68,7 +68,11 @@ mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
 %{_bindir}/vhs
 
 %changelog
-* Mon Jun 1 2015 Simon A. Erat <erat.simon@gmail.com> 2.2
+* Sun Jun 21 2015 Simon A. Erat <erat.simon@gmail.com> 2.5
+- Update:  Screenrecording can now record just a Zone range (-Z args)
+- Updated: vhs works with the new tuirc.
+
+* Mon Jun 1 2015 Simon A. Erat <erat.simon@gmail.com> 2.2.2
 - Fixed:   Some files (audio streams) could not be identfied
 -          on systems with non-english locales.
 - Updated: Playmode now shows progressbar for files
