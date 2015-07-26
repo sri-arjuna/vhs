@@ -52,15 +52,17 @@
 			mv tui-master/* . ; rmdir tui-master
 		fi
     		cd /tmp/tui.inst || exit 1
-    		echo "Installing to default locations?"
+    		echo "Installing to default location."
 		sleep 1.5
-		! ./install.sh || exit 1
+		./configure --prefix=/
+		make && make install && ln -sf /share/info/tui.info /usr/info/tui.info || exit 1
+		#! ./install.sh || exit 1
     	fi
     	if [ ! -f $HOME/.tuirc ]
 	then	[ -f /etc/tuirc ] && source /etc/tuirc
 		source tuirc
 	else	source $HOME/.tuirc && \
-			source $TUI_DIR_CONF/commands.conf
+			source "${TUI_FILE_CONF_COMMANDS:-/etc/tui/commands.conf}"
 	fi
 #
 #	Get XDG Default dirs
@@ -75,7 +77,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.5
+	script_version=2.5.1
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -433,9 +435,7 @@ Presets:	$PRESETS
 	StreamInfo() { # VIDEO
 	# Returns the striped down output of  ffmpeg -psnr -i video
 	# Highly recomend to invoke with "vhs -i VIDEO" then use "$TMP.info"
-		LC_ALL=C
-		export LC_ALL
-		ffmpeg  -psnr -i "$1" 1> "$TMP.info" 2> "$TMP.info"
+		LC_ALL=C ffmpeg  -psnr -i "${1:-$video}" 1> "$TMP.info" 2> "$TMP.info"
 		$GREP -i stream "$TMP.info" | $GREP -v @ | $GREP -v "\--version"
 		LC_ALL=""
 		export LC_ALL
@@ -602,23 +602,23 @@ Presets:	$PRESETS
 	PlayTimeSecs() { #
 	# Returns the playtime in seconds
 	#
+		#set -x
 		str_work=$(PlayTime)
 		base="${str_work/*:/}"
 		mins=${str_work/:$base/}
 		hours=${str_work/:*/}
 		H=$(( $hours * 3600 ))
-		M=$(( ${mins/*:} * 60 ))
-		echo $base $M $H | $AWK '{print int ($1 + $2 + $3)}'
+		M=$(( ${mins/*:} * 60 )) >&2
+		echo ${base} ${M:-0} ${H:-0} | $AWK '{print int ($1 + $2 + $3)}'
+		#set +x
 	}
 	countVideo() { # [VIDEO]
 	# Returns the number of video streams found in VIDEO
 	# If VIDEO is not passed, it is assumed that $TMP.info contains the current data
-		LC_ALL=C ; export LC_ALL
 		[ -z "$1" ] && \
 			cmd="$GREP -i stream \"$TMP.info\"" || \
 			cmd="StreamInfo \"$1\""
 		eval $cmd|$GREP -i video|wc -l
-		LC_ALL="" ; export LC_ALL
 	}
 	countAudio() { # [VIDEO]
 	# Returns the number of audio streams found in VIDEO
@@ -793,7 +793,7 @@ Presets:	$PRESETS
 		countAudio=$(countAudio)
 		$beVerbose && tui-echo "Found $countAudio audio stream/s in total"
 		case $countAudio in
-		0)	if $exit_on_missing_audio
+		00)	if $exit_on_missing_audio
 			then	msg="No audio streams found, aborting!"
 				tui-status 1 "$msg"
 				doLog "$msg"
@@ -1566,7 +1566,7 @@ EOF
 		function secs2time() { # SECS
 		# Returns given SECS as readable TIME (hh:mm:ss)
 		#
-			[ -z "$1" ] && echo "Usage: secs2time SECS" && return 1
+			[ ! -z "$(echo $1|tr -d [:digit:])" ] && echo "Usage: secs2time SECS" && return 1
 			SECS=$1
 			MINS=$(( $SECS / 60  ))
 			HRS=$(( $MINS / 60 ))
@@ -1598,11 +1598,15 @@ EOF
 		# Print information line
 		while ps $PID > /dev/null
 		do	CUR=$(tr '\r' '\n' < "$STATUS" | tail -n 1  | awk '{print $1}')
-			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $(secs2time ${CUR/.*/})/$PT"
+			
 			# If progress works, this is the next to be tested - multiple files
 			CUR="${CUR/.*/}"
-			[ -z "$(echo $CUR|tr -d [:alpha:])" ] && CUR=0
-			[ $CUR -eq "$PTS" ] && printf "\n" && pkill ffplay && break
+			[ -z "$(echo $CUR|tr -d [:alpha:] | tr -d [\[\]])" ] && CUR=0
+			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $(secs2time ${CUR/.*/})/$PT"
+		#	echo >&2
+		#	echo $PTS  >&2
+		#	echo  >&2
+			[ ${CUR:-0} -eq ${PTS:-0} ] && printf "\n" && pkill ffplay && break
 			sleep 1
 		done
 		rm -f "$STATUS"
@@ -1789,7 +1793,7 @@ EOF
 			for A in "${@}";do
 			if [ -f "$A" ]
 			then	$beVerbose && tui-echo "Video exist, showing info"
-				tui-printf "Retrieving data from ${A##*/}" "$WORK"
+				tui-printf -rS 2 "Retrieving data from ${A##*/}"
 				StreamInfo "$A" > "$TMP.info.2"
 				
 				$doStream && \
@@ -2483,7 +2487,7 @@ then	#$doSelect && [ -z "$URL" ] && \
 	then	tui-edit "$TMP"
 		tui-press
 	fi
-	doLog "Stream: Play-Command: $(<$TMP)"
+	doLog "Stream: Play-Command:" "$(<$TMP)"
 	# Show video handling keys before the status bar
 	$showFFMPEG && \
 		! $VideoInfoShown && \
@@ -2542,9 +2546,9 @@ fi
 			doLog "Loading: $container"
 			
 			cmd_video_all="-nv"
-			cmd_audio_all=" -c:a $audio_codec"		# Set audio codec if provided
+			#cmd_audio_all=" -c:a $audio_codec"		# Set audio codec if provided
 			[ -z "$BIT_AUDIO" ] || cmd_audio_all+=" -b:a ${BIT_AUDIO}K"		# Set audio bitrate if requested
-			$channel_downgrade &&  cmd_audio_all+=" -ac $channels"			# Force to use just this many channels
+			#$channel_downgrade &&  cmd_audio_all+=" -ac ${channels:-2}"			# Force to use just this many channels
 			if $useRate 
 			then	[ $container = flv ] && \
 					cmd_audio_all+=" -r 44100" || \
@@ -2553,8 +2557,9 @@ fi
 		fi
 		
 		
+		PT=$(PlayTimeSecs)
 		echo "$BIT_AUDIO$BIT_VIDEO" | $GREP -q [0-9] && \
-			EXPECTED="$(( ( $(PlayTimeSecs) * ( $BIT_VIDEO + $BIT_AUDIO ) ) * 1024 / 8))" || \
+			EXPECTED="$(( ( ${PT:-1} * ( $BIT_VIDEO + $BIT_AUDIO ) ) * 1024 / 8))" || \
 			EXPECTED=$(fs_expected)
 		
 		
