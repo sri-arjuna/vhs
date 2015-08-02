@@ -58,13 +58,14 @@
 		make && make install && ln -sf /share/info/tui.info /usr/info/tui.info || exit 1
 		#! ./install.sh || exit 1
     	fi
-    	if [ ! -f $HOME/.tuirc ]
+    	if [ ! -f "${HOME:-/root}/.tuirc" ]
 	then	[ -f /etc/tuirc ] && source /etc/tuirc
 		source tuirc
-	else	source $HOME/.tuirc && \
-			source "${TUI_FILE_CONF_COMMANDS:-/etc/tui/commands.conf}"
+	else	source /etc/tuirc
+		source "${HOME:-/root}/.tuirc" && \
+			source "${TUI_FILE_CONF_COMMANDS}"
 	fi
-#
+#fix
 #	Get XDG Default dirs
 #
 	X="$HOME/.config/user-dirs.dirs"
