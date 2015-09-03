@@ -54,17 +54,12 @@
     		cd /tmp/tui.inst || exit 1
     		echo "Installing to default location."
 		sleep 1.5
-		./configure --prefix=/
-		make && make install && ln -sf /share/info/tui.info /usr/info/tui.info || exit 1
+		./configure --prefix=/usr
+		./make-install
+		#make && make install && [ -f /share/info/tui.info ] && ln -sf /share/info/tui.info /usr/share/info/tui.info || exit 1
 		#! ./install.sh || exit 1
-    	fi
-    	if [ ! -f "${HOME:-/root}/.tuirc" ]
-	then	[ -f /etc/tuirc ] && source /etc/tuirc
-		source tuirc
-	else	source /etc/tuirc
-		source "${HOME:-/root}/.tuirc" && \
-			source "${TUI_FILE_CONF_COMMANDS}"
 	fi
+	source tuirc
 #fix
 #	Get XDG Default dirs
 #
