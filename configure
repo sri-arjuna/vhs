@@ -431,6 +431,9 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 			FHS["$index"]="$tmp"
 		fi
 	done
+	export FHS
+	prefix="${FHS[prefix]}"
+	source "$SOURCE"
 #
 #	Prepare installation script
 #
@@ -441,7 +444,8 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		which $req 2>/dev/zero 1>&2 || missing+=" $req"
 	done
 	[ ! -z "$missing" ] && \
-		printf '%s\n' "Please provide these commands before installing $APP!" "::-->> ${missing}" && \
+		printf '%s\n' "Please provide these commands before installing $APP!"  && \
+		printf '::-->> %s\n' ${missing} && \
 		exit 1
 	
 #
@@ -454,7 +458,6 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 			VERSION="" || \
 			VERSION="_${APP_VER}"
 		./configure --prefix="${FHS[prefix]}"
-		source "$REFERENCE"
 		for t in "${PRIOR[@]}"
 		do 	(set -x ; $t )
 		done
