@@ -76,7 +76,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.5.2
+	script_version=2.5.3
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -2452,6 +2452,7 @@ EOF
 	cmd_audio_all_outside="$cmd_audio_all"
 	$PlayFile && URL=""
 	for video in "${ARGS[@]}" "$URL" ;do 
+		[ -z "$video" ] && continue
 		# Only wait for 2nd loop and later
 		if $wait_now
 		then	doLog "--------------------------------"
