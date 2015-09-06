@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.05.24
+#	Changed:	2015.09.06
 #	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -60,6 +60,9 @@
 		#! ./install.sh || exit 1
 	fi
 	source tuirc
+	AWK=awk #$(which $(printf ${AWK:-awk}))
+	GREP=grep #$(which $(printf ${GREP:-grep}))
+	SED=sed #$(which $(printf ${SED:-sed}))
 #fix
 #	Get XDG Default dirs
 #
@@ -73,7 +76,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.5.1
+	script_version=2.5.2
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -423,6 +426,7 @@ Presets:	$PRESETS
 #
 #	Functions
 #
+	
 	doLog() { # "MESSAGE STRING"
 	# Prints: Time & "Message STRING"
 	# See 'tui-log -h' for more info
