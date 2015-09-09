@@ -283,7 +283,8 @@
 $ME ($script_version) - ${TITLE^}
 Usage: 		$ME [options] filename/s ...
 
-${BOLD}${TUI_FONT_UNDERLINE}Examples:${RESET}	$ME -C				| Enter the configuration/setup menu
+${BOLD}${TUI_FONT_UNDERLINE}SYNOPSIS:${RESET}
+		$ME -C				| Enter the configuration/setup menu
 		$ME -b ${BOLD}a${RESET}128 -b ${BOLD}v${RESET}512 filename	| Encode file with audio bitrate of 128k and video bitrate of 512k
 		$ME -c ${BOLD}a${RESET}AUDIO -c ${BOLD}v${RESET}VIDEO -c ${BOLD}s${RESET}SUBTITLE filename	| Force given codecs to be used for either audio or video (NOT recomended, but as bugfix for subtitles!)
 		$ME -e mp4 filename		| Re-encode a file, just this one time to mp4, using the input files bitrates
@@ -292,7 +293,7 @@ ${BOLD}${TUI_FONT_UNDERLINE}Examples:${RESET}	$ME -C				| Enter the configuratio
 		$ME -Q fhd filename		| Re-encode a file, using the screen res and bitrate presets for FullHD (see RES info below)
 		$ME -Bjtq fhd filename		| Re-encode a file, using the bitrates from the config file, keeping attachment streams and keep subtitle for 'default 2 languages' if found, then forcing it to a Full HD dimension
 
-${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
+${BOLD}${TUI_FONT_UNDERLINE}OPTIONS:${RESET} (only the first letter)
 	-h(elp) 			This screen
 	-2(-pass)			Enabled 2 Pass encoding: Video encoding only (Will fail when combinied with -y (copy)!)
 	-a(dd)		FILE		Adds the FILE to the 'add/inlcude' list, most preferd audio- & subtitle files (images can be only on top left position, videos 'anywhere' -p allows ; just either one Or the other at a time)
@@ -340,19 +341,19 @@ ${BOLD}${TUI_FONT_UNDERLINE}Where options are:${RESET} (only the first letter)
 	-Z(one) TOP LEFT WIDTH HEIGHT	Only record this zone of the screen
 	-z(sample)  1:23[-1:04:45[.15]	Encdodes a sample file which starts at 1:23 and lasts 1 minute, or till the optional endtime of 1 hour, 4 minutes and 45 seconds
 
-${BOLD}${TUI_FONT_UNDERLINE}Tools:${RESET}
+${BOLD}${TUI_FONT_UNDERLINE}TOOLS:${RESET}
 VHS now comes with some small additional tools built in.
 Invoke ${BOLD}vhs calc${RESET} to calculate the best bitrates if you want to match multiple files onto one storage device.
 You can pass arguments to it: ${BOLD}[cd|dvd|br] [#files] [avrg:duration]${RESET}
 Also, to play and recieve streams, ${BOLD}vhs [my]ip${RESET} will print ip's you could use.
 
-${BOLD}${TUI_FONT_UNDERLINE}Info:${RESET}
+${BOLD}${TUI_FONT_UNDERLINE}INFO:${RESET}
 After installing codecs, drivers or plug in of webcam,
 it is highy recomended to update the list file.
 You can do so by entering the Setup dialog: $ME -C
 and select 'UpdateLists'.
 
-${BOLD}${TUI_FONT_UNDERLINE}Values:${RESET}
+${BOLD}${TUI_FONT_UNDERLINE}VALUES:${RESET}
 NUM:		Number for specific bitrate (ranges from 96 to 15536
 NAME:		See '$LIST_FILE' for lists on diffrent codecs
 RES:		These bitrates are ment to save storage space and still offer great quality, you still can overwrite them using something like ${BOLD}-b v1234${RESET}.
@@ -361,7 +362,7 @@ RES:		These bitrates are ment to save storage space and still offer great qualit
 		See \"$BOLD$PRESETS$RESET\" to see currently muted ones or to add your own presets.
 
 $( 
-	printf "\t${TUI_FONT_UNDERSCORE}Label	Resolution	Pixels	Vidbit	Audbit	Bitrate	1min	30mins	Comment$RESET\n"
+	printf "${TUI_FONT_UNDERSCORE}Label	Resolution	Pixels	Vidbit	Audbit	Bitrate	1min	30mins	Comment$RESET\n"
 	
 	$AWK	'BEGIN  {
 			# Prepare Unit arrays
@@ -399,7 +400,7 @@ $(
 			split($2, A, "x")
 			pixels = FMT(A[1] * A[2], PUNT);
 		# Output
-			print "\t"BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , halfhour, $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12
+			print BOLD$1RESET,$2 " ",pixels, $3 ,$4, bitrate, megabytes , halfhour, $5" "$6" "$7" "$8" "$9" "$10" "$11" "$12
 	}' BOLD="\033[1m" RESET="\033[0m" OFS="\t" "$PRESETS"
 )
 
@@ -413,7 +414,7 @@ TIME:		Any positive integer, optionaly followed by either 's', 'm' or 'h'
 
 For more information or a FAQ, please see ${BOLD}man vhs${RESET}.
 
-${BOLD}${TUI_FONT_UNDERLINE}Files:${RESET}
+${BOLD}${TUI_FONT_UNDERLINE}FILES:${RESET}
 Script:		$0
 Config:		$CONFIG
 URLS:		$URLS.{play,stream}
