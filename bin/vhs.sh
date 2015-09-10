@@ -1822,17 +1822,16 @@ EOF
 			tui-title "VHS Task Killer"
 			RAW=""
 			fine=""
-			RAW=$(ps -ha|$GREP -e [f]fmpeg -e [f]fplay |$AWK '{print $1,$5}')
+			RAW=$(ps -ha|$GREP -e [f]fmpeg -e [f]fplay |$AWK '{print $5}')
 			for R in $RAW;do [ "" = "$(echo $fine|$GREP $R)" ] && fine+=" $R";done
-			tui-echo "Please select which tasks to end:"
 			
-                        TASK=$(tui-select Abort $fine)
-			printf "\n"
-			[ "$TASK" = Abort ] && exit 0
-			tui-printf -Sr 2 "Ending task: $TASK"
+			tui-echo "Please select which tasks to end:"
+			TASK=$(tui-select Abort $fine)
+			[ "$TASK" = Abort ] && printf "\n" && exit 0
+			tui-printf -S 2 "Ending task: $TASK"
 
 			pids=$(ps -ha|$GREP -e "$TASK" -e vhs |$GREP -v $GREP|$AWK '{print $1}')
-			for p in $pids;do kill $p;done
+			for p in $pids;do kill $p;pkill $p;done
 			tui-status $? "Ended $TASK"
 			exit $?
 			;;
@@ -2479,7 +2478,7 @@ then	#$doSelect && [ -z "$URL" ] && \
 		doLog "Stream: Play, expecting video..." || \
 		showdisp="-nodisp"
 	# Either way, lets make ctrl+c the 'skip current file' aka 'next!'
-	trap continue SIGABRT SIGINT
+	trap "tui-status 4 \"Skipped: $video\"; continue" SIGABRT SIGINT
 	# Show title and write command
 	if [ -z "$1" ]
 	then	tui-title "Playing $strPlayType stream" #&& PlayFilesShown=true
