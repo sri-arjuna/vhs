@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.09.06
+#	Changed:	2015.09.20
 #	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -60,9 +60,9 @@
 		#! ./install.sh || exit 1
 	fi
 	source tuirc
-	AWK=awk #$(which $(printf ${AWK:-awk}))
-	GREP=grep #$(which $(printf ${GREP:-grep}))
-	SED=sed #$(which $(printf ${SED:-sed}))
+	#AWK=awk #$(which $(printf ${AWK:-awk}))
+	#GREP=grep #$(which $(printf ${GREP:-grep}))
+	#SED=sed #$(which $(printf ${SED:-sed}))
 #fix
 #	Get XDG Default dirs
 #
@@ -76,7 +76,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.5.3
+	script_version=2.6
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -281,7 +281,7 @@
 	RESET="$TUI_COLOR_RESET"
 	help_text="
 $ME ($script_version) - ${TITLE^}
-Usage: 		$ME [options] filename/s ...
+USAGE: 		$ME [options] filename/s ...
 
 ${BOLD}${TUI_FONT_UNDERLINE}SYNOPSIS:${RESET}
 		$ME -C				| Enter the configuration/setup menu
@@ -423,6 +423,8 @@ Containers:	$CONTAINER
 Lists:		$LIST_FILE
 Presets:	$PRESETS
 
+To read more about VHS please visit: <https://github.com/sri-arjuna/vhs/>
+To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or raise an issue on <https://github.com/sri-arjuna/vhs/issues>
 "
 #
 #	Functions
@@ -1820,17 +1822,16 @@ EOF
 			tui-title "VHS Task Killer"
 			RAW=""
 			fine=""
-			RAW=$(ps -ha|$GREP -v $GREP|$GREP -e vhs -e ffmpeg |$GREP  bgj|$AWK '{print $8}')
+			RAW=$(ps -ha|$GREP -e [f]fmpeg -e [f]fplay |$AWK '{print $1,$5}')
 			for R in $RAW;do [ "" = "$(echo $fine|$GREP $R)" ] && fine+=" $R";done
-
 			tui-echo "Please select which tasks to end:"
 			
                         TASK=$(tui-select Abort $fine)
 			printf "\n"
-			[ "$TASK" = Abort ] && tui-echo "Thanks for aborting ;)" && exit
+			[ "$TASK" = Abort ] && exit 0
 			tui-printf -Sr 2 "Ending task: $TASK"
 
-			pids=$(ps -ha|$GREP "$TASK"|$GREP -v $GREP|$AWK '{print $1}')
+			pids=$(ps -ha|$GREP -e "$TASK" -e vhs |$GREP -v $GREP|$AWK '{print $1}')
 			for p in $pids;do kill $p;done
 			tui-status $? "Ended $TASK"
 			exit $?
@@ -2477,6 +2478,8 @@ then	#$doSelect && [ -z "$URL" ] && \
 		showdisp="-fs" && \
 		doLog "Stream: Play, expecting video..." || \
 		showdisp="-nodisp"
+	# Either way, lets make ctrl+c the 'skip current file' aka 'next!'
+	trap continue SIGABRT SIGINT
 	# Show title and write command
 	if [ -z "$1" ]
 	then	tui-title "Playing $strPlayType stream" #&& PlayFilesShown=true
@@ -2491,13 +2494,22 @@ then	#$doSelect && [ -z "$URL" ] && \
 	fi
 	doLog "Stream: Play-Command:" "$(<$TMP)"
 	# Show video handling keys before the status bar
-	$showFFMPEG && \
-		! $VideoInfoShown && \
-		tui-list -n 	"q) Quit/Next" "f) Toggle Fullscreen" "p) Pause" \
+	if ! $VideoInfoShown
+	then	case $strPlayType in
+		video)	tui-list -n \
+				"q) Quit/Next" "f) Toggle Fullscreen" "p) Pause" \
 				"a) Cycle Audio streams" "v) Cycle video streams" "t) Cycle Subtitles" \
-				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min" && \
+				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min"
+			;;
+		audio)	tui-list -n2 \
+				"Next = CTRL+C" "Pause = CTRL+Z" \
+				"Continue = fg" "Stop = vhs -K"
+			;;
+		esac
 		VideoInfoShown=true
-	sleep 0.001
+		sleep 0.1
+	fi
+	
 	# Start the backgroundjob and playstatus AFTER printed keys
 	if [ -z "$1" ]
 	then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
