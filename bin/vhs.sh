@@ -35,35 +35,7 @@
 #			https://support.google.com/youtube/answer/1722171?hl=en&ref_topic=2888648
 #			users of #ffmpeg on freenode.irc
 #
-#
-# This script requires TUI - Text User Interface
-# See:		https://github.com/sri-arjuna/tui
-#
-#	Check if TUI is installed...
-#
-	if [ ! -f "$(which tui)" ]
-	then 	[ ! 0 -eq $UID ] && \
-			printf "\n#\n#\tPlease restart the script as root to install TUI (Text User Interface).\n#\n#\n" && \
-			exit 1
-		if ! git clone https://github.com/sri-arjuna/tui.git /tmp/tui.inst
-		then 	mkdir -p /tmp/tui.inst ; cd /tmp/tui.inst/
-			curl --progress-bar -L https://github.com/sri-arjuna/tui/archive/master.zip -o master.zip
-			unzip master.zip && rm -f master.zip
-			mv tui-master/* . ; rmdir tui-master
-		fi
-    		cd /tmp/tui.inst || exit 1
-    		echo "Installing to default location."
-		sleep 1.5
-		./configure --prefix=/usr
-		./make-install
-		#make && make install && [ -f /share/info/tui.info ] && ln -sf /share/info/tui.info /usr/share/info/tui.info || exit 1
-		#! ./install.sh || exit 1
-	fi
 	source tuirc
-	#AWK=awk #$(which $(printf ${AWK:-awk}))
-	#GREP=grep #$(which $(printf ${GREP:-grep}))
-	#SED=sed #$(which $(printf ${SED:-sed}))
-#fix
 #	Get XDG Default dirs
 #
 	X="$HOME/.config/user-dirs.dirs"
@@ -1605,7 +1577,17 @@ EOF
 			# If progress works, this is the next to be tested - multiple files
 			CUR="${CUR/.*/}"
 			[ -z "$(echo $CUR|tr -d [:alpha:] | tr -d [\[\]])" ] && CUR=0
-			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $(secs2time ${CUR/.*/})/$PT"
+			PC=$(secs2time ${CUR/.*/})
+			if echo "$PC" | $GREP -q ':'
+			then	if [ ${CUR/.*} -gt ${PTS/.*} ]
+				then	pkill ffplay
+					continue
+					echo "
+					continue
+					"
+				fi
+			fi
+			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $PC/$PT"
 		#	echo >&2
 		#	echo $PTS  >&2
 		#	echo  >&2
@@ -1828,11 +1810,30 @@ EOF
 			tui-echo "Please select which tasks to end:"
 			TASK=$(tui-select Abort $fine)
 			[ "$TASK" = Abort ] && printf "\n" && exit 0
-			tui-printf -S 2 "Ending task: $TASK"
-
-			pids=$(ps -ha|$GREP -e "$TASK" -e vhs |$GREP -v $GREP|$AWK '{print $1}')
-			for p in $pids;do kill $p;pkill $p;done
-			tui-status $? "Ended $TASK"
+			tui-printf -rS 2 "Ending task: $TASK"
+			
+			# Find related vhs tasks for select TASK
+			case $TASK in
+			ffplay)		# Find "-P" for vhs task
+					task_search='\-P'
+					;;
+			ffmpeg)		# Find "-[DGSW]" for vhs task
+					task_search='\-[DGSW]'
+					;;
+			esac
+			#tui-header $TASK
+	#	set -x
+			pids=$(ps -ha|$GREP -e "$TASK" -e vhs |$GREP -v $GREP|$GREP $task_search | $AWK '{print $1}')
+			
+			
+			for p in $pids;do 
+				(sleep 0.5;for n in 3 9;do kill -$n $p;done;RET=$?)&
+				while ps -x | $GREP -v $GREP | $GREP -q $p 
+				do 	pkill $TASK ; RET=$?
+				done
+				
+			done
+			tui-status $RET "Ended $TASK"
 			exit $?
 			;;
 		l)	log_msg="Adding '$OPTARG' to the list of language: $langs"
@@ -2477,8 +2478,19 @@ then	#$doSelect && [ -z "$URL" ] && \
 		showdisp="-fs" && \
 		doLog "Stream: Play, expecting video..." || \
 		showdisp="-nodisp"
-	# Either way, lets make ctrl+c the 'skip current file' aka 'next!'
-	trap "tui-status 4 \"Skipped: $video\"; continue" SIGABRT SIGINT
+#
+#	TRAPS + Controls
+#
+	# Previous	:	ctrl+p
+	trap "echo yay" 1
+	# Next  	:	ctrl+n
+	trap "tui-status 4 \"Skipped: $video\"; pkill ffplay ; continue" SIGABRT SIGINT
+	
+	# Pause		:	ctrl+z
+	
+	
+	# Quit  	:	ctrl+q
+	trap "tui-status 0 \"Quit playing.\" >&2;break" SIGQUIT SIGKILL
 	# Show title and write command
 	if [ -z "$1" ]
 	then	tui-title "Playing $strPlayType stream" #&& PlayFilesShown=true
@@ -2501,8 +2513,8 @@ then	#$doSelect && [ -z "$URL" ] && \
 				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min"
 			;;
 		audio)	tui-list -n2 \
-				"Next = CTRL+C" "Pause = CTRL+Z" \
-				"Continue = fg" "Stop = vhs -K"
+				"Previous = CTRL+P" 	"Next = CTRL+N" 	"Pause = CTRL+Z" \
+				"Quit = CTRL+Q" 	"Continue = fg"
 			;;
 		esac
 		VideoInfoShown=true
@@ -2514,6 +2526,7 @@ then	#$doSelect && [ -z "$URL" ] && \
 	then	tui-bgjob "$TMP" "Streaming from: $URL" "Saving bandwith as i cant reach: $URL..." 1.5
 		RET=$?
 	else	#tui-bgjob "$TMP" "Playing $video ($PT)..." "Done playing $1" 1.5
+		LAST_PLAYED="$video"
 		PlayStatus "$video"
 		RET=$?
 		continue
@@ -2542,15 +2555,13 @@ fi
 	#
 	#	Output per video
 	#
+		# Print stream/item info
 		$doStream && \
 			$0 -Ui "$video" || \
 			$0 -i "$video"
-			#tui-title "Next title: $video" #&& \
-		#	( $0 -i "$video" )  > /dev/zero && \
-		#	sleep 0.5 || \
-			#$0 -Ui "$video"	# Calling itself with -info for video
 		
-		if ! $GREP -i "video:" -q "$TMP.info" # | $GREP -q video # || ! $GREP video "$TMP"
+		# Parse output
+		if ! $GREP -i "video:" -q "$TMP.info"
 		then	tui-echo "No Video found!"
 			MODE=audio
 			
@@ -2569,12 +2580,10 @@ fi
 			fi
 		fi
 		
-		
 		PT=$(PlayTimeSecs)
 		echo "$BIT_AUDIO$BIT_VIDEO" | $GREP -q [0-9] && \
-			EXPECTED="$(( ( ${PT:-1} * ( $BIT_VIDEO + $BIT_AUDIO ) ) * 1024 / 8))" || \
+			EXPECTED="$(( ( ${PT:-1} * ( ${BIT_VIDEO:-${video_bit:-768}} + ${BIT_AUDIO:-${audio_bit:-192}} ) ) * 1024 / 8))" || \
 			EXPECTED=$(fs_expected)
-		
 		
 		# Allthough this applies to all vides, give the user at least the info of the first file
 		#for n in 123 105 101 137 167 141 163 137 150 145 162 145;do printf \\$n > /dev/stdout;done
