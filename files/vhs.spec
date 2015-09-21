@@ -1,6 +1,6 @@
 Name:           vhs
-Version:        2.2
-Release:        7%{?dist}
+Version:        2.6
+Release:        1%{?dist}
 Summary:        Video Handler Script, using ffmpeg
 
 License:        GPLv3
@@ -44,30 +44,35 @@ A Script to handle many different multimedia tasks.
 
 %build
 # Nothing to do
+cd %{name}
+./configure --prefix=/usr --sysconfdir=%{_sysconfdir} --compldir=%{_sysconfdir}/bash_completion.d --chroot=$RPM_BUILD_ROOT
 
 %install
 rm -rf $RPM_BUILD_ROOT
-##%make_install
+cd %{name}
 
 mkdir -p %{buildroot}%{_bindir}/ \
          %{buildroot}%{_datarootdir}/%{name} \
 	 %{buildroot}%{_mandir}/man1 \
 	 %{buildroot}%{_sysconfdir}/bash_completion.d/
-rm -fr %{name}/.git
-mv %{name}/files/vhs.sh %{buildroot}%{_bindir}/vhs
-mv %{name}/files/vhs.1      %{buildroot}%{_mandir}/man1
-mv %{name}/files/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
-mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
+#rm -fr %{name}/.git
+#mv %{name}/files/vhs.sh %{buildroot}%{_bindir}/vhs
+#mv %{name}/files/vhs.1      %{buildroot}%{_mandir}/man1
+#mv %{name}/files/%{name}_compl.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
+#mv %{name}/docs/[ILR]*  %{buildroot}%{_datarootdir}/%{name}
+./make-install
 
 %files
-%doc %{_datarootdir}/%{name}/README.md 
-%doc %{_datarootdir}/%{name}/INSTALL.md 
-%doc %{_datarootdir}/%{name}/LICENSE
-%{_sysconfdir}/bash_completion.d/%{name}*
+%doc %{_docdir}/%{name}/*
+##{_datarootdir}/bash_completion/%{name}_compl.bash
+%{_sysconfdir}/bash_completion.d/%{name}_compl.bash
 %{_mandir}/man1/%{name}*.1.gz
 %{_bindir}/vhs
 
 %changelog
+* Mon Sep 21 2015 Simon A. Erat <erat.simon@gmail.com> 2.6
+- Version update
+
 * Sun Jun 21 2015 Simon A. Erat <erat.simon@gmail.com> 2.5
 - Update:  Screenrecording can now record just a Zone range (-Z args)
 - Updated: vhs works with the new tuirc.
