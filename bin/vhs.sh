@@ -707,6 +707,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		esac
 		return 0
 	}
+	#set -x ; getRes scrn ; set +x ; exit
 	getQualy() { # [-l] ID
 	# Returns 2 numbers (audio video) according to ID
 	# use -l to get a list of valid ID's
@@ -1266,6 +1267,10 @@ EOF
 				tui-echo "$var" "$val"
 		done < $TMP.cfg
 		IFS="$oIFS"
+		
+		d=$TMP.cfg
+		echo $d
+		tui-cat "$d"
 		
 		tui-echo
 		tui-echo "Which variable to change?"
