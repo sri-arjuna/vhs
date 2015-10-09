@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.09.20
+#	Changed:	2015.10.09
 #	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -48,7 +48,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.6
+	script_version=2.6a
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -2516,6 +2516,9 @@ then	#$doSelect && [ -z "$URL" ] && \
 				"q) Quit/Next" "f) Toggle Fullscreen" "p) Pause" \
 				"a) Cycle Audio streams" "v) Cycle video streams" "t) Cycle Subtitles" \
 				"LEFT/RIGHT) Seek back-forwards 10 secs" "UP/DOWN) Seek back-/forwards 1 min"
+			;;
+		audio)	tui-list -n2 \
+				"Next = CTRL+C" 	"Pause = CTRL+Z / fg" "Quit = CTRL+Z / ${0##*/} -K"
 			;;
 		audio)	tui-list -n2 \
 				"Previous = CTRL+P" 	"Next = CTRL+N" 	"Pause = CTRL+Z" \
