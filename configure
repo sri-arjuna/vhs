@@ -101,7 +101,7 @@
 		install_prefix="sudo " || \
 		install_prefix="su -c "
 	mandirs="mandir $(echo man{1..9}dir)"
-	index_list="prefix bindir sbindir  sysconfdir datarootdir appdir datadir docdir htmldir infodir $mandirs dvidir pdfdir psdir compldir sharedstatedir localstatedir"
+	index_list="prefix bindir sbindir  sysconfdir datarootdir appdir icondir datadir docdir htmldir infodir $mandirs dvidir pdfdir psdir compldir sharedstatedir localstatedir"
 	variable_list="";for i in $index_list;do variable_list+=" ${i^^}";done
 	TMP="$PWD/tmp.$$"
 	CHROOT=""
@@ -387,7 +387,8 @@ OPTIONS
 	--infodir DIR		info documentation		(\$DATAROOTDIR/info)
 	dvidir|pdfdir|psdir
 	
-	--appdir DIR		.desktop files			(\$DATAROOTDIR/applications
+	--appdir DIR		.desktop files			(\$DATAROOTDIR/applications)
+	--icondir DIR		Icons for the desktop files	(\$DATAROOTDIR/icons)
 	--compldir DIR		bash completion			(\$DATAROOTDIR/bash-completion/completions)
 	--localedir		locale-dependent data		(\$DATAROOTDIR/locale)
 	--localstatedir		modifiable single-machine data	(\$prefix/var)
@@ -460,7 +461,7 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 				fi
 				
 				case "${1,,}" in
-				compldir)	echo "[ \${UID:-0} -eq 0 ] && chown 0:0 \"$target/${2##*/}\""
+				compldir)	echo "[ \${UID:-0} -eq 0 ] && chown 0:nobody \"$target/${2##*/}\""
 				esac
 			fi
 		}
@@ -863,6 +864,7 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 					esac ; etc_done=true				;;
 			datarootdir)	tmp="${FHS[prefix]}/share"	;;
 			appdir)		tmp="${FHS[datarootdir]}/applications"	;;
+			icondir)	tmp="${FHS[datarootdir]}/icons"	;;
 			datadir)	tmp="${FHS[datarootdir]}/$APP"	;;
 			infodir)	tmp="${FHS[datarootdir]}/info"	;;
 			mandir)		tmp="${FHS[datarootdir]}/man" ;;
