@@ -19,7 +19,7 @@ Tabele of Content
 * Tools
 * Examples : Command length
 * Examples : Usage
-
+* Installation
 
 Intro
 -----
@@ -137,6 +137,7 @@ Examples : Usage
 	vhs -vPP					# Play videostream from one of the prevously played streams (urls.play)
 	vhs -Pu adress					# Play audio stream from adress (urls.play)
 
+
 Debuging:
 ---------
 
@@ -155,3 +156,23 @@ If you still want more output, there you go:
 	# To report a bug, please use the output of these two (with the first one modified) lines:
 	vhs -vV[youroptions] ["inputfile"]
 	tail ~/.config/vhs/vhs.log
+
+
+Installation:
+-------------
+
+	su
+	cd /usr/src
+	git clone https://github.com/sri-arjuna/vhs.git
+	cd vhs
+	
+	./configure --prefix=/usr
+	./make-install
+	
+To uninstall, it is quite the same:
+
+	su
+	cd /usr/src/vhs
+	./make-uninstall
+	cd ..
+	rm -fr vhs
