@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.10.09
+#	Changed:	2015.11.27
 #	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -39,7 +39,7 @@
 #	Get XDG Default dirs
 #
 	X="$HOME/.config/user-dirs.dirs"
-	[ -f "$X" ] && source "$X" || tui-status $? "Missing XDG default dirs configuration file, using: $HOME/Videos"
+	[ -f "$X" ] && source "$X" || tui-printline -S $? "Missing XDG default dirs configuration file, using: $HOME/Videos"
 	# Setting default videos dir and create it if none is present
 	[ -z "$XDG_VIDEOS_DIR" ] && XDG_VIDEOS_DIR="$HOME/Videos" && ( [ -d "$XDG_VIDEOS_DIR" ] || tui-bol-dir "$XDG_VIDEOS_DIR" )
 #
@@ -48,7 +48,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.6c
+	script_version=2.7
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -72,7 +72,7 @@
 	req_dvd="vobcopy libdvdread"
 	req_webcam="v4l-utils"
 	req_file_editors="mkvtoolnix"
-	REQUIRES="ffmpeg $req_dvd $req_webcam $req_file_editors"
+	REQUIRES="ffmpeg $req_webcam $req_dvd $req_file_editors"
 #
 #	Defaults for proper option catching, do not change
 #
@@ -167,8 +167,8 @@
 		a-fhd	1920x1080	1280	256	Lower bitrate for Animes and Cartoons
 		qvga	  320x240	240	128	Quarter of VGA, mobile devices 
 		hvga	  480x320	320	192	Half VGA, mobile devices
-		ntsc	  440×486	320	192	TV - NTSC 4:3
-		pal	  520×576	480	192	TV - PAL 4:3
+		#ntsc	  440×486	320	192	TV - NTSC 4:3
+		#pal	  520×576	480	192	TV - PAL 4:3
 		nhd	  640x360	512	192	Ninth of HD, mobile devices
 		vga	  640x480	640	192	VGA
 		dvdn	  720x480	744	256	DVD NTSC
@@ -199,7 +199,7 @@
 		yt-1440	2560x1440	10000	512	YT, 2k, Quad HD - 4xHD
 		yt-2160	3840x2160	40000	512	YT, 4K, Ultra HD TV
 		EOF
-		tui-status $? "Wrote presets in:" "$PRESETS"
+		tui-printline -S $? "Wrote presets in:" "$PRESETS"
 	}
 	WriteContainerFile() { #
 	# This writes the default contaienrs, note that ffmpeg must be build 
@@ -240,9 +240,9 @@
 		# LABEL	EXT	STRICT FILE	AUDIO		VIDEO
 		mk5	mkv	false 	false	ac3		libx265
 		mp5	mp4	true	true	libfdk_aac	libx265
-		
+		best	mkv	false	false	flac		libx265
 		EOF
-		tui-status $? "Wrote containers in:" "$CONTAINER"
+		tui-printline -S $? "Wrote containers in:" "$CONTAINER"
 	}
 	[ -f "$PRESETS" ] 	|| WritePresetFile
 	[ -f "$CONTAINER" ] 	|| WriteContainerFile
@@ -490,9 +490,9 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 	#
 	#	Action & Display
 	#
-		tui-title "Bitrate calculator"
+		tui-printline -T "Bitrate calculator"
 		[ -z "$1" ] && \
-			tui-echo "What is the storage?" && \
+			tui-printline -E "What is the storage?" && \
 			item=$(tui-select cd dvd br other) || \
 			item="$1"
 		case "$item" in
@@ -531,41 +531,43 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		else	VB=$(echo $AB | $AWK '{print int ($1*3)}')
 		fi
 		
-		tui-title "Suggested rates"
-		tui-echo "Filesize to achieve:"	"$SF kbytes per file" #| -- comments refer to last output line
-		tui-echo "Size per minute"	"$SM kbytes" #| $BS * 8 	= Byterate per second
-		tui-echo "Total bitrate:" 	"$BS kbit/s" #| ^ * 60 * AVRG 	= Byterate per file
-		tui-echo "Audio (suggestion):"	"$AB kbit/s" #| ^ * $COUNT 	= Byterate total
-		tui-echo "Video (suggestion):"	"$VB kbit/s" #|	^ / 1024 	= kilobytes total
+		tui-printline -T "Suggested rates"
+		tui-printline -E "Filesize to achieve:"	"$SF kbytes per file" #| -- comments refer to last output line
+		tui-printline -E "Size per minute"	"$SM kbytes" #| $BS * 8 	= Byterate per second
+		tui-printline -E "Total bitrate:" 	"$BS kbit/s" #| ^ * 60 * AVRG 	= Byterate per file
+		tui-printline -E "Audio (suggestion):"	"$AB kbit/s" #| ^ * $COUNT 	= Byterate total
+		tui-printline -E "Video (suggestion):"	"$VB kbit/s" #|	^ / 1024 	= kilobytes total
 	}
 	myIp() { # 
 	# Simply prints internal and external IP using http://www.unix.com/what-is-my-ip.php
 	#
-		tui-title "My IP's"
+		tui-printline -T "My IP's"
 		URL=http://www.unix.com/what-is-my-ip.php
-		#for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
-		#	tui-echo "External:" "$i"
-		#done
-		
-		
-		DATA=$(curl -s $URL) > /dev/zero
 		str="DNS Lookup For"
-		tui-echo "External" "$(echo "$DATA" | sed s,"$str","\n\n$str",g  | sed s,"<"," ",g|grep "$str" | awk '{print $4}')"
-		
-		for i in $(ifconfig | awk -F" " '/netmask / {print $2}');do
-			tui-echo "Internal:" "$i"
+	# External
+		if ! which lynx 2>/dev/zero 1>/dev/zero
+		then	# Lynx is installed, use the simpler method
+			for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
+				tui-printline -E "External:" "$i"
+			done
+		else	# Use the method that 'used' to work, but just stoped....
+			tui-printline -rS 2 "Retrieving external ip..."
+			LC_ALL=C
+			DATA=$(curl -s $URL) > /dev/zero
+			eIP="$(echo "$DATA" | sed s,"$str","\n\n$str",g  | sed s,"<"," ",g|grep "$str" | awk '{print $4}')"
+			LC_ALL=""
+			# output
+			for i in $eIP;do
+				tui-printline -E "External" "$i"
+			done
+			
+		fi
+	# Internal	
+		tui-printline -rS 2 "Retrieving internal ips..."
+		for i in $(ip addr | grep brd | awk '/inet/ {print $2}'|sed s,/..,,);do
+			tui-printline -E "Internal:" "$i"
 		done
 		return $?
-		#DATA=$(curl -s $URL) > /dev/zero
-		#str="DNS Lookup For"
-		#tui-echo "Internal" \
-		#	"$(ifconfig | \
-		#		grep -i broadcast | grep ^[[:space:]] | \
-		#		awk '{ print $2}')"
-		#tui-echo "External" \
-		#	"$(echo "$DATA" | \
-		#		sed s,"$str","\n\n$str",g | sed s,"<"," ",g | \
-		#		grep "$str" | awk '{print $4}')"
 	}
 	PlayTime() { #
 	# Returns the play time duration of a media file
@@ -724,19 +726,19 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 	doExecute() { # SCRIPT [OF STR1 STR2]
 	# Executes the script according to script options
 	#
-		[ -z "$1" ] && tui-echo "Must provide at least a script to execute!" && return 1
-		$beVerbose && tui-echo "showFFMPEG is set to: $showFFMPEG"
-		$beVerbose && tui-title "Executing:" "$(cat $TMP)"
+		[ -z "$1" ] && tui-printline -E "Must provide at least a script to execute!" && return 1
+		$beVerbose && tui-printline -E "showFFMPEG is set to: $showFFMPEG"
+		$beVerbose && tui-printline -T "Executing:" "$(cat $TMP)"
 		if $showFFMPEG
 		then	case $MODE in
 			dvd|video)	msg="Encoded to"	;;
 			screen|webcam)	msg="Recorded to"	;;
 			esac
-			tui-status $RET_TODO "$msg $2"
+			tui-printline -S $RET_TODO "$msg $2"
 			[ -z "$SHELL" ] && \
 				bash "$1" || \
 				$SHELL "$1"
-			tui-status $? "$msg $2"
+			tui-printline -S $? "$msg $2"
 			RET=$?
 		else	tui-bgjob -f "$2" "$1" "$3" "$4"
 			RET=$?
@@ -749,14 +751,14 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		sub_ids=$(listSubtitleIDs)
 		subtitle_maps=""
 		for SI in $sub_ids;do
-			$beVerbose && tui-echo "Parsing subtitle id: $SI"
+			$beVerbose && tui-printline -E "Parsing subtitle id: $SI"
 			for l in $lang $lang_alt $langs;do
-				$beVerbose && tui-echo "Parsing subtitle id: $SI / $l"
+				$beVerbose && tui-printline -E "Parsing subtitle id: $SI / $l"
 				if listIDs|$GREP $SI|$GREP $l
 				then	# subtitle_maps+=" -map 0:$SI" && \
 					subtitle_ids+=" $SI"
 					$beVerbose && \
-						tui-echo "Found subtitle for $l on $SI" "$DONE" ##  ($subtitle_ids)"
+						tui-printline -E "Found subtitle for $l on $SI" "$DONE" ##  ($subtitle_ids)"
 				fi
 			done
 		done
@@ -767,23 +769,23 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 	# Fills the variable/list: audio_ids
 	# Its just a list of the audio id's used
 		countAudio=$(countAudio)
-		$beVerbose && tui-echo "Found $countAudio audio stream/s in total"
+		$beVerbose && tui-printline -E "Found $countAudio audio stream/s in total"
 		case $countAudio in
 		00)	if $exit_on_missing_audio
 			then	msg="No audio streams found, aborting!"
-				tui-status 1 "$msg"
+				tui-printline -S 1 "$msg"
 				doLog "$msg"
 				exit $RET_FAIL
 			fi
 			;;
 		1)	audio_ids=$(listAudioIDs)
-			$beverbose && tui-echo "Using only audio stream found ($audio_ids)..." "$DONE"
+			$beverbose && tui-printline -E "Using only audio stream found ($audio_ids)..." "$DONE"
 			printf $audio_ids > $TMP
 			;;
 		*)	count=0
 			# If ids are forced, use them instead and return
 			if [ ! -z "$ID_FORCED" ]
-			then	$beVerbose && tui-echo "Forced audio IDs:" "$ID_FORCED"
+			then	$beVerbose && tui-printline -E "Forced audio IDs:" "$ID_FORCED"
 				printf "$ID_FORCED" > $TMP
 				return
 			#else	echo no forced ids
@@ -797,7 +799,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 					hasLangDTS $l && \
 						$channel_downgrade && \
 						cmd_run_specific="-ac $channel" && \
-						$beVerbose && tui-echo "Downgrading channels from DTS to $channel"
+						$beVerbose && tui-printline -E "Downgrading channels from DTS to $channel"
 					# Get all stream ids for this language
 					found=0
 					this=""
@@ -805,11 +807,11 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 						if listIDs|$GREP ^$i |$GREP -q $l
 						then	this+=" $i" 
 							((found++)) 
-							$beVerbose && tui-echo "Found $l on stream $i"
+							$beVerbose && tui-printline -E "Found $l on stream $i"
 						fi
 					done
 					
-					$beVerbose && tui-echo "There are $found audio streams found for $l"
+					$beVerbose && tui-printline -E "There are $found audio streams found for $l"
 					# found is the amount of indexes per langauge
 					case $found in
 					1)	# $count represents the order of languages: lang lang_alt 'list of added langs'
@@ -817,27 +819,27 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 						1)	[ $countAudio -eq 1 ] || audio_ids="$this"	;;
 						2)	# This applies only to $lang_alt
 							if [ -z "$audio_ids" ]
-							then	$beVerbose && tui-echo "Prefered langauge ($lang) not found"
+							then	$beVerbose && tui-printline -E "Prefered langauge ($lang) not found"
 								audio_ids="$this"
 							else	$beVerbose && \
-									tui-echo "Prefered langauge ($lang) found, so is $lang_alt" && \
-									tui-echo "Force to use both languages: $lang_force_both"
+									tui-printline -E "Prefered langauge ($lang) found, so is $lang_alt" && \
+									tui-printline -E "Force to use both languages: $lang_force_both"
 								$lang_force_both && audio_ids+=" $this"
 							fi			;;
 						*)	# This is the prefered langauge, or all additional ones
 							audio_ids+=" $this"	;;
 						esac
 						;;
-					*)	$beVerbose && tui-echo "Parsing for possible default output"
+					*)	$beVerbose && tui-printline -E "Parsing for possible default output"
 						for i in $this;do 
 							if $GREP Audio "$TMP.info"|$GREP $l|$GREP -q default
 							then 	audio_ids+=" $i"
 								$beVerbose && \
-									tui-echo "Found default entry for language $l" && \
-									tui-echo "Current ids to use: $audio_ids"
+									tui-printline -E "Found default entry for language $l" && \
+									tui-printline -E "Current ids to use: $audio_ids"
 								break #1
-							else	$beVerbose && tui-echo "ID $i is not default"
-								tui-echo "Please select the stream id you want to use:"
+							else	$beVerbose && tui-printline -E "ID $i is not default"
+								tui-printline -E "Please select the stream id you want to use:"
 								
                                                                 i=$(tui-select $this)
 								printf "\n"
@@ -846,7 +848,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 						done
 					esac
 					found=0
-				else	tui-echo "Didnt find: $l"
+				else	tui-printline -E "Didnt find: $l"
 				fi
 			done
 			;;
@@ -856,7 +858,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 	doDVD() { # FILEforCOMMAND
 	# Writes the generated command to 'FILEforCommand'
 	#
-		tui-title "Encoding $name" # from $MODE"
+		tui-printline -T "Encoding $name" # from $MODE"
 		dvd_tmp="$HOME/.cache/$name"
 		dvd_reuse=nothing
 		errors=0
@@ -866,15 +868,15 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		# Verify its mounted...
 		if mount | $GREP -q sr0
 		then	# Its already mounted
-			tui-status 4 "DvD already mounted to: $(mount | $GREP sr0|$AWK '{print $3}')"
-		else	tui-printf -rS 2 "Mounting DVD to \"$dvd_base\""
+			tui-printline -S 4 "DvD already mounted to: $(mount | $GREP sr0|$AWK '{print $3}')"
+		else	tui-printline -rS 2 "Mounting DVD to \"$dvd_base\""
 			RET=1
 			tui-bol-sudo && \
 				sudo mkdir -p $dvd_base && \
 				sudo mount /dev/sr0 $dvd_base -o ro && \
 				RET=0 || \
-				( tui-echo "Please provide root password to mount DVD";su -c "RET=1;mkdir -p $dvd_base;mount /dev/sr0 $dvd_base -o ro" && RET=0 && export RET)
-			tui-status $RET "Mounted DVD to $dvd_base"
+				( tui-printline -E "Please provide root password to mount DVD";su -c "RET=1;mkdir -p $dvd_base;mount /dev/sr0 $dvd_base -o ro" && RET=0 && export RET)
+			tui-printline -S $RET "Mounted DVD to $dvd_base"
 		fi
 		
                 vobs=""
@@ -886,7 +888,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		A="Encode directly from DVD (ffmpeg only)"
 		B="Copy largest files to local (with vobcopy)"
 		C="Copy largest files to local (with cp)"
-		tui-echo "Please select a method:"
+		tui-printline -E "Please select a method:"
 		
 		
                 dvd_copy=$(tui-select "$B" "$A")
@@ -904,27 +906,27 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 			if [ false = "$dvd_reuse" ]
 			then 	mkdir -p "$dvd_tmp"
 				doLog "DVD: Copy vobs to \"$dvd_tmp\""
-				tui-echo "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
+				tui-printline -E "Copy vob files to \"$dvd_tmp\", this may take a while..." "$WORK"
 			
-				tui-status -r 2 "Initialize DvD..." #$(readlink /dev/sr0)"
+				tui-printline -rS 2 "Initialize DvD..." #$(readlink /dev/sr0)"
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				doVobCopy "$dvd_tmp"
 				exit_vobcopy=$?
 				[ -f "$dvd_tmp/vobcopy.bla" ] && rm "$dvd_tmp/vobcopy.bla"
 				[ 1 -eq $exit_vobcopy ] && \
-					tui-printf -S 1 "There was an error copying the files..." && \
+					tui-printline -S 1 "There was an error copying the files..." && \
 					exit 1
 				
 				# Clean up
-				tui-status -r 2 "Unmounting DVD"
+				tui-printline -rS 2 "Unmounting DVD"
 				tui-bol-sudo && \
 					( sudo umount "$dvd_base" 2>/dev/zero ; RET=$? ; export RET  ; sudo rm -fr "$dvd_base" ) || \
 					( su -c "umount $dvd_base && rm -fr $dvd_base" ; RET=$? ; export RET )
-				tui-status $RET "Unmounted DVD"
+				tui-printline -S $RET "Unmounted DVD"
 				if [ 0 -eq $? ]
 				then	eject /dev/cdrom
-                                	tui-status $? "Ejected disc."
-				else	tui-status $? "There was an error"
+                                	tui-printline -S $? "Ejected disc."
+				else	tui-printline -S $? "There was an error"
 				fi
 			fi
 			BIG="$dvd_tmp/bigvob.vob"
@@ -938,27 +940,27 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 			
 			# Check for audio streams
 			if [ -z "$ID_FORCED" ]
-			then	tui-title "Parsing for audio streams..."
+			then	tui-printline -T "Parsing for audio streams..."
 				doAudio "$BIG"		## Fills the list: audio_ids
 				audio_ids=$(cat "$TMP") 
 				if [ ! -z "$audio_ids" ]
 				then	# all good
 					for i in $audio_ids;do cmd_audio_maps+=" -map 0:$i";done
-					$beVerbose && tui-echo "Using these audio maps:" "$audio_ids"
+					$beVerbose && tui-printline -E "Using these audio maps:" "$audio_ids"
 				else	# handle empty
-					tui-echo "No audio stream could be recognized"
-					tui-echo "Please select the ids you want to use, choose done to continue."
+					tui-printline -E "No audio stream could be recognized"
+					tui-printline -E "Please select the ids you want to use, choose done to continue."
 					#select i in $(seq 1 1 $(countAudio)) done;do 
 					i=""
 					while [ ! "$i" = "done" ]
 					do	i=$(tui-select $(listAudioIDs) done)
 						[ "$i" = "done" ] || audio_ids+=" ${i/done/}"
 						#cmd_audio_maps+=" -map 0:$i"
-						tui-echo "Now using audio ids: $audio_ids"
+						tui-printline -E "Now using audio ids: $audio_ids"
 					done
 				fi
 			else	audio_ids="$ID_FORCED"
-				$beVerbose && tui-echo "Using forced ID's:" "$audio_ids"
+				$beVerbose && tui-printline -E "Using forced ID's:" "$audio_ids"
 			fi
 			msg="Using for audio streams: $audio_ids"
 			doLog "$msg"		
@@ -1007,17 +1009,17 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		
 		# Default or 'custom' options for vobcopy?
 		if tui-yesno "Use default vobcopy settings?"
-		then	tui-echo "Using default scanmode:" "Title with most chapters"
+		then	tui-printline -E "Using default scanmode:" "Title with most chapters"
 			cmd="vobcopy -${vobQ}l -o \"$1\""
-		else	tui-echo "What vobcopy mode shall be attempted?"
+		else	tui-printline -E "What vobcopy mode shall be attempted?"
 			copyMode=$(tui-select "Playtime" "TitleNr") ##"Mirror")
 			case "$copyMode" in
 			Playtime)
-					tui-echo "Using other scanmode:" "Title with longest playtime"
+					tui-printline -E "Using other scanmode:" "Title with longest playtime"
 					cmd="vobcopy -${vobQ}M -o \"$1\""
 					;;
-			TitleNr)	tui-title "Set a title number:"
-					tui-echo "Using other scanmode:" "Copy a specific title"
+			TitleNr)	tui-printline -T "Set a title number:"
+					tui-printline -E "Using other scanmode:" "Copy a specific title"
 					[ -f vobcopy.bla ] && rm vobcopy.bla
 					title="" ; titles="" ; vobcopy -${vobQ}Ix
 
@@ -1036,7 +1038,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 						}' vobcopy.bla > "$TMP"
 					
 					# Print the titles and let the user select
-					tui-echo "Which title to use:"
+					tui-printline -E "Which title to use:"
 					declare -a titles
 					while read TITLE CHAP;do
 						echo $TITLE | $GREP -q ^[0-9] && \
@@ -1045,12 +1047,12 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 					
 					#titles=$($GREP ^[0-9] "$TMP"|$AWK '{print $1}')
 					[ "" = "$(echo ${titles[*]})" ] && \
-						tui-printf -S 1 "FATAL - No titles found!" && \
+						tui-printline -S 1 "FATAL - No titles found!" && \
 						exit 1
 					title=$(tui-select "${titles[@]}")
 					title=$(echo ${title} | $AWK '{print $2}')
-					$beVerbose && tui-echo "Selected Title: $title"
-					tui-echo
+					$beVerbose && tui-printline -E "Selected Title: $title"
+					tui-printline -E
 					cmd="vobcopy -${vobQ}n $title -o \"$1\""
 					;;
 			esac
@@ -1081,10 +1083,10 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		# Maybe because i have disabled the laptop's internal webcam in BIOS
 		msg+=" Capturing"
 		srcs=($(ls /dev/video*)) 
-		[ -z "$srcs" ] && tui-echo "No video recording device found!" "$TUI_FAIL" && exit 1
+		[ -z "$srcs" ] && tui-printline -E "No video recording device found!" "$TUI_FAIL" && exit 1
 		if [ "$(printf $srcs)" = "$(printf $srcs|$AWK '{print $1}')" ]
 		then 	input_video="$srcs"
-		else	tui-echo "Please select the video source to use:"
+		else	tui-printline -E "Please select the video source to use:"
 			
                         input_video=$(tui-select  in $srcs)
 			printf "\n"
@@ -1105,7 +1107,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 	UpdateLists() { #
 	# Retrieve values for later use
 	# Run again after installing new codecs or drivers
-		tui-title "Generating a list file"
+		tui-printline -T "Generating a list file"
 		$beVerbose && tui-progress "Retrieve raw data..."
 		[ -f "$LIST_FILE" ] && \
 			printf "" > "$LIST_FILE" || \
@@ -1155,9 +1157,9 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 			doLog "Lists: Updated WebCam-Frames"
 		elif [ -e /dev/video1 ]
 		then 	#v4l2-ctl cant handle video1 .. ??
-			tui-status 1 "As far as i tried, i could not make v4l2-ctl handle video1."
+			tui-printline -S 1 "As far as i tried, i could not make v4l2-ctl handle video1."
 		fi
-		tui-status $? "Updated $LIST_FILE"
+		tui-printline -S $? "Updated $LIST_FILE"
 	}
 	MenuSetup() { # 
 	# Configures the variables/files used by the script
@@ -1171,6 +1173,10 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		if [ ! -f "$CONFIG" ] 
 		then 	touch "$CONFIG"
 			doLog "Setup: Write initial configuration file"
+			tui-printline -rS 2 "Searching for ffserver.conf..."
+			FFSERVER_CONF=$(locate ffserver.conf 2>/dev/zero |head -n1)
+			FFSERVER_CONF2=$(find -L {/etc,/usr,/share} -name ffserver.conf -type f 2>/dev/zero| head -n1)
+			#for var in ${!FFSERVER_*};do printf '* %s\n' "$var: $(eval ${!var})";done
 			cat > "$CONFIG" << EOF
 # $CONFIG, generated by $ME ($script_version)
 # The defaults are optimized for HDR videos within mkv container
@@ -1241,39 +1247,27 @@ screen_zone="520 960 0  520"
 #$(SIZE=$(xrandr | $AWK  '/\*/ {print $1}'))
 
 # Streaming
-FFSERVER_CONF=$(locate ffserver.conf|head -n1)
-URL_UP="udp://$(ifconfig | grep broadcast | awk '{print $2}'):8090/live.ffm"
-URL_PLAY="udp://$(ifconfig | grep broadcast | awk '{print $2}'):8090"
+FFSERVER_CONF=${FFSERVER_CONF:-${FFSERVER_CONF2:-!/etc/ffserver.conf}}
+URL_UP="udp://$(ip addr | grep brd | awk '/inet/ {print $2}'|sed s,/..,,):8090/live.ffm"
+URL_PLAY="udp://$(ip addr | grep brd | awk '/inet/ {print $2}'|sed s,/..,,):8090"
+
 EOF
-			tui-status $? "Wrote $CONFIG" 
-			
+			tui-printline -S $? "Wrote $CONFIG" 
+			source "$CONFIG"
 		fi
 	#
 	#	Setup menu
 	#
-		tui-title "Setup : $TITLE"
+		tui-printline -T "Setup : $TITLE"
 		
 		# Get a list of ALL variables within the $CONFIG file
 		VARS=$(tui-conf-get -l "$CONFIG"|$GREP -v req)
+		for var in $VARS;do
+			tui-printline -E "$var" "${!var}" ""
+		done
 		
-		# Make a tempfile without empty or commented lines
-		# And display both, variable and value to the user
-		oIFS="$IFS" ; IFS="="
-		touch $TMP.cfg
-		printf "$($GREP -v '#' $CONFIG)" > $TMP.cfg
-		while read var val;do
-			[ ! "#" = "${var:0:1}" ] && \
-				[ ! -z "$var" ] && \
-				tui-echo "$var" "$val"
-		done < $TMP.cfg
-		IFS="$oIFS"
-		
-		d=$TMP.cfg
-		echo $d
-		tui-cat "$d"
-		
-		tui-echo
-		tui-echo "Which variable to change?"
+		tui-printline -E
+		tui-printline -E "Which variable to change?"
 		LIST_BOOL="false true"
 		LIST_LANG="ara bul chi cze dan eng fin fre ger hin hun ice nor pol rum spa srp slo slv swe tur"
 		
@@ -1287,30 +1281,30 @@ EOF
 			ReWriteContainers) WriteContainerFile ;;							
 			*)	val=$(tui-conf-get "$CONFIG" "$var")
 				newval=""
-				tui-echo "${var^} is set to:" "$val"
+				tui-printline -E "${var^} is set to:" "$val"
 				if tui-yesno "Change the value of $var?"
 				then	newLine=true
 					case $var in
-					container)	tui-echo "Please select a new one:"
+					container)	tui-printline -E "Please select a new one:"
 							newval=$(tui-select $(cd "$(dirname $CONFIG)/containers";ls))
 							;;
-					channnels)	tui-echo "Please select a new amount:"
+					channnels)	tui-printline -E "Please select a new amount:"
 							newval=$(tui-select $(seq 1 1 6))
 							;;
-					webcam_res)	tui-echo "Please select the new resolution:"
+					webcam_res)	tui-printline -E "Please select the new resolution:"
 							newval=$(tui-select $webcam_formats)
 							;;
-					webcam_fps)	tui-echo "Please select the new framerate:"
+					webcam_fps)	tui-printline -E "Please select the new framerate:"
 							newval=$(tui-select $webcam_frames)
 							;;
-					subtitle)	tui-echo "Please select the new subtitle codec:"
+					subtitle)	tui-printline -E "Please select the new subtitle codec:"
 							newval=$(tui-select $codecs_subtitle)
 							;;
 					lang_force_both|useRate|channel_downgrade)
-							tui-echo "Do you want to toggle this?"
+							tui-printline -E "Do you want to toggle this?"
 							newval=$(tui-select $LIST_BOOL)
 							;;
-					lang|lang_alt)	tui-echo "Which language to use as $var?"
+					lang|lang_alt)	tui-printline -E "Which language to use as $var?"
 							newval=$(tui-select $LIST_LANG)
 							;;
 					*)		newval=$(tui-read "Please type new value:")
@@ -1321,30 +1315,31 @@ EOF
 					msg="Changed \"$var\" from \"$val\" to \"$newval\""
 					# Save the new value to variable in config 
 					if [ -z "$newval" ]
-					then	tui-status 1 "$msg"
+					then	tui-printline -S 1 "$msg"
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
 					else	tui-conf-set "$CONFIG" "$var" "$newval"
-						tui-status $? "$msg" && \
+						tui-printline -S $? "$msg" && \
 						doLog "Setup: $msg" || \
 						doLog "Setup: Failed to c$(printf ${msg:1}|sed s,ged,ge,g)"
 					fi
 				fi
 			;;
 			esac
+			printf "\n"
 			var=$(tui-select  Back UpdateLists ReWriteContainers $VARS)
 			printf "\n"
-			tui-echo "Press [ENTER] to see the menu:" "$INFO"
+			tui-printline -E "Press [ENTER] to see the menu:" "$INFO"
 		done
 	}
 	function build_ffmpeg () { # [mini]
 	# Build ffmpeg with default packages, or just mini (x265,libfdk_aac,libass)
 	#
-		tui-header "$ME ($script_version)" "$(date +'%F %T')"
-		tui-title "Building ffmpeg from scratch"$( [ -z "$1" ] || echo " ($2)")
+		tui-printline -H "$ME ($script_version)" "$(date +'%F %T')"
+		tui-printline -T "Building ffmpeg from scratch"$( [ -z "$1" ] || echo " ($2)")
 	#
 	#	Build environment
 	#
-		tui-echo "Please select the target CHROOT"
+		tui-printline -E "Please select the target CHROOT"
 		CHROOT=$(tui-select $intPlayRows / /usr/local $HOME/.local $HOME)
 		LOG_DIR="$CHROOT/logs"		#/$TASK.log will be added
 		LOG=~/ffmpeg-build.log		# 'main' logfile is always @ home
@@ -1455,22 +1450,22 @@ EOF
 	#
 	#	Info & Check for build tools
 	#
-		tui-title "Important Information"
-		tui-echo "To build ffmpeg and several of its features, the following will be required:"
+		tui-printline -T "Important Information"
+		tui-printline -E "To build ffmpeg and several of its features, the following will be required:"
 		tui-list -1 	"Aprox 200mb for the build tools" \
 				"aprox 350 mb of the bandwidth" \
 				"aprox 500 mb diskspace for temp files" \
 				"aprox 30 minutes of your time, depending on you machine & internet"
-		tui-echo
+		tui-printline -E
 
 		if tui-yesno "Install all building tools? (the last 4 might report failure)"
 		then	# Last line (packageblock) fails on Fedora 22
-			sudo tui-install -v git hg svn \
+			tui-asroot "tui-install git hg svn \
 					cpp make  cmake nasm yasm \
 					gcc cross-gcc-common libtool \
 					autoconf automake git2cl help2man \
 					gcc-c++ enca \
-					texinfo aclocal makeinfo libiconv-devel
+					texinfo aclocal makeinfo libiconv-devel"
 		fi
 	#
 	#	Download & Compile dep-tree
@@ -1482,7 +1477,7 @@ EOF
 		configured=false
 		if tui-yesno "Download and configure ffmpeg now?"
 		then
-			tui-title "Downloading ffmpeg"
+			tui-printline -T "Downloading ffmpeg"
 			LOG_THIS="$DIR_SRC/ffmpeg.log"
 			touch "$LOG_THIS"
 			cd "$DIR_SRC"
@@ -1501,7 +1496,7 @@ EOF
 					$enable_AUDIO \
 					$enable_VIDEO \
 					$enable_HW 1>"$LOG_THIS" 2>"$LOG_THIS"
-			tui-status $? "Configured ffmpeg"
+			tui-printline -S $? "Configured ffmpeg"
 			RET=$?
 			[ $RET -ne 0 ] && tui-edit "$LOG_THIS"
 			readonly configured=true
@@ -1509,14 +1504,14 @@ EOF
 		fi
 
 		if $configured && tui-yesno "So you just want to build it now?"
-		then	tui-status 111 "Expected build time... aprox. 10mins..."
+		then	tui-printline -S 111 "Expected build time... aprox. 10mins..."
 			TMP="$LOG_DIR/ffmpeg.sh"
 			cat > "$TMP" <<-EOF
 			time make V=1	 	1>>"$LOG_THIS" 2>>"$LOG_THIS"
-			tui-status \$? "ffmpeg: Make"
-			tui-title "ffmpeg made"
+			tui-printline -S \$? "ffmpeg: Make"
+			tui-printline -T "ffmpeg made"
 			sudo make install	1>>"$LOG_THIS" 2>>"$LOG_THIS"
-			tui-status \$? "ffmpeg: make install"
+			tui-printline -S \$? "ffmpeg: make install"
 			make distclean		1>>"$LOG_THIS" 2>>"$LOG_THIS"
 			hash -r
 			EOF
@@ -1576,7 +1571,8 @@ EOF
 		sleep 0.7
 				
 		# Print information line
-		while ps $PID > /dev/null
+		while 	ps $PID > /dev/null
+			[ -f "$STATUS" ]
 		do	CUR=$(tr '\r' '\n' < "$STATUS" | tail -n 1  | awk '{print $1}')
 			
 			# If progress works, this is the next to be tested - multiple files
@@ -1586,6 +1582,7 @@ EOF
 			if echo "$PC" | $GREP -q ':'
 			then	if [ ${CUR/.*} -gt ${PTS/.*} ]
 				then	pkill ffplay
+					break
 					continue
 					echo "
 					continue
@@ -1606,9 +1603,9 @@ EOF
 #
 	# This is optimized for a one-time setup
 	if [ ! -f "$CONFIG" ]
-	then 	tui-header "$ME ($script_version)" "$(date +'%F %T')"
+	then 	tui-printline -H "$ME ($script_version)" "$(date +'%F %T')"
 		tui-bol-dir "$CONFIG_DIR"
-		$beVerbose && tui-echo "Entering first time setup." "$SKIP"
+		$beVerbose && tui-printline -E "Entering first time setup." "$SKIP"
 		req_inst=false
 		
 		doLog "Setup: Writing container and list files"
@@ -1620,13 +1617,13 @@ EOF
 		tui-progress -ri movies-req -m $(printf ${REQUIRES}|wc|$AWK '{print $2}') " "
 		if [ false = "$req_inst" ]
 		then 	# Packages are not yet installed
-			tui-title "Verify all required packages are installed"
+			tui-printline -T "Verify all required packages are installed"
 			doLog "Req : Installing missing packages: $REQUIRES"
 			# Do the installation
-			tui-install -vl "$LOG" $REQUIRES && \
+			tui-asroot "tui-install -l \"$LOG\" ffmpeg $req_webcam"  && \
 				FIRST_RET=true || FIRST_RET=false
 			# Prints result to user, and generate log entry
-			tui-status $? "Installed: $REQUIRES" && \
+			tui-printline -S $? "Installed: $REQUIRES" && \
 				ret_info="succeeded" || \
 				ret_info="failed"
 			# Print log file
@@ -1683,7 +1680,7 @@ EOF
 			avi|xvid|webm|ogm|mkv|mp4|mpeg|ogv|ogm|flv|wmv)
 				adders+=" -map $A:a -map $A:v -filter_complex ${video_overlay/[X/[$A}"
 				;;
-			svg)	tui-status 1 "Not supportet: ${OPTARG/*.}" ; exit $?	;;
+			svg)	tui-printline -S 1 "Not supportet: ${OPTARG/*.}" ; exit $?	;;
 			*)	# Audio & Subtitle stream files
 				adders+=" -map $A"
 				;;
@@ -1705,7 +1702,7 @@ EOF
 				BIT_VIDEO="${OPTARG:1}"
 				;;
 			*)	log_msg="You did not define whether its audio or video: -$opt a|v$OPTARG"
-				tui-status 1 "$log_msg"
+				tui-printline -S 1 "$log_msg"
 				exit 1
 				;;
 			esac
@@ -1729,16 +1726,17 @@ EOF
 				video_codec_ov="${OPTARG:1}"
 				;;
 			*)	log_msg="You did not define whether its audio or video: -$opt a|v|s$OPTARG"
-				tui-status 1 "$log_msg"
+				tui-printline -S 1 "$log_msg"
 				exit 1
 				;;
 			esac
 			;;
-		C)	$showHeader && tui-header "$ME ($script_version)" "$(date +'%F %T')"
+		C)	$showHeader && tui-printline -H "$ME ($script_version)" "$(date +'%F %T')"
 			showHeader=false
 			log_msg="Entering configuration mode"
 			MenuSetup
-			source "$CONFIG"
+			#source "$CONFIG"
+			exit $?
 			;;
 		d)	# -af volume=-3dB
 			#doVolume=true
@@ -1755,7 +1753,7 @@ EOF
 		D)	MODE=dvd
 			log_msg="Options: Set MODE to ${MODE^}"
 			override_container=true
-			tui-status -r 2 "Reading from DVD"
+			tui-printline -rS 2 "Reading from DVD"
 			name="$(blkid|sed s," ","\n",g|$GREP LABEL|sed 's,LABEL=,,'|sed s,\",,g)"
 			;;
 		e)	override_container=true
@@ -1782,15 +1780,15 @@ EOF
 		i)	# Creates $TMP.info
 			for A in "${@}";do
 			if [ -f "$A" ]
-			then	$beVerbose && tui-echo "Video exist, showing info"
-				tui-printf -rS 2 "Retrieving data from ${A##*/}"
+			then	$beVerbose && tui-printline -E "Video exist, showing info"
+				tui-printline -rS 2 "Retrieving data from ${A##*/}"
 				StreamInfo "$A" > "$TMP.info.2"
 				
 				$doStream && \
-					tui-title "Next title: ${A##*/}"  || \
-					tui-title "Input: ${A##*/}"
-				$GREP -v "\--version" "$TMP.info.2" | while read line;do tui-echo "$line";done
-			else	$beVerbose && tui-echo "Input '$A' not found, skipping..." "$SKIP"
+					tui-printline -T "Next title: ${A##*/}"  || \
+					tui-printline -T "Input: ${A##*/}"
+				$GREP -v "\--version" "$TMP.info.2" | while read line;do tui-printline -E "$line";done
+			else	$beVerbose && tui-printline -E "Input '$A' not found, skipping..." "$SKIP"
 			fi
 			done
 			log_msg="Options: Showed info of $@ videos"
@@ -1805,17 +1803,17 @@ EOF
 			;;
 		J)	doJoin=true
 			;;
-		K)	#tui-header "$ME ($script_version)" "$(date +'%F %T')"
-			tui-title "VHS Task Killer"
+		K)	#tui-printline -H "$ME ($script_version)" "$(date +'%F %T')"
+			tui-printline -T "VHS Task Killer"
 			RAW=""
 			fine=""
 			RAW=$(ps -ha|$GREP -e [f]fmpeg -e [f]fplay |$AWK '{print $5}')
 			for R in $RAW;do [ "" = "$(echo $fine|$GREP $R)" ] && fine+=" $R";done
 			
-			tui-echo "Please select which tasks to end:"
+			tui-printline -E "Please select which tasks to end:"
 			TASK=$(tui-select Abort $fine)
 			[ "$TASK" = Abort ] && printf "\n" && exit 0
-			tui-printf -rS 2 "Ending task: $TASK"
+			tui-printline -rS 2 "Ending task: $TASK"
 			
 			# Find related vhs tasks for select TASK
 			case $TASK in
@@ -1826,7 +1824,7 @@ EOF
 					task_search='\-[DGSW]'
 					;;
 			esac
-			#tui-header $TASK
+			#tui-printline -H $TASK
 	#	set -x
 			pids=$(ps -ha|$GREP -e "$TASK" -e vhs |$GREP -v $GREP|$GREP $task_search | $AWK '{print $1}')
 			
@@ -1838,7 +1836,7 @@ EOF
 				done
 				
 			done
-			tui-status $RET "Ended $TASK"
+			tui-printline -S $RET "Ended $TASK"
 			exit $?
 			;;
 		l)	log_msg="Adding '$OPTARG' to the list of language: $langs"
@@ -1982,7 +1980,7 @@ EOF
 			;;
 		V)	log_msg="Be verbose ($ME)!"
 			beVerbose=true
-			tui-title "Retrieve options"
+			tui-printline -T "Retrieve options"
 			optLogVerb="v"
 			;;
 		w)	web="-movflags faststart"
@@ -1993,14 +1991,14 @@ EOF
 			#OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/webcam-out.$container" $ext)
 			log_msg="Options: Set MODE to Webcam" #, saving as $OF"
 			;;
-		x)	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
-			tui-printf "Clearing logfile" "$TUI_WORK"
+		x)	$showHeader && tui-printline -H "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+			tui-printline "Clearing logfile" "$TUI_WORK"
 			printf "" > "$LOG"
-			tui-status $? "Cleaned logfile"
+			tui-printline -S $? "Cleaned logfile"
 			showHeader=false
 			#exit $?
 			;;
-		X)	$showHeader && tui-header "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
+		X)	$showHeader && tui-printline -H "$ME ($script_version)" "$TITLE" "$(date +'%F %T')"
 			showHeader=false
 			if tui-yesno "Are you sure to remove '$CONFIG_DIR'?"
 			then	rm -fr "$CONFIG_DIR"
@@ -2057,7 +2055,7 @@ EOF
 			exit
 			;;
 		esac
-		#$beVerbose && tui-echo "$log_msg"
+		#$beVerbose && tui-printline -E "$log_msg"
 		doLog "Options: $log_msg"
 	done
 	shift $(($OPTIND - 1))
@@ -2065,7 +2063,7 @@ EOF
 #	First handling of arguments
 #
 	$showHeader && \
-		tui-header \
+		tui-printline -H \
 			"$ME ($script_version)" \
 			"$TITLE" "$(date +'%F %T')"
 	case "$1" in
@@ -2085,18 +2083,18 @@ EOF
 	[ -z "$COUNTER_STREAM_STREAM" ] && COUNTER_STREAM_STREAM=0
 	[ -z "$COUNTER_STREAM_PLAY" ] && COUNTER_STREAM_PLAY=0
 	if [ $COUNTER_STREAM_PLAY -eq 3 ]
-	then	tui-echo "Edit $URLS.play"
+	then	tui-printline -E "Edit $URLS.play"
 		tui-edit "$URLS.play"
 		exit $?
 	elif [ $COUNTER_STREAM_STREAM -eq 3 ]
-	then	tui-echo "Edit $URLS.stream"
+	then	tui-printline -E "Edit $URLS.stream"
 		tui-edit "$URLS.stream"
 		exit $?
 	fi
 	ARGS=("${@}")
 	if [ ! -z "$ADDERS" ] && [ ! -z "$ADDED_VIDEO" ]
 	then	[ -z "$guide_complex" ] && \
-		tui-echo "Must pass '-p ORIENTATION' when including a videostream" "$TUI_INFO" && \
+		tui-printline -E "Must pass '-p ORIENTATION' when including a videostream" "$TUI_INFO" && \
 		exit 1 
 	fi
 #
@@ -2134,7 +2132,7 @@ EOF
 		MODE=audio
 		cmd_video_all+=" -vn"
 		[ -z "${audio_codec/-/}" ] && \
-			tui-printf -S 1 "Without video, an audio codec is required!" && \
+			tui-printline -S 1 "Without video, an audio codec is required!" && \
 			exit 1
 		#set -x
 		if $doStream
@@ -2186,7 +2184,7 @@ EOF
 		if $doPlay
 		then	# Print the stream play header only on these conditions
 			if $doSelect || ! $PlayFile
-			then	tui-title "Stream : Play"
+			then	tui-printline -T "Stream : Play"
 			fi
 			if $doSelect
 			then	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play"|$AWK '{print $1}'))
@@ -2196,7 +2194,7 @@ EOF
 				fi
 			fi	
 			log_msg="Stream play:"
-		else	tui-title "Stream $MODE : Up"
+		else	tui-printline -T "Stream $MODE : Up"
 			if $doSelect
 			then	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.stream"|$AWK '{print $1}'))
 			else	if [ -z "$URL" ]
@@ -2227,7 +2225,7 @@ EOF
 		cmd_video_all+=" -threads $threads -deadline realtime"
 		msg="$container: Found $threads hypterthreads, leaving 1 for system"
 		doLog "$msg"
-		$beVerbose && tui-echo "$msg"
+		$beVerbose && tui-printline -E "$msg"
 		;;
 #	*)	cmd_video_all+=" $buffer"	;;
 	esac
@@ -2241,11 +2239,11 @@ EOF
 #
 #	Display & Action
 #
-	$beVerbose && tui-echo "Take action according to MODE ($MODE):"
+	$beVerbose && tui-printline -E "Take action according to MODE ($MODE):"
 	case "$MODE" in
 	dvd|screen|webcam)
 			# TODO For these 3 i can implement the bitrate suggestions...
-			$beVerbose && tui-echo "Set outputfile to $OF"
+			$beVerbose && tui-printline -E "Set outputfile to $OF"
 			msg="Beginn:"
 			msgA="Generated command for $MODE-encoding in $TMP"
 			[ ! -z "$Z_TOP" ] && msgA="${msgA/encoding/encoding ($screen_zones)}"
@@ -2257,7 +2255,7 @@ EOF
 				$doStream && OF="$URL"
 				msg="Options: Saving as $OF"
 				doLog "$msg"
-				$beVerbose && tui-echo "$msg"
+				$beVerbose && tui-printline -E "$msg"
 				msg+=" Capturing"
 				[ -z "$DISPLAY" ] && DISPLAY=":0.0"	# Should not happen, setting to default
 				if $doZone
@@ -2270,22 +2268,22 @@ EOF
 				cmd="$cmd_all $cmd_input_all $EXTRA_CMD $cmd_video_all $cmd_audio_all $web $extra $METADATA $F \"${OF}\""
 				printf "$cmd" > "$TMP"
 				doLog "Screenrecording: $cmd"
-				$beVerbose && tui-echo "$msgA"
+				$beVerbose && tui-printline -E "$msgA"
 				;;
 			dvd)	tempdata=( $(ls /run/media/$USER 2>/dev/zero) )
 				[ ${#tempdata[@]} -ge 2 ] && \
-					tui-echo "Please select which entry is the DVD:" && \
+					tui-printline -E "Please select which entry is the DVD:" && \
 					name=$(tui-select "${tempdata[@]}") && \
 					printf "\n"
 				[ -z "$name" ] && \
-					tui-status -r 2 "Scanning for DVD" && \
+					tui-printline -rS 2 "Scanning for DVD" && \
 					name="$(blkid|$SED s," ","\n",g|$GREP LABEL|$SED 's,LABEL=,,'|$SED s,\",,g)"
-				$beVerbose && tui-echo "Name selected:" "$name"
+				$beVerbose && tui-printline -E "Name selected:" "$name"
 
 				if [ -z "$name" ]
 				then	name=$(tui-read "Please enter a name for the DVD:")
 				else	[ "PARTBasic" = $(echo $name|$AWK '{print $1}') ] && \
-						tui-printf -S 1 "Please insert a DVD and try again!" && \
+						tui-printline -S 1 "Please insert a DVD and try again!" && \
 						exit 1
 				fi
 				OF=$(tui-str-genfilename "$XDG_VIDEOS_DIR/dvd-$name.$container" $ext )
@@ -2297,12 +2295,12 @@ EOF
 			
 			doLog "$msgA"
 			if $ADVANCED
-			then	tui-echo "Please save the file before you continue"
+			then	tui-printline -E "Please save the file before you continue"
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when ready to encode..."
 			fi
 			
-			tui-status ${RET_INFO:-111} "Press 'CTRL+C' to stop recording the $MODE..."
+			tui-printline -S ${RET_INFO:-111} "Press 'CTRL+C' to stop recording the $MODE..."
 			if $doStream
 			then	tui-bgjob "$TMP" "Streaming $MODE to '$OF'" "Saved to '$OF'"
 				RET=$?
@@ -2345,9 +2343,9 @@ EOF
 			
 			printf "$cmd" > "$TMP"
 			
-			tui-status $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
+			tui-printline -S $RET_INFO "Press 'CTRL+C' to stop recording the $MODE..."
 			if $ADVANCED
-			then	tui-echo "Please save the file before you continue"
+			then	tui-printline -E "Please save the file before you continue"
 				tui-edit "$TMP"
 				tui-press "Press [ENTER] when read to encode..."
 			fi
@@ -2373,15 +2371,15 @@ EOF
 		NEW_ORG=$(tui-str-genfilename "$ORG_VID" $ext)
 		TMP_JOIN=$(tui-str-genfilename "joined_files.mpg")
 		
-		tui-title "Appending/Joining $# Videos"
-		tui-echo "Step 1: Creating temp files"
+		tui-printline -T "Appending/Joining $# Videos"
+		tui-printline -E "Step 1: Creating temp files"
 		for item in "${@}"
 		do	this=$(tui-str-genfilename "$item" mpg)
 			JOIN_VIDS[$C]="$this"
 			N=$C
 			C=$(( $C + 1 ))
 			cmd="$FFMPEG -i \"$item\" -qscale:v 1 \"$this\""
-			$beVerbose && tui-echo "Executing:" "$cmd"
+			$beVerbose && tui-printline -E "Executing:" "$cmd"
 			if $showFFMPEG
 			then	eval $cmd
 			else	echo "$cmd" > "$TMP"
@@ -2390,8 +2388,8 @@ EOF
 			fi
 		done
 		
-		tui-echo
-		tui-echo "Step 2: Merging"
+		tui-printline -E
+		tui-printline -E "Step 2: Merging"
 		string=""
 		for V in "${JOIN_VIDS[@]}";do
 			[ -f "$V" ] && string+="$V|"
@@ -2400,7 +2398,7 @@ EOF
 		
 		cmd="$FFMPEG -i concat:\"$string\" -c copy \"$TMP_JOIN\""
 		doLog "Join-Merge: $cmd"
-		$beVerbose && tui-echo "Executing:" "$cmd"
+		$beVerbose && tui-printline -E "Executing:" "$cmd"
 		if $showFFMPEG
 		then	eval $cmd
 		else	echo "$cmd" > "$TMP"
@@ -2410,11 +2408,11 @@ EOF
 		# Remove unrequired files
 		for V in "${JOIN_VIDS[@]}";do
 			rm "$V"
-			tui-status $? "Deleted $V"
+			tui-printline -S $? "Deleted $V"
 		done
 		
-		tui-echo
-		tui-echo "Step 3: Finalize"
+		tui-printline -E
+		tui-printline -E "Step 3: Finalize"
 		
 		new=$(tui-str-genfilename "$TMP_JOIN" $ext)
 		doLog "Join-Final: Now starting to encode to custom settings."
@@ -2434,12 +2432,12 @@ EOF
 		video|audio)
 			if [ -z "$1$URL" ]
 			then	doLog "Stream: Aborting, no $MODE file passed"
-				tui-status 1 "Must pass a file to stream!"
+				tui-printline -S 1 "Must pass a file to stream!"
 				exit $?
 			fi
 			;;
-		*)	tui-echo "Mode is currently set to: $MODE"
-			tui-status 1 "Required mode is either: Screen, Webcam or Guide"
+		*)	tui-printline -E "Mode is currently set to: $MODE"
+			tui-printline -S 1 "Required mode is either: Screen, Webcam or Guide"
 			exit $?
 			;;
 		esac
@@ -2466,16 +2464,16 @@ EOF
 			msg="Timeout - $sleep_between between encodings..."
 			[ ! -z "$sleep_between" ] && \
 				doLog "Script : $msg" && \
-				tui-echo && tui-wait $sleep_between "$msg" #&& tui-echo
+				tui-printline -E && tui-wait $sleep_between "$msg" #&& tui-printline -E
 			# Show empty log entry line as optical divider
 			doLog ""
 		fi
 		
 if $doPlay
 then	#$doSelect && [ -z "$URL" ] && \
-	#	tui-echo "Please select an url you want to replay:" && \
+	#	tui-printline -E "Please select an url you want to replay:" && \
 	#	URL=$(tui-select $intPlayRows $($GREP -v ^"#" "$URLS.play" | $AWK '{print $1}' ))
-	[ -z "$URL$1" ] && tui-printf -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
+	[ -z "$URL$1" ] && tui-printline -S 1 "-P requires either '-U' or '-u URL' or a file to play!" && exit 1
 	# Audio or Video?
 	$showFFMPEG && \
 			strPlayType=video || strPlayType=audio
@@ -2486,21 +2484,24 @@ then	#$doSelect && [ -z "$URL" ] && \
 #
 #	TRAPS + Controls
 #
+	# Quit  	:	ctrl+q
+	trap "tui-printline -S 0 \"Quit playing.\" >&2;break" SIGQUIT SIGKILL
+	# Next  	:	ctrl+n
+	trap "tui-printline -S 4 \"Skipped: $video\"; pkill ffplay ; continue" SIGABRT SIGINT
+	
+	
 	# Previous	:	ctrl+p
 	trap "echo yay" 1
-	# Next  	:	ctrl+n
-	trap "tui-status 4 \"Skipped: $video\"; pkill ffplay ; continue" SIGABRT SIGINT
+	
 	
 	# Pause		:	ctrl+z
 	
 	
-	# Quit  	:	ctrl+q
-	trap "tui-status 0 \"Quit playing.\" >&2;break" SIGQUIT SIGKILL
 	# Show title and write command
 	if [ -z "$1" ]
-	then	tui-title "Playing $strPlayType stream" #&& PlayFilesShown=true
+	then	tui-printline -T "Playing $strPlayType stream" #&& PlayFilesShown=true
 		echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType Stream : $URL\" -i \"$URL?buffer=5\" $showdisp || exit 1" > "$TMP"
-	else	! $PlayFilesShown && tui-title "Playing $strPlayType file" && PlayFilesShown=true
+	else	! $PlayFilesShown && tui-printline -T "Playing $strPlayType file" && PlayFilesShown=true
 		echo "ffplay -v quiet -window_title \"VHS ($script_version) : Play $strPlayType File : $video\" -i \"$video\" $showdisp || exit 1" > "$TMP"
 	fi
 	# Edit before executing?
@@ -2544,7 +2545,7 @@ fi
 		
 		# Start initial log per video to parse
 		doLog "----- $video -----"
-		$beVerbose && tui-title "Video: $video"
+		$beVerbose && tui-printline -T "Video: $video"
 		$doStream && \
 			OF="$URL" || \
 			OF=$(tui-str-genfilename "${video}" "$ext")		# Output File
@@ -2570,7 +2571,7 @@ fi
 		
 		# Parse output
 		if ! $GREP -i "video:" -q "$TMP.info"
-		then	tui-echo "No Video found!"
+		then	tui-printline -E "No Video found!"
 			MODE=audio
 			
 			container=$(tui-conf-get $CONFIG container_audio)
@@ -2600,23 +2601,23 @@ fi
 			[ -z "$num" ] && num=3840
 
 			if [ 3840 -lt $num ]
-			then	tui-echo
-				tui-status 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
+			then	tui-printline -E
+				tui-printline -S 111 "Attention, encoding higher than 4k/uhd (your value: $RES) may cause a system freeze!"
 				tui-yesno "Continue anyway?" || exit 0
 			fi
 		fi
 		
 		if $useJpg
-		then	tui-echo
-			tui-echo "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
-			tui-echo
+		then	tui-printline -E
+			tui-printline -E "Be aware, filesize update might seem to be stuck, it just writes the data later..." "$TUI_INFO"
+			tui-printline -E
 			for i in $(listAttachents);do
 				txt_mjpg+=" -map 0:$i"
 			done
 		fi
 	
 	# Audio	
-		tui-echo
+		tui-printline -E
 		#echo "" > "$TMP"
 		doAudio "$video"					## Fills the list: audio_ids
 		audio_ids=$(cat "$TMP") 
@@ -2638,11 +2639,11 @@ fi
 					cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y -f $ext \"$URL\"" || \
 					cmd="$FFMPEG -i \"$video\" $EXTRA_CMD $cmd_audio_all $audio_maps $extra -vn $TIMEFRAME $METADATA -y \"$OF\""
 			# Display progress	
-				$doStream || tui-echo "Saving audio stream: $AID"
+				$doStream || tui-printline -E "Saving audio stream: $AID"
 
 				printf "$cmd" > "$TMP"
 				if $ADVANCED
-				then	tui-echo "Please save the file before you continue"
+				then	tui-printline -E "Please save the file before you continue"
 					tui-edit "$TMP"
 					tui-press "Press [ENTER] when read to encode..."
 				fi
@@ -2657,19 +2658,19 @@ fi
 		else 	# Regular video handling
 			if [ ! -z "$ID_FORCED" ]
 			then	# Just this one ID
-				$beVerbose && tui-echo "However, this ID is forced:" "$ID_FORCED"
+				$beVerbose && tui-printline -E "However, this ID is forced:" "$ID_FORCED"
 			# Generate command
 				for AID in $ID_FORCED;do
 					audio_maps+=" -map 0:$AID"
 				done
-				$beVerbose && tui-echo "Outputfile will be:" "$OF"
+				$beVerbose && tui-printline -E "Outputfile will be:" "$OF"
 				$doStream && \
 					OF="$URL" && \
 					cmd="$FFMPEG -i \"$video\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y -f mp3 \"$OF\"" || \
 					cmd="$FFMPEG -i \"$video\" $cmd_video_all $EXTRA_CMD $cmd_audio_all $audio_maps  $TIMEFRAME $METADATA $extra -y \"$OF\""
 				printf "$cmd" > "$TMP"
 			#	if $ADVANCED
-			#	then	tui-echo "Please save the file before you continue"
+			#	then	tui-printline -E "Please save the file before you continue"
 			#		tui-edit "$TMP"
 			#		tui-press "Press [ENTER] when read to encode..."
 			#	fi
@@ -2701,18 +2702,18 @@ fi
 		then	doLog "Video: Parse sub"
 			if $useSubs
 			then	doSubs > /dev/zero
-				$beVerbose && tui-echo "Parsing for subtitles... ($subtitle_ids)"
+				$beVerbose && tui-printline -E "Parsing for subtitles... ($subtitle_ids)"
 				subtitle_list=$(cat "$TMP") 			## Fills the list: subtitle_maps, if used
 				if [ ! -z "$subtitle_list" ]
 				then # all good
 					for i in $subtitle_ids;do subtitle_maps+=" -map 0:$i";done
 				else	# handle empty
-					tui-echo "No subtitle stream could be recognized"
-					tui-echo "Please select the ids you want to use, choose done to continue."
+					tui-printline -E "No subtitle stream could be recognized"
+					tui-printline -E "Please select the ids you want to use, choose done to continue."
 					select i in $subtitle_ids done;do 
 						[ "$i" = done ] && break
 						subtitle_ids+=" $i"
-						tui-echo "Now using subtitles ids: $subtitle_ids"
+						tui-printline -E "Now using subtitles ids: $subtitle_ids"
 					done
 				fi
 			fi
@@ -2755,7 +2756,7 @@ fi
 	# This is not required, its just a failsafe catcher to blame the enduser when he confirms to overwrite an exisiting file
 		skip=false
 		if [ -f "$OF" ]
-		then 	tui-echo "ATTENTION: Failsafe catcher!"
+		then 	tui-printline -E "ATTENTION: Failsafe catcher!"
 			if tui-yesno "Outputfile ($OF) exists, overwrite it?"
 			then 	[ -f "$OF" ] && rm -f "$OF"
 			else	skip=true
@@ -2773,7 +2774,7 @@ fi
 			then	#echo todo
 				OF="$URL"
 				## ffmpeg -i "$input" -f mpegts udp://$ip:$port
-				[ $MODE = video ] && ext=mpegts #&& tui-header oh no
+				[ $MODE = video ] && ext=mpegts #&& tui-printline -H oh no
 				tVID=${video##*/}
 				#set -x
 				[ -z "$COLUMNS" ] && COLUMNS=$(tput cols)
@@ -2796,12 +2797,12 @@ fi
 			if ! $doStream
 			then	printf "$cmd" > "$TMP"
 				if $ADVANCED
-				then	tui-echo "Please save the file before you continue"
+				then	tui-printline -E "Please save the file before you continue"
 					tui-edit "$TMP"
 					tui-press "Press [ENTER] when ready to encode..."
 				fi
 			fi
-			$showFFMPEG && tui-echo "Executing:" "$(cat $TMP)"
+			$showFFMPEG && tui-printline -E "Executing:" "$(cat $TMP)"
 			
 			if $showFFMPEG && ! $doStream
 			then	#echo run here?
@@ -2809,8 +2810,8 @@ fi
 				RET=$?
 			else	#echo run there?
 				$beVerbose && \
-					tui-echo "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
-					tui-echo "The progress bar is only ment for a rough visual orientation for the encoding progress."
+					tui-printline -E "Due to the nature of encoding files, the old filesize usualy doesnt match the new file its size." && \
+					tui-printline -E "The progress bar is only ment for a rough visual orientation for the encoding progress."
 				#echo stream $doStream
 				#echo ffmpeg $showFFMPEG
 			##	exit
@@ -2834,7 +2835,7 @@ fi
 			if [ $PASS -gt 1 ]
 			then	for f in ffmpeg2pass-*.log*
 				do	rm $f
-					tui-status $? "Removed $f"
+					tui-printline -S $? "Removed $f"
 				done
 			fi
 			# Remove tempfile from joining...
@@ -2842,12 +2843,12 @@ fi
 			then	
 				if [ -f "$new" ]
 				then	tui-mv "$new" "$NEW_ORG"
-					tui-status $? "Your final file is: $NEW_ORG" && \
+					tui-printline -S $? "Your final file is: $NEW_ORG" && \
 						rm "$TMP_JOIN" #&& rm "$new"
 					RET=$?
 					#exit $?
-				else	tui-status $? "Could not find expected $new"
-					tui-status $? "Exiting now, leaving tempfiles behind..."
+				else	tui-printline -S $? "Could not find expected $new"
+					tui-printline -S $? "Exiting now, leaving tempfiles behind..."
 					exit $?
 				fi
 			fi
@@ -2858,14 +2859,14 @@ fi
 			then	# Set default language if mkv encoding was a successfull 2-pass
 				lang2=$(listIDs|$GREP Audio|$GREP ^${audio_ids:0:1}|$AWK '{print $2}')
 				[ ${#lang2} -gt 3 ] && \
-					tui-echo "Could not determine proper langauge, probably it wasnt labled before" "$FAIL" && \
+					tui-printline -E "Could not determine proper langauge, probably it wasnt labled before" "$FAIL" && \
 					lang2=$(echo $lang2|$AWK '{print $1}') && \
-					tui-echo "Labeling it as '$lang2', eventhough that might be wrong" && \
+					tui-printline -E "Labeling it as '$lang2', eventhough that might be wrong" && \
 					lang=$lang2 #|| \
 					#lang=$lang2
 				msg="* Set first Audiostream as enabled default and labeling it to: $lang"
-				tui-printf -rS 2 "$msg"
-				#tui-echo "aid $aid .$audio_ids"
+				tui-printline -rS 2 "$msg"
+				#tui-printline -E "aid $aid .$audio_ids"
 				aid="$(showHeader=false vhs -i \"$OF\" |$GREP Audio|while read hash line stream string drop;do echo ${string:3:-1};done)"
 				#aid=1
 				doLog "Audio : Set default audio stream $aid"
@@ -2876,7 +2877,7 @@ fi
 							--edit track:a$aid --set language=$lang
 					;;
 				esac
-				tui-status $? "$msg"
+				tui-printline -S $? "$msg"
 			fi
 			#Generate log message
 			[ 0 -eq $RET ] && \
@@ -2889,7 +2890,7 @@ fi
 			wait_now=true
 		else	msg="Skiped: $video"
 			doLog "$msg"
-			tui-status 4 "$msg"
+			tui-printline -S 4 "$msg"
 		fi
 	done
 #

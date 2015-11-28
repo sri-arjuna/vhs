@@ -19,9 +19,9 @@
 #
 #
 #	Created:	2015.07.27
-#	Changed:	2015.11.20
+#	Changed:	2015.11.27
 	script_name=configure
-	script_version=1.2.2
+	script_version=1.2.3
 #
 #	Description:
 #		This script automaticly, according to passed options, 
@@ -29,7 +29,7 @@
 #		* make
 #		* make-install
 #		* make-uninstall
-#		* make-clean
+#		* make-distclean
 #
 #		It can also create a REFERENCE file ($APP_dirs.conf) and if 'doRef=true',
 #		it will copy that file to $SYSCONFDIR automaticly, as well as remove it when uninstalling
@@ -89,7 +89,7 @@
 	declare -a PRIOR	# This will be ran first during ./make-install
 	declare -a POST		# This will be ran last during ./make-install
 	declare -a REMOVE	# This will be ran during ./make-uninstall
-	declare -a CLEAN	# This will be ran during ./make-clean
+	declare -a CLEAN	# This will be ran during ./make-distclean
 	declare -a IGNORE	# These files will be ignored when running './configure --tarball --prefix=/usr'
 	declare -a HTML DVI PDF PS # Use for creating make-* scripts
 	AWK=\awk		# Bypass aliases
@@ -137,65 +137,15 @@
 		
 		echo "texi2any  --$EXT -o $OUTDIR/$OUTFILE --no-split $INFILE"
 	}
-	make_html() { # INFILE OUTDIR
-	#
-	#
-		INFILE="$1"
-		OUTDIR="${2:-./docs}"
-		OUTFILE="${1##*/}"
-		OUTFILE="${OUTFILE/\.*}.html"
-		
-		[ -f "$INFILE" ] || return 1
-		[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
-		
-		echo "texi2any  --html -o $OUTDIR/$OUTFILE --no-split $INFILE"
-	}
-	make_pdf() { # INFILE OUTDIR
-	#
-	#
-		INFILE="$1"
-		OUTDIR="${2:-./docs}"
-		OUTFILE="${1##*/}"
-		OUTFILE="${OUTFILE/\.*}.pdf"
-		
-		[ -f "$INFILE" ] || return 1
-		[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
-		
-		echo "texi2any  --pdf -o $OUTDIR/$OUTFILE --no-split $INFILE"
-	}
-	make_dvi() { # INFILE OUTDIR
-	#
-	#
-		INFILE="$1"
-		OUTDIR="${2:-./docs}"
-		OUTFILE="${1##*/}"
-		OUTFILE="${OUTFILE/\.*}.dvi"
-		
-		[ -f "$INFILE" ] || return 1
-		[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
-		
-		echo "texi2any  --dvi -o $OUTDIR/$OUTFILE --no-split $INFILE"
-	}
-	make_ps() { # INFILE OUTDIR
-	#
-	#
-		INFILE="$1"
-		OUTDIR="${2:-./docs}"
-		OUTFILE="${1##*/}"
-		OUTFILE="${OUTFILE/\.*}.ps"
-		
-		[ -f "$INFILE" ] || return 1
-		[ -d "$OUTDIR" ] || mkdir -p "$OUTDIR"
-		
-		echo "texi2any  --ps -o $OUTDIR/$OUTFILE --no-split $INFILE"
-	}
 	write_makefile() { 
 	# Checks for existing scripts and adds them to the makefile
 	#
 		# Clear / Init makefile
 		local M="./Makefile"
-		printf '%s\n' \
-			"SHELL = /bin/sh" > "$M"
+		>$M
+		#printf '%s\n' \
+		#	"SHELL = /bin/sh" > "$M"
+		#echo "PHONY: options make $(echo make-*|sed s,make\-,,g|sed s,doc\-,,g)" > "$M"
 		
 		for task in ./make ./make-*
 		do 	case "$task" in
@@ -222,7 +172,7 @@
 				;;
 			esac
 		done
-		echo "PHONY: options $(echo make-*|sed s,make\-,,g|sed s,doc\-,,g)" >> "$M"
+		
 	}
 	show_sample() {
 	# Prints a sample configure.cfg
@@ -327,7 +277,7 @@
 		#	Additional tasks for the uninstallation process
 		#
 		 	# In this example, TUI was installed, therefor the command 'tui-yesno' is available
-		 	REMOVE[0]="tui-yesno 'Remove TUI as well?' && cd tui && ./make-uninstall && ./make-clean && cd .."
+		 	REMOVE[0]="tui-yesno 'Remove TUI as well?' && cd tui && ./make-uninstall && ./make-distclean && cd .."
 		#
 		#	Contact
 		#
@@ -369,8 +319,8 @@ OPTIONS
 	-h|--help		Shows this screen and exits
 	--version		Shows the version and exits
 	
-	--sample		Prints a sample 'configure.cfg' required by projects and exits
-	--sample-full		Prints an advanced sample 'configure.cfg' required by projects and exits
+	--sample		Prints a sample '$CONFIG' required by projects and exits
+	--sample-full		Prints an advanced sample '$CONFIG' required by projects and exits
 	--tarball		Configures ${APP:-APPNAME}, runs PRIOR tasks and saves the folder as tarball, then exits
 	
 	--prefix DIR		Sets the prefix to DIR		(default: ${APP_DIR})
@@ -443,27 +393,58 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		#
 			fullPath="${2/$CHROOT}"
 			target="${CHROOT}${FHS[${1,,}]}"
-			if [ -d "$2" ] && [ ! "./" = "${fullPath:0:2}" ]
-			then	# Its a directory, go recursive
-				echo "cp -ar \"${PWD:-$(pwd)}/$2/\"* \"$target\" || exit 1" | sed s,"//","/",g
-			else	tmp_check="${2##*/}"
-				check_char="${tmp_check:0:1}"
-				isAsterix=$(printf '%s' "$check_char" | grep -q '*' && echo true || echo false )
+		#	tui-header " --> $1 -- $target" >&2 #; exit 100
+			case "$1" in
+			INFODIR|HTML*)
+				if [ -d "$2" ] && [ ! "./" = "${fullPath:0:2}" ]
+				then	# Its a directory, go recursive
+					tui-header "$2 DIR" >&2
+					echo "cp -ar \"${PWD:-$(pwd)}/$2/\"* \"$target\" || exit 1" | sed s,"//","/",g
+				else	# It is a single entry but not a directory
+			#		tui-header "$1 $2 FILE" >&2
+					tmp_check="${2##*/}"
+					check_char="${tmp_check:0:1}"
+					isAsterix=$(printf '%s' "$check_char" | grep -q '*' && echo true || echo false )
 				
-				case "$isAsterix" in
-				true|false)	isAsterix=$isAsterix	;;
-				*)		isAsterix=false		;;
-				esac
+					case "$isAsterix" in
+					true|false)	isAsterix=$isAsterix	;;
+					*)		isAsterix=false		;;
+					esac
+			#	tui-header "$(dirname $2)/$tmp_check" >&2
+					if $isAsterix
+					then 	echo "[ -f \"$(dirname $2)/$tmp_check\" ] && cp -ar \"${PWD:-$(pwd)}/$(dirname ${2})/\"$tmp_check \"$target\" || exit 1" | sed s,"//","/",g
+					else	echo "[ -f \"$2\" ] && cp -a \"${PWD:-$(pwd)}/$2\" \"$target\" || exit 1" | sed s,"//","/",g
+					fi
 				
-				if $isAsterix
-				then 	echo "cp -ar \"${PWD:-$(pwd)}/$(dirname ${2})/\"$tmp_check \"$target\" || exit 1" | sed s,"//","/",g
-				else	echo "cp -a \"${PWD:-$(pwd)}/$2\" \"$target\" || exit 1" | sed s,"//","/",g
+					case "${1,,}" in
+					compldir)	echo "[ \${UID:-0} -eq 0 ] && chown 0:nobody \"$target/${2##*/}\""
+					esac
+				fi 
+				;;
+			*)
+				if [ -d "$2" ] && [ ! "./" = "${fullPath:0:2}" ]
+				then	# Its a directory, go recursive
+					echo "cp -ar \"${PWD:-$(pwd)}/$2/\"* \"$target\" || exit 1" | sed s,"//","/",g
+				else	tmp_check="${2##*/}"
+					check_char="${tmp_check:0:1}"
+					isAsterix=$(printf '%s' "$check_char" | grep -q '*' && echo true || echo false )
+				
+					case "$isAsterix" in
+					true|false)	isAsterix=$isAsterix	;;
+					*)		isAsterix=false		;;
+					esac
+				
+					if $isAsterix
+					then 	echo "cp -ar \"${PWD:-$(pwd)}/$(dirname ${2})/\"$tmp_check \"$target\" || exit 1" | sed s,"//","/",g
+					else	echo "cp -a \"${PWD:-$(pwd)}/$2\" \"$target\" || exit 1" | sed s,"//","/",g
+					fi
+				
+					case "${1,,}" in
+					compldir)	echo "[ \${UID:-0} -eq 0 ] && chown 0:nobody \"$target/${2##*/}\""
+					esac
 				fi
-				
-				case "${1,,}" in
-				compldir)	echo "[ \${UID:-0} -eq 0 ] && chown 0:nobody \"$target/${2##*/}\""
-				esac
-			fi
+				;;
+			esac
 		}
 		write_reference() { # INDEX
 		# Prints the index reference used
@@ -499,6 +480,15 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 					else	tr="${tr/\$\{APP\}/$APP}"
 						echo "rm -f $DEST/${tr##*/}"
 					fi
+					;;
+				APPDIR|ICONDIR)
+					(
+						. ./$CONFIG
+						for F in $(cd ${!INDEX}/ ; find -type f )
+						do
+							[ ! -d "$F" ] && echo "rm -f $DEST/${F##/*}"
+						done
+					)
 					;;
 				*)	[ -d "$tr" ] && \
 						echo "rm -fr $DEST/${tr##*/}" || \
@@ -547,9 +537,9 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 			echo "set -x" >> "./make"
 			chmod +x "./make"
 		fi
-		for m in install uninstall clean
+		for m in install uninstall distclean
 		do	echo "#!/usr/bin/env sh" > "make-$m"
-			if [ ! "$m" = "clean" ] && ! $is_at_home 
+			if [ ! "$m" = "distclean" ] && ! $is_at_home 
 			then	echo "$CHROOT/$prefix"| grep -q -ve /home -ve /Users && \
 					printf '%s\n' \
 					"[ -z \$UID ] && UID=0" \
@@ -658,11 +648,11 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		# Check for DISTCLEAN operations
 		if [ -n "$(echo ${CLEAN[@]})" ]
 		then 	C=0
-			echo >> "make-clean"
+			echo >> "make-distclean"
 			
 			while 	item="${CLEAN[$C]}"
 				[ -n "$item" ]
-			do 	write_executer "$item" >> "make-clean"
+			do 	write_executer "$item" >> "make-distclean"
 				((C++))
 			done
 		fi
@@ -784,8 +774,8 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 				((C++))
 			done
 		fi
-		write_distclean >> "make-clean"
-		for m in install uninstall clean doc-{info,html,dvi,ps,pdf}
+		write_distclean >> "make-distclean"
+		for m in install uninstall distclean doc-{info,html,dvi,ps,pdf}
 		do	if [ -f "-/make-$m" ]
 			then 	echo >> "make-$m"
 				printf '%s\n' \
@@ -797,9 +787,9 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		
 		# Let the script exit with their proper exit code.
 		echo "echo;echo \"Finished installation of ${APP_TITLE:-$APP} with \$? (0=success)\";exit \$RET" >> "make-install"
-		[ -f "./make" ] && echo "exit \$RET" >> "make"
+		[ -f "./make" ] && echo "exit \$RET" >> "make" && chmod +x "./make"
 		echo "exit \$RET" >> "make-uninstall"
-		echo "exit \$RET" >> "make-clean"
+		echo "exit \$RET" >> "make-distclean"
 		
 		sed s,'set -x',"set -x\nSYSCONFDIR=$SYSCONFDIR",g -i make-{uni,i}nstall
 		sed s,'~',"$HOME",g -i make-{uni,i}nstall
@@ -873,8 +863,8 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 			docdir)		tmp="${FHS[datarootdir]}/doc/$APP" ;;
 			htmldir|dvidir|pdfdir|psdir)	tmp="${FHS[docdir]}" ;;
 			compldir)	# Some systems have bash completion within the SYSCONFDIR
-					if [ -d "${FHS[datarootdir]}/bash-completion/completions" ]
-					then 	tmp="${FHS[datarootdir]}/bash-completion/completions"
+					if [ -d "${FHS[datarootdir]}/bash_completion/completions" ]
+					then 	tmp="${FHS[datarootdir]}/bash_completion/completions"
 					elif [ -d "${FHS[sysconfdir]}/bash_completion.d" ]
 					then	tmp="${FHS[sysconfdir]}/bash_completion.d"
 					else # Use default as fallback
@@ -953,7 +943,7 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 #	Output
 #
 	if $doTarball
-	then	exclude_list="make-clean"
+	then	exclude_list="make-distclean"
 		for ex in "${IGNORE[@]}";do exclude_list+=" $ex";done
 		# Since we prepare the make-<files>, configure is no longer required
 		opt_exclude="--exclude-ignore=configure"
@@ -964,7 +954,6 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		[ -z "$APP_VER" ] && \
 			VERSION="" || \
 			VERSION="_${APP_VER}"
-		#./configure --prefix="${FHS[prefix]}"
 		for t in "${PRIOR[@]}"
 		do 	(set -x ; $t )
 		done
@@ -981,24 +970,17 @@ Report bugs of $script_name to: https://github.com/sri-arjuna/yassi/issues
 		echo "The installation script has been configured to ${CHROOT}${FHS[prefix]} (${FHS[prefix]})."
 		if [ -n "$(echo ./make-doc-*)" ] 
 		then
-			[ -f Makefile ] && \
+			[ -f Makefile ] && [ -f make-doc* ] && \
 				echo "You might want to run:" && \
 				grep ":" Makefile | awk '{print $1}' | \
 					grep -ve tall -ve opt -ve clea -ve PH|\
-					while read var;do echo "* make ${var/\:}";done || \
-				echo "You might to run $(echo ./make-doc-*)."
+					while read var;do echo "* make ${var/\:}";done
+		#	 && \
+		#		echo "You might to run $(echo ./make-doc-*)."
 		fi
 		[ -f Makefile ] && \
 			echo "To install \"${APP_TITLE:-$APP}\" now, please execute: make && ${install_prefix}'make install'" || \
 			echo "To install \"${APP_TITLE:-$APP}\" now, please execute: ./make && ${install_prefix}'./make-install'"
-			
-
-		#	if ${doMakefile}
-		#	then	SRCH="exit \$RET"
-		#		REPL="echo 'Please use:	make info\n\t\tmake html\nAs well before\tmake install'\nexit \$RET"
-		#		sed s,"$SRCH","$REPL",g -i "./make"
-		#	else	echo "To install \"${APP_TITLE:-$APP}\" now, please execute:  './make && make info && make html &&  ${install_prefix}./make-install'"
-		#	fi
 		echo
 	fi
 	exit

@@ -2,12 +2,12 @@
 Version=1.0
 Encoding=UTF-8
 Type=Application
-Name=VHS-Guide
+Name=VHS - Record Guide (Screen + Webcam)
 Comment=Video Handler Script (Guide recorder)
 Exec=vhs -G
 Icon=vhs-guide
 Terminal=true
-Categories=AudioVideo;Player;Recorder;Multimedia
+Categories=AudioVideo;Recorder;Multimedia
 MimeType=audio/3gpp;audio/3gpp2;audio/AMR;audio/DAT12;audio/DVI4;audio/DV;audio/GSM;audio/mpa;audio/ac3;audio/amr;audio/asc;audio/dls;audio/dvi4;audio/flac;audio/gsm;audio/midi;audio/mobile-xmf;audio/mp4a;audio/mpa;audio/ogg;audio/mpeg;audio/red;audio/rtx;audio/speex;audio/vnd.dolby.heaac.1;audio/vnd.dobly.heaac.2;audio/vnd.dobly.mlp;audio/vnd.dts;audio/vnd.dvb.file;audio/vorbis;audio/x-aac;audio/x-aiff;audio/x-caf;audio/x-flac;audio/x-gsm;audio/x-ms-wax;audio/x-ms-wma;audio/x-realaudio;audio/x-wav;audio/xm
 Keywords=Player;Audio;
 

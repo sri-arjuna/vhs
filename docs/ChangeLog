@@ -1,3 +1,14 @@
+2015.11.25 - vhs - 2.7
+----------------------
+* vhs: Should no longer loop endless if playstatus tempfile is missing
+* vhs -C: Optimized config preview
+* vhs.conf: if FFSERVER_CONF=!/etc/ffserver.conf, indicates ffserver.conf was not found 
+* vhs.conf: ip retrievel (vhs ip) uses now 'ip addr' rather than 'ifconfig'
+* presets: commented ntsc and pal out
+* links/*.desktop: Updated name= & categories=
+* ./configure: No longer removes existing applications or icons folder
+
+
 2015.11.25 - vhs - 2.6c
 -----------------------
 * Added free icons from: http://glypho.eu/free-icons
