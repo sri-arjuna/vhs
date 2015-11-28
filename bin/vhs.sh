@@ -545,7 +545,7 @@ To report bugs, please send an email to <erat DOT simon AT gmail DOT com> or rai
 		URL=http://www.unix.com/what-is-my-ip.php
 		str="DNS Lookup For"
 	# External
-		if ! which lynx 2>/dev/zero 1>/dev/zero
+		if which lynx 2>/dev/zero 1>/dev/zero
 		then	# Lynx is installed, use the simpler method
 			for i in $(lynx -dump "$URL" | awk '/DNS Lookup For/ {print $NF}');do
 				tui-printline -E "External:" "$i"
