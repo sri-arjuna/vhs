@@ -1,4 +1,7 @@
-2015.11.25 - vhs - 2.7
+2015.12.03 - vhs - 2.7.5
+* Hotfix, ctrl+c now plays the next item from list
+
+2015.11.27 - vhs - 2.7
 ----------------------
 * vhs: Should no longer loop endless if playstatus tempfile is missing
 * vhs -C: Optimized config preview

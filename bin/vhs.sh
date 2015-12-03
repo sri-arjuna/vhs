@@ -25,7 +25,7 @@
 #	Contact:	erat.simon@gmail.com
 #	License:	GNU General Public License (GPL3)
 #	Created:	2014.05.18
-#	Changed:	2015.11.27
+#	Changed:	2015.12.03
 #	Description:	All in one video handler, wrapper for ffmpeg
 #			Simplyfied commands for easy use
 #			The script is designed (using the -Q toggle) use create the smallest files with a decent quality
@@ -48,7 +48,7 @@
 	ME="${0##*/}"				# Basename of $0
 	ME_DIR="${0/\/$ME/}"			# Cut off filename from $0
 	ME="${ME/.sh/}"				# Cut off .sh extension
-	script_version=2.7
+	script_version=2.7.5
 	TITLE="Video Handler Script"
 	CONFIG_DIR="$HOME/.config/$ME"		# Base of the script its configuration
 	CONFIG="$CONFIG_DIR/$ME.conf"		# Configuration file
@@ -1582,6 +1582,7 @@ EOF
 			if echo "$PC" | $GREP -q ':'
 			then	if [ ${CUR/.*} -gt ${PTS/.*} ]
 				then	pkill ffplay
+					tui-status $? "Killed ffplay # $LINENO # --cur:$CUR --PTS:$PTS --PC:$PC "
 					break
 					continue
 					echo "
@@ -2487,8 +2488,8 @@ then	#$doSelect && [ -z "$URL" ] && \
 	# Quit  	:	ctrl+q
 	trap "tui-printline -S 0 \"Quit playing.\" >&2;break" SIGQUIT SIGKILL
 	# Next  	:	ctrl+n
-	trap "tui-printline -S 4 \"Skipped: $video\"; pkill ffplay ; continue" SIGABRT SIGINT
-	
+	#trap "tui-printline -S 4 \"Skipped: $video\"; pkill ffplay ; continue" SIGABRT SIGINT
+	trap "tui-printline -S 4 \"Skipped: $video\"; break " SIGINT SIGABRT
 	
 	# Previous	:	ctrl+p
 	trap "echo yay" 1
