@@ -36,6 +36,10 @@
 #			users of #ffmpeg on freenode.irc
 #
 	source tuirc
+	GREP="${GREP:-grep}"
+	AWK="${AWK:-gawk}"
+	SED="${SED:-sed}"
+	TUI_FILE_TEMP="${TUI_FILE_TEMP:-/tmp/vhs.tmp}"
 #	Get XDG Default dirs
 #
 	X="$HOME/.config/user-dirs.dirs"
@@ -1528,7 +1532,7 @@ EOF
 	# Prints the extra status play bar
 	# Time as Progress, yay 
 		# Vars
-		$ME -i "$video"
+		$0 -i "$video"
 		PT=$(PlayTime)		# Get nice displayed playtime
 		PTS=$(PlayTimeSecs)	# Get playtime as seconds
 		[ "00" = "${PT:0:2}" ] && \
@@ -1590,7 +1594,11 @@ EOF
 					"
 				fi
 			fi
-			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video :: $PC/$PT"
+			WIDTH=$(tput cols)
+			video_display="$video" ; len=${#video_display}
+			[ ${WIDTH:-80} -lt $(( 4 * $len )) ] && video_display="${video_display##*/}"
+			[ ${WIDTH:-80} -lt $(( 4 * $len )) ] && video_display="${video_display:0:$(($WIDTH / 4))}"
+			tui-progress -bm "$PTS" -c "${CUR/.*/}" "$video_display :: $PC/$PT"
 		#	echo >&2
 		#	echo $PTS  >&2
 		#	echo  >&2
