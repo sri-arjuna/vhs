@@ -1,0 +1,33 @@
+#
+#	Project info
+#
+	APP_NAME=vhs
+	APP_TITLE="Video Handler Script"
+	APP_VER="$(tmp=$(\grep _version= bin/vhs.sh);echo ${tmp/*=};tmp='')"
+	APP_REQUIRES="git which awk grep sed ffmpeg"
+#
+#	Bugs
+#	
+	BUGS=erat.simon@gmail.com
+	BUGTRACKER="https://github.com/sri-arjuna/vhs/issues"
+#
+#	Specials
+#
+	doTUI=true
+#
+#	Project files
+#
+	BINDIR=bin/vhs
+	DOCDIR="docs/ChangeLog docs/INSTALL.md docs/LICENSE docs/README.md"
+	COMPLDIR=files/vhs_compl.bash
+	#MAN1DIR=docs/vhs.1
+	APPDIR=links
+	ICONDIR=./icons/hicolor
+#
+#	Tasks : Prior
+#
+	PRIOR[0]="cp bin/vhs.sh bin/vhs"
+#
+#	Tasks : Post
+#
+	CLEAN[0]="rm bin/vhs"

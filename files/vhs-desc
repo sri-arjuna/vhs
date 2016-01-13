@@ -1,0 +1,53 @@
+Video Helper Script / VHS
+Be adviced that this script is ment to simply encode a video to some default container/extension and using its default codecs.
+It is also ment to require at least a one time setup - review of default values, for the aim of a prefered default output format.
+
+
+If no arguments but a video file is submited, it will be using the original video bitrates to encode to the default container.
+If the source container is the same as the default container, it will be named like VIDEO.0.CONTAINER, where 0 be increased if it already exists.
+
+
+Eventhough i first wanted to ease the achievment of FOSS encoded videos on my NAS, my TV doesnt support them.
+Therefor it is using Matroska as default, understand that you must have the required codecs installed from http://repo.rpmfusion.org or similar.
+
+
+Also since my prefered 'quality' is HD Ready (1280*720), the default bitrates are set accordingly.
+If you like this default bitrates that may be used using '-B', you can change them per call using: '-b v2048' for video or '-b a512' for audio bitrates.
+In the same way you could change the used codecs by passing: '-c vbmp -c awavpack'
+
+
+If you want to encode a video to another than your defaul container, you may do so by passing: '-e mp4'
+Please understand that as of now only 4 containers/extensions are supported::	webm ogg mkv mp4
+Allthough there are more container files in the folder, the use of the unused is still in planing.
+
+
+sea's preferences / suggestions:
+--------------------------------------
+Kind:	~Resolution:	Audio:	Video:
+VHS	 576*360	128k	 256k
+CLIP	 640*480	128k	 384k
+DVD	 720*576 	192k	 512k
+HDR	1280*720	192k	 768k
+FHD	1920*1080	256k	1024k
+(for very small video files at good quality to be played on a: Full HD TV with internal Stereo boxes)
+(note that for the output to be of good quality, the source file must be good quality too!)
+
+
+
+
+001-015
+drwxrwxrwx. 1 root root 8.0K  6. Aug 15:01 016-030
+drwxrwxrwx. 1 root root 8.0K  6. Aug 15:51 031-045
+drwxrwxrwx. 1 root root 8.0K  6. Aug 16:42 046-060
+drwxrwxrwx. 1 root root 8.0K  6. Aug 17:33 061-075
+drwxrwxrwx. 1 root root 8.0K  6. Aug 18:24 076-090
+
+
+001* 031* 046* 
+046* 061* 076* 
+091* 106* 121* 136*
+
+VALS="001* 031* 046*"
+for D in $VALS;do cd "$(pwd)/"$(ls -d $D); vhs -t 45 -b a128 -b v256 *; cd ..; sleep 60; done
+
+#	for D in *;do cd $D; vhs -t 45 -b a128 -b v256 *; cd ..; sleep 60; done
